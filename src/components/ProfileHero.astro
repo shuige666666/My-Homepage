@@ -1,0 +1,58 @@
+---
+import { ExternalLink, Eye, Heart, Play } from "@lucide/astro";
+import type { BangumiPageData } from "@/types/bangumi";
+import { siteConfig } from "@/data/site";
+
+interface Props {
+  data: BangumiPageData;
+}
+
+const { data } = Astro.props;
+const stats = [
+  { label: "看过", value: data.stats.watched, unit: "部动画", icon: Play, tone: "blue" },
+  { label: "在看", value: data.stats.watching, unit: "部动画", icon: Eye, tone: "green" },
+  { label: "想看", value: data.stats.wish, unit: "部动画", icon: Heart, tone: "yellow" },
+];
+---
+
+<section class="profile-hero reveal" aria-labelledby="profile-heading">
+  <div class="profile-avatar">
+    <span aria-hidden="true">{data.profile.nickname.slice(0, 1)}</span>
+    <img
+      src={siteConfig.avatarPath}
+      alt={`${data.profile.nickname} 的头像`}
+      onerror="this.style.display='none'"
+    />
+    <i aria-hidden="true"></i>
+  </div>
+
+  <div class="profile-copy">
+    <p class="eyebrow">ANIME PREFERENCES</p>
+    <h1 id="profile-heading">{data.profile.nickname} 的动漫偏好</h1>
+    <p class="subtitle">来自 Bangumi 的动画记录与个人偏好</p>
+    <p class="introduction">{siteConfig.introduction}</p>
+
+    <div class="profile-stats" aria-label="动画收藏统计">
+      {stats.map(({ label, value, unit, icon: Icon, tone }) => (
+        <div class="stat">
+          <span class={`stat-icon ${tone}`}><Icon size={18} stroke-width={1.9} /></span>
+          <span>
+            <small>{label}</small>
+            <strong>{value}</strong>
+            <em>{unit}</em>
+          </span>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <a class="bangumi-link" href={data.profile.bangumiUrl} target="_blank" rel="noreferrer">
+    <ExternalLink size={18} stroke-width={1.8} />
+    Bangumi 个人主页
+  </a>
+
+  <div class="sun-disc" aria-hidden="true"></div>
+  <div class="hero-branch" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i>
+  </div>
+</section>

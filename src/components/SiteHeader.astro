@@ -1,0 +1,22 @@
+---
+import { ExternalLink } from "@lucide/astro";
+import { siteConfig } from "@/data/site";
+---
+
+<header class="site-header">
+  <a class="brand" href="#top" aria-label="返回页面顶部">
+    <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+    <span>{siteConfig.title}</span>
+  </a>
+
+  <nav aria-label="主要导航">
+    <a href={siteConfig.links.watched} target="_blank" rel="noreferrer">
+      看过的
+      <ExternalLink size={14} stroke-width={1.8} aria-hidden="true" />
+    </a>
+    <a href={siteConfig.links.timeline} target="_blank" rel="noreferrer">
+      记录
+      <ExternalLink size={14} stroke-width={1.8} aria-hidden="true" />
+    </a>
+  </nav>
+</header>

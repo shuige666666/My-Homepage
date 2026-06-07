@@ -1,0 +1,48 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import ProfileHero from "@/components/ProfileHero.astro";
+import FavoriteRail from "@/components/FavoriteRail.astro";
+import RecentSections from "@/components/RecentSections.astro";
+import bangumiData from "@/data/bangumi.json";
+import { siteConfig } from "@/data/site";
+import type { BangumiPageData } from "@/types/bangumi";
+
+const data = bangumiData as BangumiPageData;
+const syncDate = data.syncedAt
+  ? new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "long", day: "numeric" }).format(new Date(data.syncedAt))
+  : "尚未同步";
+---
+
+<BaseLayout title={siteConfig.title} description={siteConfig.description}>
+  <div id="top" class="page-shell">
+    <SiteHeader />
+    <main>
+      <ProfileHero data={data} />
+      <FavoriteRail entries={data.favorites} />
+      <RecentSections watched={data.recentWatched} reviews={data.recentReviews} />
+    </main>
+    <footer>
+      <p>动画记录来自 <a href="https://bangumi.tv/" target="_blank" rel="noreferrer">Bangumi</a></p>
+      <p>数据更新于 {syncDate}</p>
+    </footer>
+    <div class="page-orbit orbit-left" aria-hidden="true"></div>
+    <div class="page-orbit orbit-right" aria-hidden="true"></div>
+  </div>
+</BaseLayout>
+
+<script>
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!reducedMotion) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add("is-visible");
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: 0.12 });
+    document.querySelectorAll(".reveal").forEach((element) => observer.observe(element));
+  } else {
+    document.querySelectorAll(".reveal").forEach((element) => element.classList.add("is-visible"));
+  }
+</script>

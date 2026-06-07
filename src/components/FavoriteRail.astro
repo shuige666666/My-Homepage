@@ -1,0 +1,74 @@
+---
+import { ChevronLeft, ChevronRight, ExternalLink, Star } from "@lucide/astro";
+import type { AnimeEntry } from "@/types/bangumi";
+import { siteConfig } from "@/data/site";
+import SectionHeading from "./SectionHeading.astro";
+
+interface Props {
+  entries: AnimeEntry[];
+}
+
+const { entries } = Astro.props;
+---
+
+<section class="favorites-section reveal" aria-label="我最喜欢的动漫">
+  <div class="section-topline">
+    <SectionHeading title="我最喜欢的动漫" eyebrow="MY FAVORITE ANIME" />
+    {entries.length > 0 && (
+      <div class="rail-controls">
+        <button type="button" data-rail-prev aria-label="向前浏览">
+          <ChevronLeft size={19} />
+        </button>
+        <button type="button" data-rail-next aria-label="向后浏览">
+          <ChevronRight size={19} />
+        </button>
+      </div>
+    )}
+  </div>
+
+  {entries.length > 0 ? (
+    <div class="favorite-rail" data-favorite-rail>
+      {entries.map((entry, index) => (
+        <article class="favorite-card">
+          <a href={entry.url} target="_blank" rel="noreferrer" aria-label={`在 Bangumi 查看 ${entry.nameCn || entry.name}`}>
+            <div class="cover-frame">
+              <img src={entry.image} alt="" loading={index < 5 ? "eager" : "lazy"} />
+              <span class="rank-number">{String(index + 1).padStart(2, "0")}</span>
+              <span class="open-subject"><ExternalLink size={16} /></span>
+              <span class="score-badge"><Star size={13} fill="currentColor" /> {entry.userScore.toFixed(1)}</span>
+            </div>
+            <h3>{entry.nameCn || entry.name}</h3>
+            {entry.nameCn && <p>{entry.name}</p>}
+            {siteConfig.showFavoriteNotes && entry.note && <blockquote>{entry.note}</blockquote>}
+          </a>
+        </article>
+      ))}
+    </div>
+  ) : (
+    <div class="empty-state">
+      <span>01</span>
+      <div>
+        <h3>等待第一次同步</h3>
+        <p>运行 <code>npm run sync:bangumi</code> 后，这里会出现你最喜欢的动漫。</p>
+      </div>
+    </div>
+  )}
+</section>
+
+<script>
+  const rail = document.querySelector<HTMLElement>("[data-favorite-rail]");
+  const previous = document.querySelector<HTMLButtonElement>("[data-rail-prev]");
+  const next = document.querySelector<HTMLButtonElement>("[data-rail-next]");
+
+  const moveRail = (direction: number) => {
+    rail?.scrollBy({ left: direction * Math.min(rail.clientWidth * 0.78, 720), behavior: "smooth" });
+  };
+
+  previous?.addEventListener("click", () => moveRail(-1));
+  next?.addEventListener("click", () => moveRail(1));
+  rail?.addEventListener("wheel", (event) => {
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+    event.preventDefault();
+    rail.scrollLeft += event.deltaY;
+  }, { passive: false });
+</script>

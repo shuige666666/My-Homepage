@@ -1,0 +1,62 @@
+---
+import { ExternalLink, MessageCircle, Star } from "@lucide/astro";
+import type { AnimeEntry } from "@/types/bangumi";
+import SectionHeading from "./SectionHeading.astro";
+
+interface Props {
+  watched: AnimeEntry[];
+  reviews: AnimeEntry[];
+}
+
+const { watched, reviews } = Astro.props;
+const formatter = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
+const formatDate = (value: string) => value ? formatter.format(new Date(value)) : "尚未同步";
+---
+
+<div class="recent-layout">
+  <section class="recent-watched reveal" aria-label="最近看过">
+    <SectionHeading title="最近看过" eyebrow="RECENTLY WATCHED" />
+    {watched.length > 0 ? (
+      <div class="recent-grid">
+        {watched.map((entry) => (
+          <article class="recent-card">
+            <a href={entry.url} target="_blank" rel="noreferrer">
+              <div class="recent-cover">
+                <img src={entry.image} alt="" loading="lazy" />
+                <span><ExternalLink size={15} /></span>
+              </div>
+              <h3>{entry.nameCn || entry.name}</h3>
+              <p><strong>{entry.userScore ? entry.userScore.toFixed(1) : "—"}</strong>{formatDate(entry.updatedAt)}</p>
+            </a>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <p class="compact-empty">同步后展示最近标记为“看过”的动画。</p>
+    )}
+  </section>
+
+  <section class="reviews reveal" aria-label="最近评分与短评">
+    <SectionHeading title="评分与短评" eyebrow="LATEST NOTES" />
+    {reviews.length > 0 ? (
+      <div class="review-list">
+        {reviews.map((entry) => (
+          <article class="review-card">
+            <div class="review-title">
+              <a href={entry.url} target="_blank" rel="noreferrer">{entry.nameCn || entry.name}</a>
+              <span><Star size={14} fill="currentColor" /> {entry.userScore.toFixed(1)}</span>
+            </div>
+            {entry.comment ? (
+              <p class="review-comment"><MessageCircle size={15} />{entry.comment}</p>
+            ) : (
+              <p class="no-comment">这次只留下了评分。</p>
+            )}
+            <time datetime={entry.updatedAt}>{formatDate(entry.updatedAt)}</time>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <p class="compact-empty">最近的个人评分与短评会出现在这里。</p>
+    )}
+  </section>
+</div>
