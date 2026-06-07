@@ -4,7 +4,7 @@
 
 ## 本地开发
 
-建议使用 Node.js 20.19 或更高版本。
+建议使用 Node.js 24。
 
 ```bash
 npm install
@@ -65,3 +65,22 @@ npm run preview
 ```
 
 GitHub Actions 工作流 `.github/workflows/sync-bangumi.yml` 会每天自动同步一次，也支持在 Actions 页面手动触发。数据变化后，工作流会提交更新后的 JSON，并触发托管平台重新部署。
+
+### Cloudflare Workers 部署设置
+
+连接 GitHub 仓库后，使用以下构建设置：
+
+```text
+Project name: my-homepage
+Build command: npm run build
+Deploy command: npx wrangler deploy
+Production branch: main
+```
+
+在高级设置中添加构建环境变量：
+
+```text
+NODE_VERSION=24
+```
+
+`wrangler.jsonc` 会将 Astro 生成的 `dist` 目录作为静态资源部署，不会启用服务端渲染或额外 Worker 逻辑。
