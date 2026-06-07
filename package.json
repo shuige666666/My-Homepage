@@ -5,16 +5,20 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro check && astro build",
-    "preview": "astro preview",
-    "sync:bangumi": "node scripts/sync-bangumi.mjs"
+    "preview": "npm run build && wrangler dev",
+    "sync:bangumi": "node scripts/sync-bangumi.mjs",
+    "deploy": "npm run build && wrangler deploy",
+    "cf-typegen": "wrangler types"
   },
   "dependencies": {
-    "astro": "^5.0.0",
+    "@astrojs/cloudflare": "12",
     "@lucide/astro": "^1.17.0",
+    "astro": "^5.0.0",
     "undici": "^6.26.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "wrangler": "^4.98.0"
   }
 }
