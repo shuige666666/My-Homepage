@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-verify*/
+dist-*-verify/
 .astro/
 .DS_Store
 npm-debug.log*

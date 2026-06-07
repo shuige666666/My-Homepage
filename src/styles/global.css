@@ -679,20 +679,20 @@ main {
   margin: 13px 0;
   align-items: start;
   gap: 7px;
-  color: #687f8f;
-  font-family: "Noto Serif CJK SC", "STSong", serif;
-  font-size: 11px;
-  line-height: 1.75;
+  color: #5b7485;
+  font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 12px;
+  line-height: 1.85;
 }
 
 .review-comment svg {
   flex: 0 0 auto;
-  margin-top: 2px;
+  margin-top: 3px;
   color: var(--green);
 }
 
 .no-comment {
-  color: #9aabb4;
+  color: #8fa1ab;
   font-style: italic;
 }
 

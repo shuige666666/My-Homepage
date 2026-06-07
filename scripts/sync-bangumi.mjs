@@ -1,4 +1,4 @@
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ProxyAgent, setGlobalDispatcher } from "undici";
@@ -9,6 +9,10 @@ const PAGE_SIZE = 50;
 const OUTPUT_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../src/data/bangumi.json",
+);
+const FAVORITES_CONFIG_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../src/data/favorites.config.json",
 );
 const headers = {
   Accept: "application/json",
@@ -76,15 +80,54 @@ function normalizeCollection(entry) {
 }
 
 /**
+ * 读取最喜欢动漫配置；配置缺失时继续使用个人评分前十。
+ */
+async function readFavoritesConfig() {
+  try {
+    const content = await readFile(FAVORITES_CONFIG_PATH, "utf8");
+    return JSON.parse(content);
+  } catch {
+    return { mode: "auto", subjects: [] };
+  }
+}
+
+/**
+ * 根据配置生成最喜欢动漫；手动模式严格遵循配置中的条目顺序。
+ */
+function selectFavorites(entries, config) {
+  if (config.mode !== "manual") {
+    return entries
+      .filter((entry) => entry.userScore > 0)
+      .sort(
+        (a, b) =>
+          b.userScore - a.userScore ||
+          b.bangumiScore - a.bangumiScore ||
+          b.updatedAt.localeCompare(a.updatedAt),
+      )
+      .slice(0, 10);
+  }
+
+  const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+  return config.subjects
+    .slice(0, 10)
+    .map(({ id, note }) => {
+      const entry = entriesById.get(id);
+      return entry ? { ...entry, note: note?.trim() || undefined } : null;
+    })
+    .filter(Boolean);
+}
+
+/**
  * 拉取并整理页面所需数据；只有全部完成后才会替换旧文件。
  */
 async function sync() {
-  const [profile, all, watched, watching, wish] = await Promise.all([
+  const [profile, all, watched, watching, wish, favoritesConfig] = await Promise.all([
     request(`/users/${USERNAME}`),
     fetchCollections(),
     fetchCollections(2),
     fetchCollections(3),
     fetchCollections(1),
+    readFavoritesConfig(),
   ]);
 
   const normalizedAll = all.map(normalizeCollection);
@@ -92,15 +135,7 @@ async function sync() {
     .map(normalizeCollection)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
-  const favorites = normalizedAll
-    .filter((entry) => entry.userScore > 0)
-    .sort(
-      (a, b) =>
-        b.userScore - a.userScore ||
-        b.bangumiScore - a.bangumiScore ||
-        b.updatedAt.localeCompare(a.updatedAt),
-    )
-    .slice(0, 10);
+  const favorites = selectFavorites(normalizedAll, favoritesConfig);
 
   const recentReviews = normalizedAll
     .filter((entry) => entry.userScore > 0)
