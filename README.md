@@ -61,8 +61,6 @@ src/data/site.ts
 
 个人信息主要在 src\data\site.ts 中调整
 
-
-
 ### 调整“我最喜欢的动漫”
 
 最喜欢动漫的生成方式由以下文件控制：
@@ -93,9 +91,10 @@ src/data/favorites.config.json
       "note": "旅途结束以后，故事才真正开始。"
     },
     {
-      "id": 1424,
-      "note": ""
-    }
+      "id": 183875,
+      "score": 10,
+      "note": "像是这种我bangumi没有标记过的，可以手动添加 score 这个可选字样指定评分"
+    },
   ]
 }
 ```
@@ -107,7 +106,7 @@ https://bangumi.tv/subject/400602
                             └─ ID 为 400602
 ```
 
-手动模式最多展示前十条配置记录，并严格遵循配置顺序。目前手动条目需要存在于你的 Bangumi 动画收藏中；未收藏或 ID 填写错误的条目会被忽略。
+手动模式最多展示前十条配置记录，并严格遵循配置顺序。条目即使不在你的动画收藏列表中，脚本也会直接从 Bangumi 条目接口补全基础信息；ID 填写错误或条目接口请求失败时才会被忽略。
 
 `note` 是可选个人短句。需要显示短句时，还应在 `src/data/site.ts` 中设置：
 
@@ -139,6 +138,31 @@ npm run preview
 ```
 
 GitHub Actions 工作流 `.github/workflows/sync-bangumi.yml` 会每天自动同步一次，也支持在 Actions 页面手动触发。数据变化后，工作流会提交更新后的 JSON，并触发托管平台重新部署。
+
+### 本地同步方法
+
+确认本地代理正在运行，然后在项目目录执行：
+
+powershell：
+
+```powershell
+$env:HTTPS_PROXY='http://127.0.0.1:7890' 
+npm run sync:bangumi
+```
+
+cmd：
+
+```
+set HTTPS_PROXY=http://127.0.0.1:7890
+npm run sync:bangumi
+```
+
+它会更新 bangumi.json，包括：
+
+- 看过、在看、想看数量
+- 最近看过的十部动画
+- 最近四条评分与短评
+- 自动模式下最喜欢的十部动画
 
 ### Cloudflare Workers 部署设置
 

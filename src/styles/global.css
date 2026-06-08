@@ -13,6 +13,7 @@
   --surface: rgba(255, 255, 255, 0.88);
   --shadow: 0 18px 45px rgba(73, 117, 140, 0.1);
   --content: 1380px;
+  --recent-panel-height: 600px;
 }
 
 * {
@@ -579,25 +580,35 @@ main {
   display: grid;
   margin-top: 24px;
   grid-template-columns: 1.08fr 0.92fr;
+  align-items: start;
   gap: 20px;
 }
 
-.recent-watched,
-.reviews {
+.recent-watched {
+  display: flex;
+  height: var(--recent-panel-height);
   min-width: 0;
-  padding: 23px 0 25px;
+  flex-direction: column;
+  padding: 28px 0;
+}
+
+.reviews {
+  padding: 28px 0;
 }
 
 .recent-grid {
   display: grid;
+  flex: 1;
+  min-height: 0;
   padding: 20px 28px 0;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 13px;
+  gap: 16px 13px;
 }
 
 .recent-cover {
   position: relative;
-  height: 118px;
+  aspect-ratio: 145 / 202;
+  height: auto;
   border-radius: 5px;
   background: var(--mist);
   overflow: hidden;
@@ -780,6 +791,10 @@ footer a {
   .recent-layout {
     grid-template-columns: 1fr;
   }
+
+  .recent-watched {
+    height: auto;
+  }
 }
 
 @media (max-width: 760px) {
@@ -907,7 +922,7 @@ footer a {
   }
 
   .recent-cover {
-    height: 174px;
+    aspect-ratio: 145 / 202;
   }
 
   .review-list {

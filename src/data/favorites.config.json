@@ -1,4 +1,47 @@
 {
-  "mode": "auto",
-  "subjects": []
+  "mode": "manual",
+  "subjects": [
+    {
+      "id": 1424,
+      "note": "けいおん！"
+    },
+    {
+      "id": 400602,
+      "note": "葬送のフリーレン"
+    },
+    {
+      "id": 78405,
+      "note": "のんのんびより"
+    },
+    {
+      "id": 183875,
+      "score": 10,
+      "note": "君の名は。"
+    },
+    {
+      "id": 604826,
+      "note": "超かぐや姫！"
+    },
+    {
+      "id": 328609,
+      "score": 9,
+      "note": "孤独摇滚！"
+    },
+    {
+      "id": 440,
+      "note": "スクールランブル"
+    },
+    {
+      "id": 514358,
+      "note": "CITY THE ANIMATION"
+    },
+    {
+      "id": 8402,
+      "note": "Panty & Stocking with Garterbelt "
+    },
+    {
+      "id": 495562,
+      "note": "デッドデッドデーモンズデデデデデストラクション "
+    }
+  ]
 }

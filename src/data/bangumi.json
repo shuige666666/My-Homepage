@@ -1,5 +1,5 @@
 {
-  "syncedAt": "2026-06-08T07:28:42.672Z",
+  "syncedAt": "2026-06-08T08:20:07.697Z",
   "profile": {
     "username": "860550",
     "nickname": "烟雨残烬",
@@ -12,42 +12,6 @@
   },
   "favorites": [
     {
-      "id": 400602,
-      "name": "葬送のフリーレン",
-      "nameCn": "葬送的芙莉莲",
-      "image": "https://lain.bgm.tv/pic/cover/l/13/c5/400602_ZI8Y9.jpg",
-      "bangumiScore": 8.5,
-      "rank": 40,
-      "url": "https://bangumi.tv/subject/400602",
-      "userScore": 10,
-      "comment": "",
-      "updatedAt": "2024-03-24T02:22:31+08:00"
-    },
-    {
-      "id": 12426,
-      "name": "映画けいおん！",
-      "nameCn": "轻音少女 剧场版",
-      "image": "https://lain.bgm.tv/pic/cover/l/9e/3c/12426_vt490.jpg",
-      "bangumiScore": 8.4,
-      "rank": 67,
-      "url": "https://bangumi.tv/subject/12426",
-      "userScore": 10,
-      "comment": "",
-      "updatedAt": "2025-09-28T00:46:05+08:00"
-    },
-    {
-      "id": 3774,
-      "name": "けいおん！！",
-      "nameCn": "轻音少女 第二季",
-      "image": "https://lain.bgm.tv/pic/cover/l/73/f1/3774_hs9Fr.jpg",
-      "bangumiScore": 8.4,
-      "rank": 56,
-      "url": "https://bangumi.tv/subject/3774",
-      "userScore": 10,
-      "comment": "",
-      "updatedAt": "2025-09-28T00:45:45+08:00"
-    },
-    {
       "id": 1424,
       "name": "けいおん！",
       "nameCn": "轻音少女",
@@ -57,55 +21,21 @@
       "url": "https://bangumi.tv/subject/1424",
       "userScore": 10,
       "comment": "补标。\r\n2022年时看的。最喜欢的动漫",
-      "updatedAt": "2025-09-28T00:45:22+08:00"
+      "updatedAt": "2025-09-28T00:45:22+08:00",
+      "note": "けいおん！"
     },
     {
-      "id": 282684,
-      "name": "のんのんびより のんすとっぷ",
-      "nameCn": "悠哉日常大王 Nonstop",
-      "image": "https://lain.bgm.tv/pic/cover/l/ac/b7/282684_5lN9Z.jpg",
-      "bangumiScore": 8.2,
-      "rank": 131,
-      "url": "https://bangumi.tv/subject/282684",
+      "id": 400602,
+      "name": "葬送のフリーレン",
+      "nameCn": "葬送的芙莉莲",
+      "image": "https://lain.bgm.tv/pic/cover/l/13/c5/400602_ZI8Y9.jpg",
+      "bangumiScore": 8.5,
+      "rank": 40,
+      "url": "https://bangumi.tv/subject/400602",
       "userScore": 10,
-      "comment": "这一场悠哉美好的乡村的梦也终究是结束了啊……\r\n——致世界上最美好的动漫《悠哉日常大王》",
-      "updatedAt": "2024-07-29T15:08:10+08:00"
-    },
-    {
-      "id": 604826,
-      "name": "超かぐや姫！",
-      "nameCn": "超时空辉夜姬！",
-      "image": "https://lain.bgm.tv/pic/cover/l/f6/0f/604826_2XWRN.jpg",
-      "bangumiScore": 8.1,
-      "rank": 185,
-      "url": "https://bangumi.tv/subject/604826",
-      "userScore": 10,
-      "comment": "这是一场无与伦比的视觉盛宴，感谢这部作品的出现，让我的双眼刚刚经受了无比绚烂的洗礼。虽然我的理性很想打九分，但是管它那么多的，我真的超级喜欢这部啊！在我心目中这就是能称之为神作的作品。",
-      "updatedAt": "2026-02-08T02:29:37+08:00"
-    },
-    {
-      "id": 101442,
-      "name": "のんのんびより  りぴーと",
-      "nameCn": "悠哉日常大王 Repeat",
-      "image": "https://lain.bgm.tv/pic/cover/l/8b/6b/101442_EM1Vg.jpg",
-      "bangumiScore": 8.1,
-      "rank": 205,
-      "url": "https://bangumi.tv/subject/101442",
-      "userScore": 10,
-      "comment": "不用多说什么了吧，这可是悠哉日常大王第二季啊！\r\n依旧超水准的制作，超级舒服的节奏把控，那对日常暖心的诠释。\r\n这依旧是一部超级超级优秀的作品啊！\r\n非常多的创意，非常多意想不到的有趣与暖心。\r\n最后一集的ed响起时，真的差点潸然泪下\r\n必须满分啊！！！",
-      "updatedAt": "2024-07-06T23:21:28+08:00"
-    },
-    {
-      "id": 215618,
-      "name": "劇場版 のんのんびより ばけーしょん",
-      "nameCn": "剧场版 悠哉日常大王 Vacation",
-      "image": "https://lain.bgm.tv/pic/cover/l/dd/2a/215618_8847X.jpg",
-      "bangumiScore": 8,
-      "rank": 232,
-      "url": "https://bangumi.tv/subject/215618",
-      "userScore": 10,
-      "comment": "我想，这就是真正的日常啊……像是几个最好的朋友一起出游一样打打闹闹，在旅途中遇到了新认识的好朋友，一起留下来一些永不磨灭的记忆。\r\n吹着那轻柔的海风，望着闪闪发光的星空，捧起一捧闪着荧光的海水……\r\n也是那不舍的离别，那是在车背后的挥手，是一瓶带着星星沙的玻璃瓶……\r\n是世界上最温柔的“我回来了”",
-      "updatedAt": "2024-06-15T00:14:39+08:00"
+      "comment": "",
+      "updatedAt": "2024-03-24T02:22:31+08:00",
+      "note": "葬送のフリーレン"
     },
     {
       "id": 78405,
@@ -117,19 +47,99 @@
       "url": "https://bangumi.tv/subject/78405",
       "userScore": 10,
       "comment": "虽然没有刻意的抒情，但是就是非常的感动，莫名的眼眶湿润了。\r\n真的很喜欢这部动漫，我看得很慢，但是它每一次都能带给我无数的美好，让我度过一个无比美好的夜晚…\r\n谢谢你，悠哉日常大王",
-      "updatedAt": "2024-06-15T00:09:33+08:00"
+      "updatedAt": "2024-06-15T00:09:33+08:00",
+      "note": "のんのんびより"
     },
     {
-      "id": 518519,
-      "name": "ONE PIECE FAN LETTER",
-      "nameCn": "航海王：粉丝来信",
-      "image": "https://lain.bgm.tv/pic/cover/l/be/42/518519_DMDo8.jpg",
-      "bangumiScore": 8.6,
-      "rank": 37,
-      "url": "https://bangumi.tv/subject/518519",
+      "id": 183875,
+      "name": "君の名は。",
+      "nameCn": "你的名字。",
+      "image": "https://lain.bgm.tv/pic/cover/l/4b/7b/183875_k3b6p.jpg",
+      "bangumiScore": 0,
+      "rank": null,
+      "url": "https://bangumi.tv/subject/183875",
+      "userScore": 10,
+      "comment": "",
+      "updatedAt": "",
+      "note": "君の名は。"
+    },
+    {
+      "id": 604826,
+      "name": "超かぐや姫！",
+      "nameCn": "超时空辉夜姬！",
+      "image": "https://lain.bgm.tv/pic/cover/l/f6/0f/604826_2XWRN.jpg",
+      "bangumiScore": 8.1,
+      "rank": 185,
+      "url": "https://bangumi.tv/subject/604826",
+      "userScore": 10,
+      "comment": "这是一场无与伦比的视觉盛宴，感谢这部作品的出现，让我的双眼刚刚经受了无比绚烂的洗礼。虽然我的理性很想打九分，但是管它那么多的，我真的超级喜欢这部啊！在我心目中这就是能称之为神作的作品。",
+      "updatedAt": "2026-02-08T02:29:37+08:00",
+      "note": "超かぐや姫！"
+    },
+    {
+      "id": 328609,
+      "name": "ぼっち・ざ・ろっく！",
+      "nameCn": "孤独摇滚！",
+      "image": "https://lain.bgm.tv/pic/cover/l/e2/e7/328609_2EHLJ.jpg",
+      "bangumiScore": 0,
+      "rank": null,
+      "url": "https://bangumi.tv/subject/328609",
       "userScore": 9,
-      "comment": "为什么这么短只有一集啊！！！！极其高的内容密度，但是又演绎得非常流畅清晰。无可挑剔的一集。让我这个只在很多年前看过一点点海贼的人都非常感动啊",
-      "updatedAt": "2025-03-09T23:16:54+08:00"
+      "comment": "",
+      "updatedAt": "",
+      "note": "ぼっち・ざ・ろっく！"
+    },
+    {
+      "id": 440,
+      "name": "スクールランブル",
+      "nameCn": "校园迷糊大王",
+      "image": "https://lain.bgm.tv/pic/cover/l/a8/ab/440_u01nF.jpg",
+      "bangumiScore": 8,
+      "rank": 248,
+      "url": "https://bangumi.tv/subject/440",
+      "userScore": 9,
+      "comment": "永远都会有意想不到的地方，永远都会带来惊喜啊！\r\n常常会忍不住捧腹大笑，笑得不能自已。\r\n虽然有时候确实看得有一点胃疼，不过也许正是因为有着这些误会以及曲折，才是青春最真实的样貌吧。",
+      "updatedAt": "2025-04-02T21:13:51+08:00",
+      "note": "スクールランブル"
+    },
+    {
+      "id": 514358,
+      "name": "CITY THE ANIMATION",
+      "nameCn": "小城日常",
+      "image": "https://lain.bgm.tv/pic/cover/l/b2/c2/514358_oRoZH.jpg",
+      "bangumiScore": 7.5,
+      "rank": 826,
+      "url": "https://bangumi.tv/subject/514358",
+      "userScore": 9,
+      "comment": "太太太太喜欢这部了！！\r\n到ep5以及后面对这部的喜爱之情达到顶峰。\r\n精妙绝伦的作画，天马行空的创意和想象力。\r\n有趣的地方我也觉得非常有趣，时不时就会让我会心一笑亦或者咧着嘴傻笑。\r\n不论是节奏还是其它地方都太合我的胃口了。\r\n它没有刻意的去凸显到底谁才是主角，而是尽心尽力去刻画每一个角色的故事。在这个小镇中，每个人都有各自有趣的故事和奇妙的境遇。而且每个故事又是那么的暖心与美好，是那种最真挚的友谊以及人与人之间的碰撞。每个人都是那么的可爱。看到ep6结尾时我都差点哭出来了。\r\n要我来说的话，我真的觉得不比日常差。\r\n真的太喜欢这部动画了！\r\n//ep11和12依旧是有着很有趣的演绎方式，不过也许是我期待值太高了？觉得好像有点低于预期啊。\r\n//京阿尼用它自己的方式给予了这部作品一个与众不同且有趣至极的结尾，希望未来我们还能在某个夏天再见吧！",
+      "updatedAt": "2025-09-29T13:18:57+08:00",
+      "note": "CITY THE ANIMATION"
+    },
+    {
+      "id": 8402,
+      "name": "Panty & Stocking with Garterbelt",
+      "nameCn": "吊带袜天使",
+      "image": "https://lain.bgm.tv/pic/cover/l/a7/49/8402_Q9mLv.jpg",
+      "bangumiScore": 8,
+      "rank": 254,
+      "url": "https://bangumi.tv/subject/8402",
+      "userScore": 9,
+      "comment": "让我大开眼界了，每一秒都在意料之外，看得时候嘴经常张开得合不上。真的是令人叹为观止啊！看的时候看着看突然就爱上这一部了。整整13集真的无可挑剔啊，音乐也是真的好听。之前便听闻很多人吹捧其为神作，如今以身入局，发现名副其实啊。\r\n虽然说从头到尾都充斥着无节操无底线的气氛，但是总是会有那么几个瞬间能够将我打动。\r\n敬最伟大的创意与想象力！",
+      "updatedAt": "2026-05-25T21:45:29+08:00",
+      "note": "Panty & Stocking with Garterbelt"
+    },
+    {
+      "id": 495562,
+      "name": "デッドデッドデーモンズデデデデデストラクション",
+      "nameCn": "DDDD 恶魔的破坏",
+      "image": "https://lain.bgm.tv/pic/cover/l/f5/85/495562_onpMR.jpg",
+      "bangumiScore": 7.6,
+      "rank": 724,
+      "url": "https://bangumi.tv/subject/495562",
+      "userScore": 9,
+      "comment": "兼具深度与有趣，精彩绝伦的作画搭配上精彩绝伦的故事，超乎想象的发展还带有我最爱的日常元素。现在刚看完，还停留在刚刚的震撼之中，不知道怎么接着写观后感了。看到后面我一度以为可能高开然后结尾就一般，但是结尾依旧出乎我的意料，我真的很喜欢这个结尾。\r\n美中不足的可能确实是有一些东西没讲清楚，例如说末世后的各种情况，不过瑕不掩瑜，毕竟由于篇幅问题就应该只能讲这么多了，到最后两三集我还想着这能讲完我吃（）呢。\r\n总而言之，非常非常喜欢这部作品。",
+      "updatedAt": "2025-07-06T00:02:56+08:00",
+      "note": "デッドデッドデーモンズデデデデデストラクション"
     }
   ],
   "recentWatched": [

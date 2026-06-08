@@ -80,6 +80,24 @@ function normalizeCollection(entry) {
 }
 
 /**
+ * 将单个条目详情整理成页面需要的字段；用于补全手动精选但不在收藏列表中的作品。
+ */
+function normalizeSubject(subject, source = {}) {
+  return {
+    id: subject.id,
+    name: subject.name ?? "",
+    nameCn: subject.name_cn ?? "",
+    image: subject.images?.large ?? subject.images?.common ?? "",
+    bangumiScore: subject.score ?? 0,
+    rank: subject.rank || null,
+    url: `https://bangumi.tv/subject/${subject.id}`,
+    userScore: source.userScore ?? 0,
+    comment: source.comment ?? "",
+    updatedAt: source.updatedAt ?? "",
+  };
+}
+
+/**
  * 读取最喜欢动漫配置；配置缺失时继续使用个人评分前十。
  */
 async function readFavoritesConfig() {
@@ -94,7 +112,7 @@ async function readFavoritesConfig() {
 /**
  * 根据配置生成最喜欢动漫；手动模式严格遵循配置中的条目顺序。
  */
-function selectFavorites(entries, config) {
+async function selectFavorites(entries, config) {
   if (config.mode !== "manual") {
     return entries
       .filter((entry) => entry.userScore > 0)
@@ -108,13 +126,34 @@ function selectFavorites(entries, config) {
   }
 
   const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
-  return config.subjects
-    .slice(0, 10)
-    .map(({ id, note }) => {
-      const entry = entriesById.get(id);
-      return entry ? { ...entry, note: note?.trim() || undefined } : null;
-    })
-    .filter(Boolean);
+  const favorites = [];
+
+  for (const { id, note, score } of config.subjects.slice(0, 10)) {
+    const displayScore = typeof score === "number" ? score : undefined;
+    const entry = entriesById.get(id);
+    if (entry) {
+      favorites.push({
+        ...entry,
+        userScore: displayScore ?? entry.userScore,
+        note: note?.trim() || undefined,
+      });
+      continue;
+    }
+
+    // 手动精选优先尊重配置；即使该条目没有出现在收藏分页中，也尝试直接拉取条目详情。
+    try {
+      const subject = await request(`/subjects/${id}`);
+      favorites.push({
+        ...normalizeSubject(subject, { userScore: displayScore }),
+        note: note?.trim() || undefined,
+      });
+    } catch (error) {
+      console.warn(`手动精选条目 ${id} 获取失败，已跳过。`);
+      console.warn(error);
+    }
+  }
+
+  return favorites;
 }
 
 /**
@@ -135,7 +174,7 @@ async function sync() {
     .map(normalizeCollection)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
-  const favorites = selectFavorites(normalizedAll, favoritesConfig);
+  const favorites = await selectFavorites(normalizedAll, favoritesConfig);
 
   const recentReviews = normalizedAll
     .filter((entry) => entry.userScore > 0)
