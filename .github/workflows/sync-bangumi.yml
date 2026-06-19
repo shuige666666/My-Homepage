@@ -25,5 +25,20 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/data/bangumi.json
-          git diff --cached --quiet || git commit -m "chore: refresh Bangumi data"
-          git push
+
+          if git diff --cached --quiet; then
+            echo "Bangumi data is already up to date."
+            exit 0
+          fi
+
+          last_author="$(git log -1 --format='%an')"
+          last_subject="$(git log -1 --format='%s')"
+
+          # 连续的自动同步只覆盖上一条 bot 提交，避免 commit 历史被数据刷新刷屏。
+          if [ "$last_author" = "github-actions[bot]" ] && [ "$last_subject" = "chore: refresh Bangumi data" ]; then
+            git commit --amend --no-edit
+            git push --force-with-lease=refs/heads/${{ github.ref_name }}:${{ github.sha }} origin HEAD:${{ github.ref_name }}
+          else
+            git commit -m "chore: refresh Bangumi data"
+            git push origin HEAD:${{ github.ref_name }}
+          fi

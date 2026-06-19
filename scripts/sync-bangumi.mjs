@@ -176,10 +176,10 @@ async function sync() {
 
   const favorites = await selectFavorites(normalizedAll, favoritesConfig);
 
+  // 保留全部有个人评分的记录；首页卡片只展示前几条，弹窗负责按时间浏览完整评价。
   const recentReviews = normalizedAll
     .filter((entry) => entry.userScore > 0)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, 4);
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
   const result = {
     syncedAt: new Date().toISOString(),
