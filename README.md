@@ -161,7 +161,7 @@ npm run sync:bangumi
 
 - 看过、在看、想看数量
 - 最近看过的十部动画
-- 全部有个人评分的记录；首页默认展示最近四条，弹窗可继续浏览
+- 最近四条评分与短评
 - 自动模式下最喜欢的十部动画
 
 ### Cloudflare Workers 部署设置
@@ -182,3 +182,30 @@ NODE_VERSION=24
 ```
 
 `wrangler.jsonc` 会将 Astro 生成的 `dist` 目录作为静态资源部署，不会启用服务端渲染或额外 Worker 逻辑。
+
+
+
+## git 推送相关
+
+由于远端有自动 Bangumi 同步任务，推送时一般会因为  `src/data/bangumi.json` 文件不同产生冲突导致无法推送。
+
+以后遇到这种情况，一般先执行：
+
+```
+git fetch origin
+```
+
+查看并下载远端仓库的新提交记录
+
+```
+git rebase origin/main
+```
+
+把我的提交接到远端最新进度后面
+
+```
+git push origin main
+```
+
+把整理后的结果推回远端
+
