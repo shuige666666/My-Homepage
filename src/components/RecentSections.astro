@@ -209,7 +209,7 @@ const visibleReviews = reviews.slice(0, 4);
         slide.classList.remove("is-entering", "is-leaving", "from-next", "from-prev", "to-next", "to-prev");
         slide.classList.toggle("is-active", index === activeIndex);
       });
-    }, 520);
+    }, 300);
   };
 
   openButton?.addEventListener("click", () => {
