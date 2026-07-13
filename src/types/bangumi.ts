@@ -29,5 +29,6 @@ export interface BangumiPageData {
   };
   favorites: AnimeEntry[];
   recentWatched: AnimeEntry[];
+  watchHistory?: AnimeEntry[];
   recentReviews: AnimeEntry[];
 }

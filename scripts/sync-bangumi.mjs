@@ -195,6 +195,7 @@ async function sync() {
     },
     favorites,
     recentWatched: normalizedWatched.slice(0, 10),
+    watchHistory: normalizedWatched,
     recentReviews,
   };
 
