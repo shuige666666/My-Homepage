@@ -182,6 +182,7 @@ class DepthGalleryExperience {
   private lastFrameTime = 0;
   private viewportWidth = 1;
   private viewportHeight = 1;
+  private compositionHeight = 1;
 
   constructor(
     section: HTMLElement,
@@ -363,13 +364,30 @@ class DepthGalleryExperience {
   };
 
   /**
-   * 根据 sticky 舞台的真实尺寸重新计算渲染器、相机和画框，避免动态地址栏拉伸画布。
+   * 只在固定舞台或屏幕方向真正变化时重建画布；地址栏造成的高度变化只揭露背景。
    */
   private readonly resize = (): void => {
     const bounds = this.stage.getBoundingClientRect();
     const width = Math.max(Math.round(bounds.width), 1);
     const height = Math.max(Math.round(bounds.height), 1);
+    const isFirstLayout = this.viewportWidth === 1 && this.viewportHeight === 1;
+    const widthChanged = Math.abs(width - this.viewportWidth) > 1;
+    const stageChanged =
+      widthChanged || Math.abs(height - this.viewportHeight) > 1;
+
+    if (!isFirstLayout && !stageChanged) {
+      this.updateScrollState();
+      return;
+    }
+
     const isMobile = width <= 760;
+    if (isFirstLayout || widthChanged) {
+      // 初始可见高度作为安全构图区；浏览器栏收起后图片保持位置，只增加背景留白。
+      this.compositionHeight = Math.min(
+        window.visualViewport?.height ?? window.innerHeight,
+        height,
+      );
+    }
     this.viewportWidth = width;
     this.viewportHeight = height;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.25 : 1.75));
@@ -492,6 +510,7 @@ class DepthGalleryExperience {
       plane.material.opacity = opacity * (1 - handoff * 0.82);
       plane.position.x = baseX + this.pointerCurrent.x * parallax;
       plane.position.y =
+        this.getCompositionOffsetY() +
         this.pointerCurrent.y * parallax * 0.45 +
         THREE.MathUtils.clamp(this.velocity, -1, 1) * (isMobile ? 0.025 : 0.07);
       plane.rotation.x = -this.pointerCurrent.y * opacity * this.velocity * 0.035;
@@ -519,6 +538,17 @@ class DepthGalleryExperience {
     const maximumHeight = visibleHeight * (isMobile ? 0.66 : 0.79);
     const maximumWidth = visibleWidth * (isMobile ? 0.84 : 0.9);
     return Math.min(preferredHeight, maximumHeight, maximumWidth / aspectRatio);
+  }
+
+  /**
+   * 将图片中心锚定在首次可见的安全区域，最大画布向下延伸用于承接地址栏收起。
+   */
+  private getCompositionOffsetY(): number {
+    const safeHeight = Math.min(this.compositionHeight, this.viewportHeight);
+    const hiddenHeight = Math.max(this.viewportHeight - safeHeight, 0);
+    const visibleWorldHeight =
+      2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * 5;
+    return (hiddenHeight / this.viewportHeight) * visibleWorldHeight * 0.5;
   }
 
   private updateMood(activeFloat: number): void {
@@ -570,7 +600,11 @@ class DepthGalleryExperience {
       const t = index / Math.max(count - 1, 1);
       const phase = progress * Math.PI * 5.2 + t * Math.PI * 1.8;
       const x = Math.sin(phase) * (1.15 + t * 1.4);
-      const y = Math.cos(phase * 0.58) * 0.48 - 0.65 + t * 0.28;
+      const y =
+        this.getCompositionOffsetY() +
+        Math.cos(phase * 0.58) * 0.48 -
+        0.65 +
+        t * 0.28;
       const z = this.camera.position.z - 1.4 - t * 3.2;
       this.trailPoints[index].set(x, y, z);
     }

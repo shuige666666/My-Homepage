@@ -346,7 +346,7 @@ npm run build
 
 核心上，你调整颜色主要看三个位置：六幕调色板、背景柔光强度、幕与幕之间的混色方式。日常换色通常只改第一处即可。
 
-### 1. 每一幕的颜色
+### 1. 每一幕的颜色（主要改这个）
 
 六幕配色位于 [DepthGallery.astro (line 4)](/E:/Study/My Homepage/src/components/DepthGallery.astro:4) 的 `galleryItems`：
 
