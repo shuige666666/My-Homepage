@@ -1,0 +1,346 @@
+.depth-intro {
+  --depth-progress: 0;
+  --depth-handoff: 0;
+  position: relative;
+  z-index: 1;
+  height: 520svh;
+  color: #282a27;
+  background: #f2ead7;
+}
+
+.depth-intro::after {
+  position: absolute;
+  right: 0;
+  bottom: 100svh;
+  left: 0;
+  z-index: 4;
+  height: clamp(120px, 22svh, 220px);
+  content: "";
+  background: linear-gradient(
+    to bottom,
+    rgb(248 251 251 / 0),
+    rgb(248 251 251 / 0.28) 38%,
+    var(--paper) 100%
+  );
+  opacity: var(--depth-handoff);
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.depth-gallery-sticky {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  height: 100svh;
+  overflow: hidden;
+  background: #f2ead7;
+}
+
+.depth-canvas,
+.depth-static-art,
+.depth-grain {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.depth-canvas {
+  display: block;
+  opacity: calc(1 - var(--depth-handoff));
+  transition: opacity 80ms linear;
+}
+
+.depth-static-art {
+  display: none;
+  width: min(64vw, 560px);
+  height: auto;
+  max-height: 72svh;
+  margin: auto;
+  object-fit: contain;
+  filter: saturate(0.94) contrast(0.98);
+}
+
+.depth-grain {
+  z-index: 2;
+  opacity: calc(0.16 * (1 - var(--depth-handoff)));
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.86' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.28'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+}
+
+.depth-masthead,
+.depth-label,
+.depth-color-data,
+.depth-scroll-hint,
+.depth-progress {
+  position: absolute;
+  z-index: 3;
+  opacity: calc(1 - var(--depth-handoff));
+  transition: opacity 100ms linear;
+}
+
+.depth-masthead {
+  top: 20px;
+  right: 20px;
+  left: 20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  font: 600 9px/1.25 "Courier New", monospace;
+  letter-spacing: 0.13em;
+}
+
+.depth-masthead p {
+  margin: 0;
+}
+
+.depth-masthead p:last-child {
+  text-align: right;
+}
+
+.depth-label {
+  top: 50%;
+  left: clamp(22px, 8vw, 130px);
+  min-width: 120px;
+  transform: translateY(-50%);
+  font: 500 10px/1.45 "Courier New", monospace;
+  letter-spacing: 0.08em;
+}
+
+.depth-label p {
+  margin: 0;
+}
+
+.depth-word {
+  margin-top: 7px !important;
+  text-transform: lowercase;
+}
+
+.depth-chip {
+  display: block;
+  width: 19px;
+  height: 19px;
+  margin-top: 9px;
+  border-radius: 50%;
+  background: #a48a56;
+  box-shadow: 0 0 26px color-mix(in srgb, #a48a56 58%, transparent);
+}
+
+.depth-color-data {
+  top: 50%;
+  right: clamp(22px, 9vw, 144px);
+  display: grid;
+  width: 155px;
+  margin: 0;
+  gap: 2px;
+  transform: translateY(-50%);
+  font: 500 9px/1.35 "Courier New", monospace;
+  letter-spacing: 0.06em;
+}
+
+.depth-color-data > div {
+  display: grid;
+  grid-template-columns: 45px 1fr;
+}
+
+.depth-color-data dt,
+.depth-color-data dd {
+  margin: 0;
+}
+
+.depth-scroll-hint {
+  right: 20px;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: calc((1 - min(1, var(--depth-progress) * 18)) * (1 - var(--depth-handoff)));
+  font: 500 9px/1 "Courier New", monospace;
+  letter-spacing: 0.12em;
+}
+
+.depth-scroll-hint span {
+  position: relative;
+  width: 45px;
+  height: 1px;
+  background: currentColor;
+}
+
+.depth-scroll-hint span::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 7px;
+  height: 1px;
+  content: "";
+  background: currentColor;
+  transform: rotate(35deg);
+  transform-origin: right;
+}
+
+.depth-scroll-hint p {
+  margin: 0;
+}
+
+.depth-progress {
+  bottom: 18px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 500 9px/1 "Courier New", monospace;
+  letter-spacing: 0.08em;
+}
+
+.depth-progress > i {
+  display: block;
+  position: relative;
+  width: 78px;
+  height: 1px;
+  background: color-mix(in srgb, currentColor 24%, transparent);
+  overflow: hidden;
+}
+
+.depth-progress > i > b {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: currentColor;
+  transform: scaleX(var(--depth-progress));
+  transform-origin: left;
+}
+
+.depth-skip {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
+  padding: 10px 13px;
+  color: #29465e;
+  background: white;
+  box-shadow: 0 8px 24px rgba(41, 70, 94, 0.16);
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-10px);
+}
+
+.depth-skip:focus {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.depth-intro ~ .page-shell {
+  z-index: 4;
+  margin-top: -100svh;
+  background: var(--paper);
+  opacity: var(--homepage-reveal, 0);
+  will-change: opacity;
+}
+
+.depth-intro ~ .page-shell > * {
+  transform: translateY(calc((1 - var(--homepage-reveal, 0)) * 12svh));
+  will-change: transform;
+}
+
+body.depth-gallery-active {
+  overflow-x: hidden;
+}
+
+body.depth-gallery-active .page-shell {
+  pointer-events: none;
+}
+
+body.depth-gallery-home .page-shell {
+  pointer-events: auto;
+}
+
+body.depth-gallery-fallback .depth-intro,
+body.depth-gallery-reduced .depth-intro {
+  height: 200svh;
+  background:
+    radial-gradient(circle at 22% 22%, rgba(104, 116, 74, 0.34), transparent 38%),
+    radial-gradient(circle at 82% 74%, rgba(216, 185, 142, 0.42), transparent 42%),
+    #f2ead7;
+}
+
+body.depth-gallery-fallback .depth-canvas,
+body.depth-gallery-reduced .depth-canvas {
+  display: none;
+}
+
+body.depth-gallery-fallback .depth-static-art,
+body.depth-gallery-reduced .depth-static-art {
+  display: block;
+  opacity: calc(1 - var(--depth-handoff));
+}
+
+body.depth-gallery-fallback .depth-progress,
+body.depth-gallery-reduced .depth-progress {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .depth-masthead {
+    top: 14px;
+    right: 14px;
+    left: 14px;
+    font-size: 7px;
+  }
+
+  .depth-label {
+    top: auto;
+    bottom: 70px;
+    left: 16px;
+    min-width: 0;
+    transform: none;
+    font-size: 8px;
+  }
+
+  .depth-chip {
+    width: 14px;
+    height: 14px;
+  }
+
+  .depth-color-data {
+    top: auto;
+    right: 14px;
+    bottom: 70px;
+    width: 132px;
+    transform: none;
+    font-size: 7px;
+  }
+
+  .depth-color-data > div {
+    grid-template-columns: 38px 1fr;
+  }
+
+  .depth-scroll-hint {
+    right: 14px;
+    bottom: 14px;
+    font-size: 7px;
+  }
+
+  .depth-progress {
+    bottom: 14px;
+    left: 14px;
+    font-size: 7px;
+  }
+
+  .depth-progress > i {
+    width: 54px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .depth-canvas,
+  .depth-grain {
+    display: none;
+  }
+
+  .depth-static-art {
+    display: block;
+  }
+}

@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
+import DepthGallery from "@/components/DepthGallery.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import ProfileHero from "@/components/ProfileHero.astro";
 import FavoriteRail from "@/components/FavoriteRail.astro";
@@ -15,6 +16,7 @@ const syncDate = data.syncedAt
 ---
 
 <BaseLayout title={siteConfig.title} description={siteConfig.description}>
+  <DepthGallery />
   <div id="top" class="page-shell">
     <SiteHeader />
     <main>

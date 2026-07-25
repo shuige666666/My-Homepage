@@ -1,0 +1,115 @@
+---
+import "@/styles/depth-gallery.css";
+
+const galleryItems = [
+  {
+    index: "01",
+    word: "woodland",
+    texture: "/images/depth-gallery/optimized/01.webp",
+    accent: "#a48a56",
+    background: "#f2ead7",
+    blob1: "#424f20",
+    blob2: "#d8b98e",
+  },
+  {
+    index: "02",
+    word: "snowfall",
+    texture: "/images/depth-gallery/optimized/02.webp",
+    accent: "#8e6981",
+    background: "#faf7fb",
+    blob1: "#b6a2be",
+    blob2: "#d4b6c4",
+  },
+  {
+    index: "03",
+    word: "reverie",
+    texture: "/images/depth-gallery/optimized/03.webp",
+    accent: "#839566",
+    background: "#f1ddc5",
+    blob1: "#9aac78",
+    blob2: "#a3afd0",
+  },
+  {
+    index: "04",
+    word: "voltage",
+    texture: "/images/depth-gallery/optimized/04.webp",
+    accent: "#667a82",
+    background: "#eee8d7",
+    blob1: "#faea9d",
+    blob2: "#f8a4e2",
+  },
+  {
+    index: "05",
+    word: "chorus",
+    texture: "/images/depth-gallery/optimized/05.webp",
+    accent: "#9b765e",
+    background: "#fbede1",
+    blob1: "#bce9f3",
+    blob2: "#fff6e4",
+  },
+  {
+    index: "06",
+    word: "daybreak",
+    texture: "/images/depth-gallery/optimized/06.webp",
+    accent: "#91b8d6",
+    background: "#eaf4f8",
+    blob1: "#bfe5f7",
+    blob2: "#ffd6e5",
+  },
+];
+---
+
+<section
+  id="depth-intro"
+  class="depth-intro"
+  aria-label="六幕动画氛围画廊"
+  data-gallery={JSON.stringify(galleryItems)}
+>
+  <a class="depth-skip" href="#top">跳到主页内容</a>
+
+  <div class="depth-gallery-sticky">
+    <canvas class="depth-canvas" aria-hidden="true"></canvas>
+    <img
+      class="depth-static-art"
+      src={galleryItems[0].texture}
+      alt=""
+      aria-hidden="true"
+    />
+
+    <div class="depth-grain" aria-hidden="true"></div>
+
+    <header class="depth-masthead" aria-hidden="true">
+      <p>ATMOSPHERIC ANIME GALLERY</p>
+      <p>SIX FRAMES · ONE HOME</p>
+    </header>
+
+    <div class="depth-label depth-label-primary" aria-hidden="true">
+      <p class="depth-index">01</p>
+      <p class="depth-word">woodland</p>
+      <i class="depth-chip"></i>
+    </div>
+
+    <dl class="depth-color-data" aria-hidden="true">
+      <div><dt>CMYK</dt><dd data-color="cmyk">0, 16, 48, 36</dd></div>
+      <div><dt>RGB</dt><dd data-color="rgb">164, 138, 86</dd></div>
+      <div><dt>HEX</dt><dd data-color="hex">A48A56</dd></div>
+    </dl>
+
+    <div class="depth-scroll-hint" aria-hidden="true">
+      <span></span>
+      <p>SCROLL TO EXPLORE</p>
+    </div>
+
+    <div class="depth-progress" aria-hidden="true">
+      <span class="depth-progress-current">01</span>
+      <i><b></b></i>
+      <span>06</span>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { mountDepthGallery } from "@/scripts/depth-gallery";
+
+  mountDepthGallery();
+</script>

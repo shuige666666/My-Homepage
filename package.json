@@ -12,12 +12,14 @@
     "sync:bangumi": "node scripts/sync-bangumi.mjs"
   },
   "dependencies": {
-    "astro": "^5.0.0",
     "@lucide/astro": "^1.17.0",
+    "astro": "^5.0.0",
+    "three": "^0.185.1",
     "undici": "^6.26.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
+    "@types/three": "^0.185.1",
     "typescript": "^5.7.2",
     "wrangler": "^4.68.0"
   }
