@@ -760,22 +760,12 @@ main {
   position: relative;
   padding: 28px;
   border-color: rgba(125, 169, 194, 0.25);
-  background:
-    radial-gradient(circle at 92% 11%, rgba(255, 244, 113, 0.3) 0 35px, transparent 36px),
-    radial-gradient(circle at 8% 94%, rgba(243, 166, 191, 0.14) 0 72px, transparent 73px),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(236, 247, 250, 0.84));
+  background: var(--surface);
   overflow: hidden;
 }
 
 .watch-timeline::before {
-  position: absolute;
-  inset: 0;
-  content: "";
-  background-image: radial-gradient(rgba(125, 169, 194, 0.26) 0.7px, transparent 0.7px);
-  background-size: 15px 15px;
-  mask-image: linear-gradient(115deg, transparent 4%, black 30%, transparent 68%);
-  opacity: 0.42;
-  pointer-events: none;
+  content: none;
 }
 
 .watch-timeline > * {
