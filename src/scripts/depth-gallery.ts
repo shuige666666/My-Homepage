@@ -120,8 +120,11 @@ export function mountDepthGallery(): void {
  * 为减少动态效果和 WebGL 失败场景提供一屏静态封面及可逆的主页淡入。
  */
 function mountStaticScroll(section: HTMLElement): void {
+  const stage = section.querySelector<HTMLElement>(".depth-gallery-sticky");
   const update = () => {
-    const distance = Math.max(section.offsetHeight - window.innerHeight, 1);
+    // 以实际舞台高度计算进度，避免手机地址栏变化后 CSS 与 innerHeight 使用不同基准。
+    const stageHeight = stage?.getBoundingClientRect().height ?? window.innerHeight;
+    const distance = Math.max(section.offsetHeight - stageHeight, 1);
     const progress = THREE.MathUtils.clamp(-section.getBoundingClientRect().top / distance, 0, 1);
     section.style.setProperty("--depth-progress", progress.toFixed(4));
     section.style.setProperty("--depth-handoff", progress.toFixed(4));
@@ -137,6 +140,7 @@ function mountStaticScroll(section: HTMLElement): void {
 
 class DepthGalleryExperience {
   private readonly section: HTMLElement;
+  private readonly stage: HTMLElement;
   private readonly items: GalleryItem[];
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
@@ -176,6 +180,8 @@ class DepthGalleryExperience {
   private activeIndex = -1;
   private isVisible = true;
   private lastFrameTime = 0;
+  private viewportWidth = 1;
+  private viewportHeight = 1;
 
   constructor(
     section: HTMLElement,
@@ -183,6 +189,7 @@ class DepthGalleryExperience {
     items: GalleryItem[],
   ) {
     this.section = section;
+    this.stage = canvas.parentElement ?? section;
     this.items = items;
     this.renderer = new THREE.WebGLRenderer({
       canvas,
@@ -306,6 +313,10 @@ class DepthGalleryExperience {
     window.addEventListener("pointermove", this.updatePointer, { passive: true });
     window.addEventListener("pointerleave", this.resetPointer, { passive: true });
 
+    // 动态视口单位变化不一定稳定触发 window.resize，直接监听 sticky 舞台最可靠。
+    const resizeObserver = new ResizeObserver(this.resize);
+    resizeObserver.observe(this.stage);
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         this.isVisible = entry?.isIntersecting ?? true;
@@ -316,7 +327,7 @@ class DepthGalleryExperience {
   }
 
   private readonly updateScrollState = (): void => {
-    const distance = Math.max(this.section.offsetHeight - window.innerHeight, 1);
+    const distance = Math.max(this.section.offsetHeight - this.viewportHeight, 1);
     this.scrollProgress = THREE.MathUtils.clamp(
       -this.section.getBoundingClientRect().top / distance,
       0,
@@ -340,9 +351,10 @@ class DepthGalleryExperience {
   }
 
   private readonly updatePointer = (event: PointerEvent): void => {
+    const bounds = this.stage.getBoundingClientRect();
     this.pointerTarget.set(
-      (event.clientX / window.innerWidth) * 2 - 1,
-      -((event.clientY / window.innerHeight) * 2 - 1),
+      ((event.clientX - bounds.left) / Math.max(bounds.width, 1)) * 2 - 1,
+      -(((event.clientY - bounds.top) / Math.max(bounds.height, 1)) * 2 - 1),
     );
   };
 
@@ -351,12 +363,15 @@ class DepthGalleryExperience {
   };
 
   /**
-   * 根据视口重新计算相机和画框尺寸；移动端保留构图但缩减偏移与像素密度。
+   * 根据 sticky 舞台的真实尺寸重新计算渲染器、相机和画框，避免动态地址栏拉伸画布。
    */
   private readonly resize = (): void => {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    const bounds = this.stage.getBoundingClientRect();
+    const width = Math.max(Math.round(bounds.width), 1);
+    const height = Math.max(Math.round(bounds.height), 1);
     const isMobile = width <= 760;
+    this.viewportWidth = width;
+    this.viewportHeight = height;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.25 : 1.75));
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
@@ -368,7 +383,7 @@ class DepthGalleryExperience {
 
   private layoutPlanes(): void {
     if (this.planes.length === 0) return;
-    const isMobile = window.innerWidth <= 760;
+    const isMobile = this.viewportWidth <= 760;
     const horizontalOffset = isMobile ? 0.23 : 0.72;
     const visibleHeight =
       2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * 5;
@@ -381,8 +396,8 @@ class DepthGalleryExperience {
 
       if (isMobile && index === 0) {
         // 只有首幕保留 20–28px 安全边距；后续图片恢复贴近边缘的左右交替构图。
-        const minimumGutterPixels = THREE.MathUtils.clamp(window.innerWidth * 0.055, 20, 28);
-        const minimumGutter = visibleWidth * (minimumGutterPixels / window.innerWidth);
+        const minimumGutterPixels = THREE.MathUtils.clamp(this.viewportWidth * 0.055, 20, 28);
+        const minimumGutter = visibleWidth * (minimumGutterPixels / this.viewportWidth);
         availableShift = Math.max((visibleWidth - width) / 2 - minimumGutter, 0);
       }
 
@@ -456,7 +471,7 @@ class DepthGalleryExperience {
   };
 
   private updatePlanes(activeFloat: number, handoff: number): void {
-    const isMobile = window.innerWidth <= 760;
+    const isMobile = this.viewportWidth <= 760;
     const currentIndex = Math.floor(activeFloat);
     const nextIndex = Math.min(currentIndex + 1, this.planes.length - 1);
     const blend = activeFloat - currentIndex;
@@ -495,7 +510,7 @@ class DepthGalleryExperience {
    * 同时限制画框的可见宽高，确保不同横竖比例在窄屏上也不会被裁切。
    */
   private getPlaneHeight(aspectRatio: number): number {
-    const isMobile = window.innerWidth <= 760;
+    const isMobile = this.viewportWidth <= 760;
     const cameraDistance = 5;
     const visibleHeight =
       2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * cameraDistance;
@@ -529,7 +544,7 @@ class DepthGalleryExperience {
     if (!this.trail) return;
 
     this.updateTrailPoints(progress);
-    const radius = window.innerWidth <= 760 ? 0.0024 : 0.0028;
+    const radius = this.viewportWidth <= 760 ? 0.0024 : 0.0028;
     const nextGeometry = new THREE.TubeGeometry(this.trailCurve, 72, radius, 6, false);
     this.trail.geometry.dispose();
     this.trail.geometry = nextGeometry;
