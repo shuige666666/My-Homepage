@@ -1,0 +1,140 @@
+---
+import { CalendarRange, ChartNoAxesCombined, ChevronDown } from "@lucide/astro";
+import type { AnimeEntry } from "@/types/bangumi";
+import SectionHeading from "./SectionHeading.astro";
+
+interface Props {
+  entries: AnimeEntry[];
+}
+
+const { entries } = Astro.props;
+const today = new Date();
+const recordDates = entries
+  .map((entry) => new Date(entry.updatedAt))
+  .filter((date) => !Number.isNaN(date.getTime()));
+const earliestRecord = recordDates.length
+  ? new Date(Math.min(...recordDates.map((date) => date.getTime())))
+  : new Date(today.getFullYear(), today.getMonth() - 11, 1);
+const startMonth = new Date(earliestRecord.getFullYear(), earliestRecord.getMonth(), 1);
+const endMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+const monthCount = (endMonth.getFullYear() - startMonth.getFullYear()) * 12 + endMonth.getMonth() - startMonth.getMonth() + 1;
+const months = Array.from({ length: monthCount }, (_, index) => {
+  const date = new Date(startMonth.getFullYear(), startMonth.getMonth() + index, 1);
+  const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  return {
+    key,
+    label: new Intl.DateTimeFormat("zh-CN", { month: "short" }).format(date),
+    title: new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "long" }).format(date),
+    entries: entries.filter((entry) => entry.updatedAt.startsWith(key)),
+  };
+});
+
+const ranges = [
+  { value: "12", label: "近一年", months: months.slice(-12) },
+  { value: "24", label: "近两年", months: months.slice(-24) },
+  { value: "all", label: "全部记录", months },
+];
+const total = entries.length;
+---
+
+<section class="watch-timeline reveal" aria-label="观看时间轴">
+  <div class="timeline-topline">
+    <SectionHeading title="观看时间轴" eyebrow="WATCHING RHYTHM" />
+    <details class="timeline-range-picker">
+      <summary>
+        <CalendarRange size={14} />
+        <span data-timeline-range-label>近一年</span>
+        <ChevronDown size={14} />
+      </summary>
+      <div class="timeline-range-menu" role="group" aria-label="选择时间范围">
+        {ranges.map((range) => (
+          <button type="button" data-timeline-range={range.value} aria-pressed={range.value === "12" ? "true" : "false"}>
+            {range.label}
+          </button>
+        ))}
+      </div>
+    </details>
+  </div>
+  <p class="timeline-summary"><ChartNoAxesCombined size={14} />已记录 {total} 部动画，按标记为“看过”的月份统计</p>
+  {entries.length > 0 ? (
+    <div class="timeline-panels">
+      {ranges.map((range) => {
+        const rangeMonths = range.months;
+        const maxCount = Math.max(...rangeMonths.map((month) => month.entries.length), 1);
+        const chartWidth = Math.max(720, rangeMonths.length * 62);
+        const chartHeight = 164;
+        const paddingX = 24;
+        const paddingY = 22;
+        const points = rangeMonths.map((month, index) => {
+          const x = paddingX + ((index + 0.5) * (chartWidth - paddingX * 2)) / rangeMonths.length;
+          const y = chartHeight - paddingY - (month.entries.length / maxCount) * (chartHeight - paddingY * 2);
+          return { ...month, x, y, count: month.entries.length };
+        });
+        const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
+        const area = `${paddingX},${chartHeight - paddingY} ${polyline} ${chartWidth - paddingX},${chartHeight - paddingY}`;
+        return (
+          <div class="timeline-panel" data-timeline-panel={range.value} hidden={range.value !== "12"}>
+            <div class="timeline-chart-wrap">
+              <div class="timeline-chart-canvas" style={`--timeline-width: ${chartWidth}px`}>
+                <svg class="timeline-chart" viewBox={`0 0 ${chartWidth} ${chartHeight}`} role="img" aria-label={`${range.label}观看记录折线图`}>
+                  <defs>
+                    <linearGradient id={`timeline-fill-${range.value}`} x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stop-color="#78a8c4" stop-opacity="0.33" />
+                      <stop offset="100%" stop-color="#dff1f4" stop-opacity="0.04" />
+                    </linearGradient>
+                  </defs>
+                  {[0.25, 0.5, 0.75].map((ratio) => <line x1={paddingX} x2={chartWidth - paddingX} y1={paddingY + ratio * (chartHeight - paddingY * 2)} y2={paddingY + ratio * (chartHeight - paddingY * 2)} />)}
+                  <polygon points={area} fill={`url(#timeline-fill-${range.value})`} />
+                  <polyline points={polyline} />
+                  {points.map((point) => <circle class="timeline-point" cx={point.x} cy={point.y} r="5" />)}
+                </svg>
+                <div class="timeline-hit-areas" style={`grid-template-columns: repeat(${rangeMonths.length}, minmax(0, 1fr))`}>
+                  {points.map((point) => (
+                    <button class="timeline-hit-area" type="button" aria-label={`${point.title}：看过 ${point.count} 部`}>
+                      <span class="timeline-tooltip" role="tooltip">
+                        <strong>{point.title} · {point.count} 部</strong>
+                        <span>{point.entries.length ? point.entries.map((entry) => entry.nameCn || entry.name).join("、") : "暂无记录"}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div class="timeline-labels" style={`grid-template-columns: repeat(${rangeMonths.length}, minmax(0, 1fr))`} aria-hidden="true">
+                  {rangeMonths.map((month) => <span>{month.label}</span>)}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  ) : (
+    <p class="compact-empty">同步后会在这里展示每月的观看记录。</p>
+  )}
+</section>
+
+<script>
+  const picker = document.querySelector<HTMLDetailsElement>(".timeline-range-picker");
+  const rangeLabel = document.querySelector<HTMLElement>("[data-timeline-range-label]");
+  const rangeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-timeline-range]"));
+  const panels = Array.from(document.querySelectorAll<HTMLElement>("[data-timeline-panel]"));
+  const scrollToLatest = (panel: HTMLElement) => {
+    const chart = panel.querySelector<HTMLElement>(".timeline-chart-wrap");
+    if (chart) chart.scrollLeft = chart.scrollWidth;
+  };
+
+  const defaultPanel = panels.find((panel) => !panel.hidden);
+  if (defaultPanel) requestAnimationFrame(() => scrollToLatest(defaultPanel));
+
+  rangeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const value = button.dataset.timelineRange;
+      if (!value) return;
+      panels.forEach((panel) => { panel.hidden = panel.dataset.timelinePanel !== value; });
+      rangeButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+      if (rangeLabel) rangeLabel.textContent = button.textContent?.trim() || "选择范围";
+      picker?.removeAttribute("open");
+      const activePanel = panels.find((panel) => panel.dataset.timelinePanel === value);
+      if (activePanel) requestAnimationFrame(() => scrollToLatest(activePanel));
+    });
+  });
+</script>

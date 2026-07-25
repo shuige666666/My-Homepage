@@ -2,40 +2,45 @@
 import { CalendarDays, ChevronLeft, ChevronRight, ExternalLink, MessageCircle, Star, X } from "@lucide/astro";
 import type { AnimeEntry } from "@/types/bangumi";
 import SectionHeading from "./SectionHeading.astro";
+import WatchTimeline from "./WatchTimeline.astro";
 
 interface Props {
   watched: AnimeEntry[];
+  watchHistory?: AnimeEntry[];
   reviews: AnimeEntry[];
 }
 
-const { watched, reviews } = Astro.props;
+const { watched, watchHistory = watched, reviews } = Astro.props;
 const formatter = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
 const formatDate = (value: string) => value ? formatter.format(new Date(value)) : "尚未同步";
 const visibleReviews = reviews.slice(0, 4);
 ---
 
 <div class="recent-layout">
-  <section class="recent-watched reveal" aria-label="最近看过">
-    <SectionHeading title="最近看过" eyebrow="RECENTLY WATCHED" />
-    {watched.length > 0 ? (
-      <div class="recent-grid">
-        {watched.map((entry) => (
-          <article class="recent-card">
-            <a href={entry.url} target="_blank" rel="noreferrer">
-              <div class="recent-cover">
-                <img src={entry.image} alt="" loading="lazy" />
-                <span><ExternalLink size={15} /></span>
-              </div>
-              <h3>{entry.nameCn || entry.name}</h3>
-              <p><strong>{entry.userScore ? entry.userScore.toFixed(1) : "—"}</strong>{formatDate(entry.updatedAt)}</p>
-            </a>
-          </article>
-        ))}
-      </div>
-    ) : (
-      <p class="compact-empty">同步后展示最近标记为“看过”的动画。</p>
-    )}
-  </section>
+  <div class="recent-column">
+    <section class="recent-watched reveal" aria-label="最近看过">
+      <SectionHeading title="最近看过" eyebrow="RECENTLY WATCHED" />
+      {watched.length > 0 ? (
+        <div class="recent-grid">
+          {watched.map((entry) => (
+            <article class="recent-card">
+              <a href={entry.url} target="_blank" rel="noreferrer">
+                <div class="recent-cover">
+                  <img src={entry.image} alt="" loading="lazy" />
+                  <span><ExternalLink size={15} /></span>
+                </div>
+                <h3>{entry.nameCn || entry.name}</h3>
+                <p><strong>{entry.userScore ? entry.userScore.toFixed(1) : "—"}</strong>{formatDate(entry.updatedAt)}</p>
+              </a>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p class="compact-empty">同步后展示最近标记为“看过”的动画。</p>
+      )}
+    </section>
+    <WatchTimeline entries={watchHistory} />
+  </div>
 
   <section class="reviews reveal" aria-label="最近评分与短评">
     <div class="reviews-topline">

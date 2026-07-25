@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-默认开发地址为 http://localhost:4321。
+默认开发地址为 http://localhost:4321
 
 ## 同步 Bangumi 数据
 
@@ -94,7 +94,7 @@ src/data/favorites.config.json
       "id": 183875,
       "score": 10,
       "note": "像是这种我bangumi没有标记过的，可以手动添加 score 这个可选字样指定评分"
-    },
+    }
   ]
 }
 ```
@@ -111,7 +111,7 @@ https://bangumi.tv/subject/400602
 `note` 是可选个人短句。需要显示短句时，还应在 `src/data/site.ts` 中设置：
 
 ```ts
-showFavoriteNotes: true
+showFavoriteNotes: true;
 ```
 
 修改配置后重新同步并启动页面：
@@ -146,7 +146,7 @@ GitHub Actions 工作流 `.github/workflows/sync-bangumi.yml` 会每天自动同
 powershell：
 
 ```powershell
-$env:HTTPS_PROXY='http://127.0.0.1:7890' 
+$env:HTTPS_PROXY='http://127.0.0.1:7890'
 npm run sync:bangumi
 ```
 
@@ -183,11 +183,9 @@ NODE_VERSION=24
 
 `wrangler.jsonc` 会将 Astro 生成的 `dist` 目录作为静态资源部署，不会启用服务端渲染或额外 Worker 逻辑。
 
-
-
 ## git 推送相关
 
-由于远端有自动 Bangumi 同步任务，推送时一般会因为  `src/data/bangumi.json` 文件不同产生冲突导致无法推送。
+由于远端有自动 Bangumi 同步任务，推送时一般会因为 `src/data/bangumi.json` 文件不同产生冲突导致无法推送。
 
 以后遇到这种情况，一般先执行：
 
@@ -208,4 +206,3 @@ git push origin main
 ```
 
 把整理后的结果推回远端
-
