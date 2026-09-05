@@ -13,7 +13,9 @@ npm install
 npm run dev
 ```
 
-默认开发地址为 http://localhost:4321
+默认开发地址为 http://localhost:3000/
+
+（端口设置在 astro.config.mjs ）
 
 
 
