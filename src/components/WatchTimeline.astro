@@ -117,10 +117,49 @@ const total = entries.length;
   const rangeLabel = document.querySelector<HTMLElement>("[data-timeline-range-label]");
   const rangeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-timeline-range]"));
   const panels = Array.from(document.querySelectorAll<HTMLElement>("[data-timeline-panel]"));
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  /** 将范围定位到最新月份，切换范围时继续从近期记录开始阅读。 */
   const scrollToLatest = (panel: HTMLElement) => {
     const chart = panel.querySelector<HTMLElement>(".timeline-chart-wrap");
     if (chart) chart.scrollLeft = chart.scrollWidth;
   };
+
+  /** 从当前可见的月份开始绘制折线，长时间轴不必等待屏幕外的历史段落。 */
+  const drawChart = (panel: HTMLElement) => {
+    if (reducedMotion.matches) return;
+    const chart = panel.querySelector<HTMLElement>(".timeline-chart-wrap")!;
+    const line = panel.querySelector<SVGPolylineElement>("polyline")!;
+    const area = panel.querySelector<SVGPolygonElement>("polygon")!;
+    const start = 100 * (1 - chart.scrollLeft / chart.scrollWidth);
+    line.animate([{ clipPath: `inset(0 ${start}% 0 0)` }, { clipPath: "inset(0 0% 0 0)" }],
+      { duration: 900, easing: "cubic-bezier(0.4, 0, 0.2, 1)" });
+    area.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, delay: 240, fill: "backwards" });
+    const visiblePoints = Array.from(panel.querySelectorAll<SVGCircleElement>(".timeline-point"))
+      .filter((point) => point.getBoundingClientRect().right >= chart.getBoundingClientRect().left);
+    visiblePoints.forEach((point, index) => {
+      point.animate([{ opacity: 0 }, { opacity: 1 }],
+        { duration: 220, delay: 100 + index / visiblePoints.length * 700, fill: "backwards" });
+    });
+  };
+
+  // 只在首次滚动到时间轴时绘制；范围切换时独立播放新图。
+  const timeline = document.querySelector<HTMLElement>(".watch-timeline")!;
+  const observer = new IntersectionObserver((entries) => {
+    if (!entries.some((entry) => entry.isIntersecting)) return;
+    const panel = panels.find((item) => !item.hidden);
+    if (panel) drawChart(panel);
+    observer.disconnect();
+  }, { threshold: 0.3 });
+  observer.observe(timeline);
+
+  panels.forEach((panel) => {
+    const points = panel.querySelectorAll(".timeline-point");
+    panel.querySelectorAll<HTMLButtonElement>(".timeline-hit-area").forEach((button, index) => {
+      /** 同步鼠标和键盘关注的月份节点，提示位置与数据点保持一致。 */
+      const highlight = () => points[index].classList.toggle("is-highlighted", button.matches(":hover, :focus-visible"));
+      ["pointerenter", "pointerleave", "focus", "blur"].forEach((event) => button.addEventListener(event, highlight));
+    });
+  });
 
   const defaultPanel = panels.find((panel) => !panel.hidden);
   if (defaultPanel) requestAnimationFrame(() => scrollToLatest(defaultPanel));
@@ -129,12 +168,21 @@ const total = entries.length;
     button.addEventListener("click", () => {
       const value = button.dataset.timelineRange;
       if (!value) return;
+      if (button.getAttribute("aria-pressed") === "true") {
+        picker?.removeAttribute("open");
+        return;
+      }
+      // 快速切换时取消旧图动画，避免再次选中时沿用未完成的绘制进度。
+      panels.forEach((panel) => panel.getAnimations({ subtree: true }).forEach((animation) => animation.cancel()));
       panels.forEach((panel) => { panel.hidden = panel.dataset.timelinePanel !== value; });
       rangeButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
       if (rangeLabel) rangeLabel.textContent = button.textContent?.trim() || "选择范围";
       picker?.removeAttribute("open");
       const activePanel = panels.find((panel) => panel.dataset.timelinePanel === value);
-      if (activePanel) requestAnimationFrame(() => scrollToLatest(activePanel));
+      if (activePanel) requestAnimationFrame(() => {
+        scrollToLatest(activePanel);
+        drawChart(activePanel);
+      });
     });
   });
 </script>

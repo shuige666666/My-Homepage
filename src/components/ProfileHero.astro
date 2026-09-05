@@ -1,5 +1,5 @@
 ---
-import { ExternalLink, Eye, Heart, Play } from "@lucide/astro";
+import { ExternalLink, Eye, Heart, Music2, Play, Sparkles, Star } from "@lucide/astro";
 import type { BangumiPageData } from "@/types/bangumi";
 import { siteConfig } from "@/data/site";
 
@@ -24,6 +24,13 @@ const stats = [
       onerror="this.style.display='none'"
     />
     <i aria-hidden="true"></i>
+    <!-- 小饰物仅作为悬停彩蛋，不改变头像的阅读语义。 -->
+    <div class="avatar-confetti" aria-hidden="true">
+      <Star class="avatar-charm charm-star" size={23} fill="currentColor" />
+      <Music2 class="avatar-charm charm-music" size={22} />
+      <Heart class="avatar-charm charm-heart" size={18} fill="currentColor" />
+      <Sparkles class="avatar-charm charm-sparkle" size={24} />
+    </div>
   </div>
 
   <div class="profile-copy">

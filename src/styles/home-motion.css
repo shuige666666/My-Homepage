@@ -1,0 +1,182 @@
+/* 数据主页采用短促反馈、舒缓展开；不影响画廊的滚动与渲染。 */
+.page-shell {
+  --home-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.page-shell .reveal.is-visible:is(:hover, :focus-within) {
+  border-color: rgba(120, 169, 198, 0.5);
+  box-shadow: 0 24px 48px rgba(57, 101, 125, 0.17), 0 6px 18px rgba(57, 101, 125, 0.07);
+}
+
+.page-shell .reveal {
+  transition: border-color 220ms ease, background 220ms ease, box-shadow 320ms ease;
+}
+
+.stat strong {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 头像像圆形贴纸一样弹起歪头，动作只播放一轮，停留时保持轻松姿态。 */
+.profile-avatar {
+  transition: transform 480ms var(--home-ease), box-shadow 320ms ease;
+}
+
+.profile-avatar img {
+  transition: transform 480ms var(--home-ease);
+}
+
+.profile-avatar i {
+  transition: transform 420ms var(--home-ease), background 220ms ease;
+}
+
+/* 饰物不接收指针，避免鼠标经过展开区域时反复触发头像悬停。 */
+.avatar-confetti {
+  position: absolute;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.avatar-confetti {
+  inset: 0;
+}
+
+.avatar-charm {
+  position: absolute;
+  opacity: 0;
+  transform: translate(var(--charm-x), var(--charm-y)) scale(0.2) rotate(-35deg);
+  transition: opacity 180ms ease, transform 300ms var(--home-ease);
+  filter: drop-shadow(0 3px 2px rgba(73, 117, 140, 0.1));
+}
+
+.charm-star { left: -23px; top: 12px; color: #e5c44b; --charm-x: 18px; --charm-y: 18px; --charm-angle: -18deg; --charm-delay: 30ms; }
+.charm-music { right: -23px; top: 20px; color: #78a9c6; --charm-x: -18px; --charm-y: 16px; --charm-angle: 15deg; --charm-delay: 100ms; }
+.charm-heart { left: -15px; bottom: 14px; color: #d99eb7; --charm-x: 16px; --charm-y: -12px; --charm-angle: -16deg; --charm-delay: 150ms; }
+.charm-sparkle { right: -14px; bottom: -13px; color: #93bca3; --charm-x: -14px; --charm-y: -16px; --charm-angle: 12deg; --charm-delay: 200ms; }
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .profile-avatar:hover {
+    transform: translateY(-8px) scale(1.08);
+    box-shadow: 0 0 0 1px rgba(143, 188, 214, 0.4), 0 18px 30px rgba(73, 117, 140, 0.2), 6px 7px 0 rgba(255, 244, 113, 0.45);
+  }
+
+  .profile-avatar:hover img {
+    transform: rotate(-7deg);
+    animation: home-avatar-hello 680ms ease-in-out;
+  }
+
+  .profile-avatar:hover i {
+    background: var(--yellow);
+    transform: translate(3px, -5px) scale(1.2);
+    animation: home-avatar-dot 620ms 70ms backwards;
+  }
+
+  .profile-avatar:hover .avatar-charm {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(var(--charm-angle));
+    animation: home-charm-bloom 680ms var(--charm-delay) backwards;
+  }
+}
+
+@keyframes home-charm-bloom {
+  0% { opacity: 0; transform: translate(var(--charm-x), var(--charm-y)) scale(0.2) rotate(-35deg); }
+  55% { opacity: 1; transform: translate(0, -4px) scale(1.22) rotate(calc(var(--charm-angle) + 12deg)); }
+  78% { transform: translate(0, 2px) scale(0.94) rotate(var(--charm-angle)); }
+  100% { opacity: 1; transform: translate(0, 0) scale(1) rotate(var(--charm-angle)); }
+}
+
+@keyframes home-avatar-hello {
+  0% { transform: rotate(0deg); }
+  30% { transform: rotate(-12deg); }
+  58% { transform: rotate(3deg); }
+  80% { transform: rotate(-9deg); }
+  100% { transform: rotate(-7deg); }
+}
+
+@keyframes home-avatar-dot {
+  0% { transform: translate(0, 0) scale(1); }
+  36% { transform: translate(3px, -15px) scale(1.25); }
+  65% { transform: translate(3px, -2px) scale(1.12); }
+  100% { transform: translate(3px, -5px) scale(1.2); }
+}
+
+.favorite-card .cover-frame {
+  transition: transform 420ms var(--home-ease), box-shadow 420ms var(--home-ease);
+}
+
+.favorite-card a:focus-visible .cover-frame {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 24px rgba(40, 71, 94, 0.18);
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .favorite-card a:hover .cover-frame {
+    transform: perspective(700px) translateY(-4px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  }
+
+  .favorite-card a:hover .cover-frame img {
+    transform: scale(1.055) translate(var(--cover-x, 0px), var(--cover-y, 0px));
+  }
+
+  .favorite-card a:hover .score-badge {
+    transform: translateY(-2px);
+    background: rgba(41, 70, 94, 0.9);
+  }
+}
+
+.score-badge {
+  transition: transform 420ms var(--home-ease), background 220ms ease;
+}
+
+.timeline-point {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 220ms var(--home-ease), fill 180ms ease;
+}
+
+.timeline-point.is-highlighted {
+  fill: var(--yellow);
+  transform: scale(1.35);
+}
+
+.page-shell :is(a, button, summary):focus-visible {
+  outline: 2px solid #78a9c6;
+  outline-offset: 4px;
+}
+
+/* 入场只控制独立位移和透明度，正文与现有翻页变换保持稳定。 */
+@media (prefers-reduced-motion: no-preference) {
+  .review-dialog[open] .review-modal-shell {
+    animation: home-note-open 360ms var(--home-ease);
+  }
+
+  .review-dialog[open]::backdrop {
+    animation: home-backdrop-open 280ms ease;
+  }
+
+  .review-dialog[open] .review-stack {
+    animation: home-stack-open 460ms 90ms var(--home-ease) backwards;
+  }
+}
+
+@keyframes home-note-open {
+  from { opacity: 0; translate: 0 14px; scale: 0.98; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+
+@keyframes home-stack-open {
+  from { opacity: 0; scale: 0.94; }
+}
+
+@keyframes home-backdrop-open {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .favorite-card a:is(:hover, :focus-visible) .cover-frame,
+  .favorite-card a:hover .cover-frame img,
+  .timeline-point.is-highlighted {
+    transform: none;
+  }
+}

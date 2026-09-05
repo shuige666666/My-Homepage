@@ -34,17 +34,5 @@ const syncDate = data.syncedAt
 </BaseLayout>
 
 <script>
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!reducedMotion) {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        entry.target.classList.add("is-visible");
-        observer.unobserve(entry.target);
-      });
-    }, { threshold: 0.12 });
-    document.querySelectorAll(".reveal").forEach((element) => observer.observe(element));
-  } else {
-    document.querySelectorAll(".reveal").forEach((element) => element.classList.add("is-visible"));
-  }
+  import "../scripts/home-motion";
 </script>

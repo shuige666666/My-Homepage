@@ -198,87 +198,6 @@ main {
     transform 260ms cubic-bezier(0.2, 0.9, 0.2, 1);
 }
 
-.profile-avatar::before,
-.profile-avatar::after {
-  position: absolute;
-  border-radius: 50%;
-  content: "";
-  pointer-events: none;
-}
-
-.profile-avatar::before {
-  inset: -13px;
-  z-index: -1;
-  background: conic-gradient(
-    from 0deg,
-    rgba(255, 244, 113, 0),
-    rgba(255, 249, 188, 0.774),
-    rgba(205, 255, 224, 0.808),
-    rgba(170, 224, 255, 0.815),
-    rgba(255, 244, 113, 0)
-  );
-  opacity: 0;
-  transform: scale(0.86) rotate(0deg);
-  filter: blur(1px);
-  transition:
-    opacity 220ms ease,
-    transform 420ms cubic-bezier(0.2, 0.9, 0.2, 1);
-}
-
-.profile-avatar::after {
-  inset: -20px;
-  z-index: 3;
-  opacity: 0;
-  background:
-    radial-gradient(
-      circle at 24% 20%,
-      rgba(255, 249, 188, 0.774) 0 4px,
-      transparent 5px
-    ),
-    radial-gradient(
-      circle at 82% 28%,
-      rgba(170, 224, 255, 0.815) 0 3px,
-      transparent 4px
-    ),
-    radial-gradient(
-      circle at 72% 82%,
-      rgba(205, 255, 224, 0.808) 0 4px,
-      transparent 5px
-    ),
-    radial-gradient(
-      circle at 13% 72%,
-      rgba(255, 255, 255, 0.68) 0 3px,
-      transparent 4px
-    );
-  transform: scale(0.72) rotate(-18deg);
-  transition:
-    opacity 180ms ease,
-    transform 460ms cubic-bezier(0.2, 0.9, 0.2, 1);
-}
-
-.profile-avatar:hover,
-.profile-avatar:focus-within {
-  box-shadow:
-    0 0 0 1px rgba(143, 188, 214, 0.45),
-    0 18px 38px rgba(73, 117, 140, 0.18),
-    0 0 34px rgba(255, 244, 113, 0.18);
-  transform: translateY(-6px) scale(1.035);
-}
-
-.profile-avatar:hover::before,
-.profile-avatar:focus-within::before {
-  opacity: 1;
-  transform: scale(1) rotate(150deg);
-  animation: avatar-ring-spin 1600ms linear infinite;
-}
-
-.profile-avatar:hover::after,
-.profile-avatar:focus-within::after {
-  opacity: 1;
-  transform: scale(1) rotate(18deg);
-  animation: avatar-sparkle-pop 900ms ease both;
-}
-
 .profile-avatar > span {
   display: grid;
   width: 100%;
@@ -304,12 +223,6 @@ main {
     transform 260ms ease;
 }
 
-.profile-avatar:hover img,
-.profile-avatar:focus-within img {
-  filter: saturate(1.08) contrast(1.03);
-  transform: scale(1.015);
-}
-
 .profile-avatar i {
   position: absolute;
   right: 4px;
@@ -323,12 +236,6 @@ main {
   transition:
     background 180ms ease,
     transform 260ms cubic-bezier(0.2, 0.9, 0.2, 1);
-}
-
-.profile-avatar:hover i,
-.profile-avatar:focus-within i {
-  background: var(--yellow);
-  transform: translate(3px, -4px) scale(1.18);
 }
 
 .profile-copy {
@@ -1188,6 +1095,8 @@ main {
 
 .review-modal-shell {
   position: relative;
+  /* 固定在装饰纸页上方，入场动画结束后也保持相同的层叠关系。 */
+  z-index: 1;
   padding: 34px;
   border: 1px solid rgba(143, 188, 214, 0.25);
   border-radius: 7px;
@@ -1242,7 +1151,8 @@ main {
 
 .review-stack {
   position: absolute;
-  z-index: -1;
+  z-index: 0;
+  pointer-events: none;
   border: 1px solid rgba(143, 188, 214, 0.18);
   border-radius: 7px;
   background:
@@ -1353,35 +1263,32 @@ main {
   gap: 24px;
   opacity: 0;
   pointer-events: none;
-  transform: translateX(22px) scale(0.985);
-  transition:
-    opacity 240ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  visibility: hidden;
 }
 
 .review-detail.is-active {
   position: relative;
   opacity: 1;
   pointer-events: auto;
-  transform: translateX(0) scale(1);
+  visibility: visible;
 }
 
 .review-detail.is-entering.from-next {
-  animation: review-slide-from-next 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: review-slide-from-next 260ms 100ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .review-detail.is-entering.from-prev {
-  animation: review-slide-from-prev 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: review-slide-from-prev 260ms 100ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .review-detail.is-leaving.to-prev {
   position: absolute;
-  animation: review-slide-to-prev 240ms cubic-bezier(0.45, 0, 0.55, 1) both;
+  animation: review-slide-to-prev 140ms ease-out both;
 }
 
 .review-detail.is-leaving.to-next {
   position: absolute;
-  animation: review-slide-to-next 240ms cubic-bezier(0.45, 0, 0.55, 1) both;
+  animation: review-slide-to-next 140ms ease-out both;
 }
 
 .review-detail-subject {
@@ -1646,54 +1553,29 @@ main {
   background: rgba(255, 244, 113, 0.92);
 }
 
+/* 先淡出再接入，短距离水平位移提示方向，避免两段正文长时间重叠。 */
 @keyframes review-slide-from-next {
-  0% {
-    opacity: 0;
-    transform: translateX(54px) translateY(10px) scale(0.97);
-  }
-  58% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0) translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes review-slide-from-prev {
-  0% {
-    opacity: 0;
-    transform: translateX(-54px) translateY(10px) scale(0.97);
-  }
-  58% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0) translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateX(-14px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes review-slide-to-prev {
-  0% {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(-38px) translateY(-8px) scale(0.975);
-  }
+  from { opacity: var(--review-exit-opacity, 1); transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-8px); }
 }
 
 @keyframes review-slide-to-next {
-  0% {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(38px) translateY(-8px) scale(0.975);
-  }
+  from { opacity: var(--review-exit-opacity, 1); transform: translateX(0); }
+  to { opacity: 0; transform: translateX(8px); }
+}
+
+.review-detail.is-leaving {
+  pointer-events: none;
 }
 
 .compact-empty {
@@ -1752,11 +1634,7 @@ footer a {
 }
 
 .reveal {
-  opacity: 0;
-  transform: translateY(15px);
   transition:
-    opacity 600ms ease,
-    transform 600ms ease,
     border-color 220ms ease,
     background 220ms ease,
     box-shadow 260ms ease;
@@ -1782,7 +1660,7 @@ footer a {
   box-shadow:
     0 28px 60px rgba(57, 101, 125, 0.17),
     0 10px 22px rgba(57, 101, 125, 0.08);
-  transform: translateY(-8px);
+  transform: none;
 }
 
 .favorites-section.reveal:not(.is-visible) {
@@ -1793,29 +1671,6 @@ footer a {
 }
 .reviews.reveal:not(.is-visible) {
   transition-delay: 190ms;
-}
-
-@keyframes avatar-ring-spin {
-  to {
-    transform: scale(1) rotate(510deg);
-  }
-}
-
-@keyframes avatar-sparkle-pop {
-  0% {
-    opacity: 0;
-    transform: scale(0.7) rotate(-18deg);
-  }
-
-  45% {
-    opacity: 1;
-    transform: scale(1.08) rotate(12deg);
-  }
-
-  100% {
-    opacity: 1;
-    transform: scale(1) rotate(18deg);
-  }
 }
 
 @media (max-width: 1080px) {
@@ -2111,10 +1966,5 @@ footer a {
     animation-duration: 0.01ms !important;
   }
 
-  .profile-avatar:hover::before,
-  .profile-avatar:focus-within::before,
-  .profile-avatar:hover::after,
-  .profile-avatar:focus-within::after {
-    animation: none;
-  }
+
 }

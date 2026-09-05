@@ -75,11 +75,12 @@ const visibleReviews = reviews.slice(0, 4);
 
     {reviews.length > 0 && (
       <dialog class="review-dialog" aria-label="全部评分与短评" data-review-dialog>
+        <!-- 纸页与主卡片分层，避免主卡片入场动画建立层叠上下文时纸页覆盖底色。 -->
+        <div class="review-stack review-stack-left near" aria-hidden="true"></div>
+        <div class="review-stack review-stack-left far" aria-hidden="true"></div>
+        <div class="review-stack review-stack-right near" aria-hidden="true"></div>
+        <div class="review-stack review-stack-right far" aria-hidden="true"></div>
         <div class="review-modal-shell">
-          <div class="review-stack review-stack-left near" aria-hidden="true"></div>
-          <div class="review-stack review-stack-left far" aria-hidden="true"></div>
-          <div class="review-stack review-stack-right near" aria-hidden="true"></div>
-          <div class="review-stack review-stack-right far" aria-hidden="true"></div>
           <button class="review-dialog-close" type="button" data-review-close aria-label="关闭全部评论窗口">
             <X size={21} />
           </button>
@@ -175,6 +176,7 @@ const visibleReviews = reviews.slice(0, 4);
    * 不播放动效时直接同步当前评价，主要用于初次打开弹窗。
    */
   const syncActiveReview = (nextIndex: number) => {
+    window.clearTimeout(animationTimer);
     if (!slides.length) return;
     activeIndex = (nextIndex + slides.length) % slides.length;
     slides.forEach((slide, index) => {
@@ -186,16 +188,22 @@ const visibleReviews = reviews.slice(0, 4);
   };
 
   /**
-   * 按方向切换评价卡片；旧卡片轻微缩退，新卡片带柔和位移和虚化进入。
+   * 先淡出旧评价，再从浏览方向轻移接入新评价，保持卡片大小与阅读位置稳定。
    */
   const setActiveReview = (nextIndex: number, direction: "next" | "prev" = "next") => {
     if (!slides.length) return;
     const normalizedIndex = (nextIndex + slides.length) % slides.length;
     if (normalizedIndex === activeIndex) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      syncActiveReview(normalizedIndex);
+      return;
+    }
 
     window.clearTimeout(animationTimer);
     const currentSlide = slides[activeIndex];
     const nextSlide = slides[normalizedIndex];
+    // 连续点击时沿用当前透明度，避免尚未显现的卡片突然闪亮再退场。
+    currentSlide.style.setProperty("--review-exit-opacity", getComputedStyle(currentSlide).opacity);
 
     // 连续点击时，先清掉所有滑页的激活态，避免上一轮退场页重新进入文档流。
     slides.forEach((slide) => {
@@ -214,7 +222,7 @@ const visibleReviews = reviews.slice(0, 4);
         slide.classList.remove("is-entering", "is-leaving", "from-next", "from-prev", "to-next", "to-prev");
         slide.classList.toggle("is-active", index === activeIndex);
       });
-    }, 300);
+    }, 360);
   };
 
   openButton?.addEventListener("click", () => {

@@ -60,8 +60,9 @@ const { entries } = Astro.props;
   const previous = document.querySelector<HTMLButtonElement>("[data-rail-prev]");
   const next = document.querySelector<HTMLButtonElement>("[data-rail-next]");
 
+  /** 按可见宽度浏览收藏，减少动态效果时直接定位到目标位置。 */
   const moveRail = (direction: number) => {
-    rail?.scrollBy({ left: direction * Math.min(rail.clientWidth * 0.78, 720), behavior: "smooth" });
+    rail?.scrollBy({ left: direction * Math.min(rail.clientWidth * 0.78, 720), behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
   };
 
   previous?.addEventListener("click", () => moveRail(-1));
