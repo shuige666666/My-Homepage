@@ -1079,7 +1079,7 @@ main {
 
 .review-dialog {
   width: min(970px, calc(100vw - 56px));
-  max-height: min(790px, calc(100vh - 46px));
+  max-height: min(806px, calc(100vh - 30px));
   padding: 0;
   border: 0;
   border-radius: 7px;
@@ -1252,7 +1252,8 @@ main {
 
 .review-slides {
   position: relative;
-  min-height: 604px;
+  /* 切换时评价共用同一展示高度，左侧标题长短不再推挤整个弹窗。 */
+  height: min(620px, calc(100dvh - 150px));
 }
 
 .review-detail {
@@ -1260,7 +1261,9 @@ main {
   position: absolute;
   inset: 0;
   grid-template-columns: 292px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 24px;
+  height: 100%;
   opacity: 0;
   pointer-events: none;
   visibility: hidden;
@@ -1294,7 +1297,8 @@ main {
 .review-detail-subject {
   position: relative;
   z-index: 2;
-  padding: 22px;
+  min-height: 0;
+  padding: 16px;
   border: 1px solid rgba(143, 188, 214, 0.24);
   border-radius: 7px;
   background:
@@ -1304,10 +1308,13 @@ main {
       rgba(255, 255, 255, 0.82)
     ),
     rgba(223, 241, 244, 0.55);
+  overflow-y: auto;
 }
 
 .review-detail-cover {
   display: block;
+  width: min(100%, 190px);
+  margin-inline: auto;
   aspect-ratio: 3 / 4;
   border-radius: 6px;
   background: var(--mist);
@@ -1322,7 +1329,7 @@ main {
 }
 
 .review-detail-meta {
-  margin-top: 19px;
+  margin-top: 12px;
 }
 
 .review-detail-kicker {
@@ -1342,7 +1349,7 @@ main {
 }
 
 .review-detail-original {
-  margin: 5px 0 16px;
+  margin: 5px 0 10px;
   color: #667c8b;
   font-size: 12px;
   line-height: 1.5;
@@ -1351,7 +1358,7 @@ main {
 .review-detail-meta dl {
   display: grid;
   margin: 0;
-  gap: 9px;
+  gap: 7px;
 }
 
 .review-detail-meta dl > div {
@@ -1399,7 +1406,7 @@ main {
 
 .review-detail-link {
   display: inline-flex;
-  margin-top: 18px;
+  margin-top: 12px;
   padding: 8px 12px;
   align-items: center;
   gap: 6px;
@@ -1414,7 +1421,8 @@ main {
   z-index: 2;
   display: flex;
   min-width: 0;
-  min-height: 604px;
+  min-height: 0;
+  height: 100%;
   padding: 32px 38px 28px;
   flex-direction: column;
   border: 1px solid rgba(143, 188, 214, 0.22);
@@ -1470,7 +1478,9 @@ main {
 .review-detail-comment {
   position: relative;
   z-index: 2;
-  max-height: 390px;
+  min-height: 0;
+  max-height: none;
+  flex: 1;
   margin: 0;
   padding-right: 8px;
   color: #425e73;
@@ -1871,12 +1881,15 @@ footer a {
   }
 
   .review-slides {
-    min-height: 0;
+    height: min(660px, calc(100dvh - 132px));
   }
 
   .review-detail {
     grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    align-content: start;
     gap: 14px;
+    overflow-y: auto;
   }
 
   .review-detail-subject {
@@ -1884,10 +1897,12 @@ footer a {
     padding: 14px;
     grid-template-columns: 108px minmax(0, 1fr);
     gap: 14px;
+    overflow: visible;
   }
 
   .review-detail-cover {
     align-self: start;
+    width: 100%;
   }
 
   .review-detail-meta {
@@ -1918,6 +1933,7 @@ footer a {
 
   .review-detail-note {
     min-height: 360px;
+    height: auto;
     padding: 24px 20px 20px;
   }
 
