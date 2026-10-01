@@ -1,0 +1,387 @@
+@charset "UTF-8";
+
+.album-gallery {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: #262723;
+  background: #f8f8f6;
+  overflow: hidden;
+}
+
+.album-gallery::backdrop {
+  background: rgba(19, 25, 27, 0.68);
+}
+
+.album-gallery[open] {
+  animation: album-reveal 460ms cubic-bezier(.2,.7,.2,1) both;
+}
+
+.album-gallery__canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #f8f8f6;
+  isolation: isolate;
+}
+
+.album-gallery__header,
+.album-gallery__footer {
+  position: absolute;
+  z-index: 5;
+  right: clamp(30px, 4vw, 72px);
+  left: clamp(30px, 4vw, 72px);
+  display: flex;
+  justify-content: space-between;
+}
+
+.album-gallery__header {
+  top: clamp(30px, 4vw, 62px);
+  align-items: flex-start;
+}
+
+.album-gallery__brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  font: 700 12px/1.3 Arial, sans-serif;
+  letter-spacing: .18em;
+}
+
+.album-gallery__brand-mark {
+  font: italic 800 29px/1 Georgia, serif;
+  letter-spacing: -.16em;
+}
+
+.album-gallery__brand-sub {
+  padding-left: 13px;
+  border-left: 1px solid #929087;
+  color: #77776f;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.album-gallery__close {
+  display: inline-flex;
+  min-height: 35px;
+  padding: 0 0 5px 12px;
+  align-items: center;
+  gap: 16px;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: #f8f8f6;
+  cursor: pointer;
+  font-size: 12px;
+  letter-spacing: .08em;
+  transition: gap 200ms ease;
+}
+
+.album-gallery__close:hover { gap: 24px; }
+
+.album-gallery__intro {
+  position: absolute;
+  z-index: 3;
+  top: clamp(118px, 14vh, 165px);
+  left: clamp(30px, 4vw, 72px);
+  width: min(33vw, 440px);
+  pointer-events: none;
+}
+
+.album-gallery__eyebrow,
+.album-gallery__caption-kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 700 11px/1.4 Arial, sans-serif;
+  letter-spacing: .18em;
+}
+
+.album-gallery__slash { color: #a8a49b; }
+.album-gallery__eyebrow-line { width: 29px; height: 1px; background: #7c7b71; }
+
+.album-gallery__intro h2 {
+  max-width: 650px;
+  margin: 17px 0 12px;
+  font: 500 clamp(38px, 3.6vw, 63px)/1.08 "Noto Serif CJK SC", "STSong", Georgia, serif;
+  letter-spacing: -.045em;
+  text-wrap: balance;
+}
+
+.album-gallery__intro p {
+  margin: 0;
+  color: #75746d;
+  font: italic 17px/1.4 Georgia, serif;
+  letter-spacing: .015em;
+}
+
+.album-gallery__stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+.album-gallery__stage.is-dragging { cursor: grabbing; }
+.album-gallery__stage:focus { outline: none; }
+.album-gallery__orbit { position: absolute; inset: 0; perspective: 1450px; }
+
+.album-gallery__disc {
+  position: absolute;
+  top: 47%;
+  left: 51.5%;
+  display: block;
+  width: min(42vw, 70vh, 660px);
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transform: translate3d(calc(-50% + var(--album-x, 0px)), calc(-50% + var(--album-y, 0px)), 0) rotateZ(var(--album-z, 24deg)) rotateY(var(--album-y-rotation, -34deg)) skewX(var(--album-skew, -16deg)) scale(var(--album-scale, 1));
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.album-gallery__disc[aria-hidden="true"] { pointer-events: none; }
+.album-gallery__disc-body {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 50%;
+  transform: rotateX(var(--tilt-x, 0deg)) rotateY(calc(var(--album-flip, 0deg) + var(--tilt-y, 0deg)));
+  transform-style: preserve-3d;
+  transition: transform 580ms cubic-bezier(.18,.75,.18,1);
+}
+
+.album-gallery__disc-body::before {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f5f5f1 0%, #9fa5a8 30%, #e0e2e0 65%, #828b90 100%);
+  box-shadow: 0 15px 24px rgba(29, 30, 29, .16);
+  content: "";
+  transform: translate3d(3px, 7px, -5px);
+}
+
+.album-gallery__disc-face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border: 4px solid #c9ced0;
+  border-radius: 50%;
+  overflow: hidden;
+  backface-visibility: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .88), 0 4px 10px rgba(32, 32, 30, .12);
+}
+
+.album-gallery__disc-face::after {
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(255, 255, 255, .65);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.album-gallery__disc-face--front { background: #dad7ce; }
+
+.album-gallery__disc-face--front img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+}
+
+.album-gallery__grooves {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle at 50% 50%, transparent 0 4px, rgba(255,255,255,.08) 5px, rgba(21,20,18,.07) 6px, transparent 7px);
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+.album-gallery__disc-hole {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: 10%;
+  aspect-ratio: 1;
+  border: 8px solid #d0d4d6;
+  border-radius: 50%;
+  background: #f8f8f6;
+  box-shadow: 0 0 0 2px #959da2, 0 0 0 10px #e5e7e6, 0 0 0 18px #aab0b3, 0 0 0 23px rgba(238, 239, 237, .72), inset 0 2px 5px rgba(28, 31, 33, .24);
+  transform: translate(-50%, -50%);
+}
+
+.album-gallery__disc-face--back {
+  display: grid;
+  place-items: center;
+  color: #dedbd2;
+  background: repeating-radial-gradient(circle, #2b2d2c 0 3px, #353735 4px 5px, #2b2d2c 6px 10px);
+  transform: rotateY(180deg);
+}
+
+.album-gallery__back-label {
+  display: flex;
+  width: 37%;
+  aspect-ratio: 1;
+  padding: 9% 4% 4%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  border: 2px solid #aaa99e;
+  border-radius: 50%;
+  background: #d9d6ce;
+  color: #343531;
+  text-align: center;
+  font: 700 clamp(7px, .8vw, 11px)/1.15 Arial, sans-serif;
+  letter-spacing: .1em;
+}
+
+.album-gallery__back-label strong { font: italic 500 clamp(28px, 5vw, 74px)/1 Georgia, serif; }
+.album-gallery__back-label small { font-size: clamp(6px, .7vw, 10px); letter-spacing: 0; }
+
+.album-gallery__hover-ring {
+  position: absolute;
+  inset: -6%;
+  display: block;
+  width: 112%;
+  height: 112%;
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(.95) rotate(7deg);
+  transition: opacity 160ms ease, transform 500ms cubic-bezier(.2,.7,.2,1);
+}
+
+.album-gallery__hover-ring path {
+  fill: none;
+  stroke: #292b29;
+  stroke-linecap: round;
+  stroke-width: 3;
+  stroke-dasharray: 3200;
+  stroke-dashoffset: 3200;
+  transition: stroke-dashoffset 720ms cubic-bezier(.2,.7,.2,1);
+}
+
+.album-gallery__hover-ring path + path { stroke-width: 1.6; transition-delay: 85ms; }
+
+.album-gallery__disc:hover .album-gallery__hover-ring,
+.album-gallery__disc:focus-visible .album-gallery__hover-ring {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+.album-gallery__disc:hover .album-gallery__hover-ring path,
+.album-gallery__disc:focus-visible .album-gallery__hover-ring path { stroke-dashoffset: 0; }
+
+.album-gallery .album-gallery__footer {
+  position: absolute;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  bottom: clamp(33px, 5vh, 64px);
+  align-items: flex-end;
+  gap: 25px;
+  color: #262723;
+  font-size: inherit;
+}
+
+.album-gallery__caption { width: min(32vw, 390px); margin-left: clamp(0px, 32vw, 630px); }
+.album-gallery__caption-kicker { color: #6c6b63; }
+
+.album-gallery__caption p {
+  margin: 10px 0 13px;
+  font: italic 400 clamp(18px, 2vw, 28px)/1.25 Georgia, "Noto Serif CJK SC", serif;
+}
+
+.album-gallery__hint { color: #838179; font-size: 11px; letter-spacing: .035em; }
+
+.album-gallery__navigation { display: flex; align-items: center; gap: 8px; }
+.album-gallery__navigation > button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #55564f;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.album-gallery__navigation > button:hover { color: #f8f8f6; background: #2c2d29; transform: scale(1.08); }
+.album-gallery__navigation > button:disabled { opacity: .3; cursor: default; transform: none; }
+
+.album-gallery__pagination { display: flex; align-items: center; gap: 4px; padding-inline: 12px; }
+.album-gallery__pagination button {
+  display: grid;
+  width: 29px;
+  height: 31px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: #85837b;
+  cursor: pointer;
+  font: 11px Georgia, serif;
+  transition: color 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.album-gallery__pagination button:hover { color: #292a26; transform: translateY(-3px); }
+.album-gallery__pagination button[aria-current="true"] { border-color: #292a26; color: #292a26; font-size: 14px; }
+
+@keyframes album-reveal { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 800px) {
+  .album-gallery__header, .album-gallery__footer { right: 26px; left: 26px; }
+  .album-gallery__header { top: 27px; }
+  .album-gallery__brand-sub { display: none; }
+  .album-gallery__close span { display: none; }
+  .album-gallery__intro { top: 106px; left: 30px; width: calc(100% - 60px); }
+  .album-gallery__intro h2 { max-width: 95%; margin-top: 13px; font-size: clamp(39px, 9vw, 72px); }
+  .album-gallery__intro p { font-size: 13px; }
+  .album-gallery__disc { top: 49%; left: 50%; width: min(82vw, 55vh, 580px); }
+  .album-gallery .album-gallery__footer { bottom: 26px; display: block; }
+  .album-gallery__caption { width: 100%; margin-left: 0; }
+  .album-gallery__caption p { max-width: 75%; margin: 6px 0 16px; font-size: 19px; }
+  .album-gallery__hint { display: none; }
+  .album-gallery__navigation { justify-content: center; }
+  .album-gallery__pagination { gap: 0; padding-inline: 3px; }
+  .album-gallery__pagination button { width: clamp(22px, 6vw, 29px); }
+}
+
+@media (max-width: 480px) {
+  .album-gallery__brand { gap: 8px; font-size: 10px; }
+  .album-gallery__brand-mark { font-size: 23px; }
+  .album-gallery__intro { top: 90px; }
+  .album-gallery__intro h2 { font-size: clamp(35px, 10vw, 52px); }
+  .album-gallery__disc { top: 48%; width: min(89vw, 49vh); }
+  .album-gallery .album-gallery__footer { bottom: 23px; }
+  .album-gallery__caption p { margin-bottom: 9px; font-size: 17px; }
+  .album-gallery__navigation > button { width: 31px; height: 31px; }
+  .album-gallery__pagination button { width: clamp(19px, 5.9vw, 25px); font-size: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album-gallery[open] { animation: none; }
+  .album-gallery__disc, .album-gallery__disc-body, .album-gallery__hover-ring, .album-gallery__hover-ring path { transition-duration: 0ms; }
+}

@@ -493,8 +493,14 @@ main {
   scroll-snap-align: start;
 }
 
-.favorite-card a {
+.favorite-card button {
   display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
 }
 
 .cover-frame {
@@ -517,12 +523,13 @@ main {
   transition: transform 350ms ease;
 }
 
-.favorite-card a:hover .cover-frame {
+.favorite-card button:hover .cover-frame,
+.favorite-card button:focus-visible .cover-frame {
   box-shadow: 0 14px 28px rgba(40, 71, 94, 0.2);
   transform: translateY(-5px);
 }
 
-.favorite-card a:hover img,
+.favorite-card button:hover img,
 .recent-card a:hover img {
   transform: scale(1.035);
 }
@@ -580,7 +587,8 @@ main {
     transform 180ms ease;
 }
 
-.favorite-card a:hover .open-subject {
+.favorite-card button:hover .open-subject,
+.favorite-card button:focus-visible .open-subject {
   opacity: 1;
   transform: translateY(0);
 }
@@ -595,7 +603,7 @@ main {
   white-space: nowrap;
 }
 
-.favorite-card > a > p {
+.favorite-card > button > p {
   margin: 4px 0 0;
   overflow: hidden;
   color: var(--muted);

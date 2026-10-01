@@ -1,14 +1,27 @@
 ---
-import { ChevronLeft, ChevronRight, ExternalLink, Star } from "@lucide/astro";
+import { ChevronLeft, ChevronRight, Disc3, Star, X } from "@lucide/astro";
 import type { AnimeEntry } from "@/types/bangumi";
 import { siteConfig } from "@/data/site";
 import SectionHeading from "./SectionHeading.astro";
+import "../styles/album-gallery.css";
 
 interface Props {
   entries: AnimeEntry[];
 }
 
 const { entries } = Astro.props;
+const albumImages: Record<number, string> = {
+  1424: "轻音少女.jpg",
+  400602: "葬送的芙莉莲.jpg",
+  78405: "悠哉日常大王.jpg",
+  183875: "你的名字。.jpg",
+  604826: "超辉夜姬！.jpg",
+  328609: "孤独摇滚！.jpg",
+  440: "校园迷糊大王.jpg",
+  514358: "小城日常.jpg",
+  8402: "吊带袜天使.jpg",
+  977: "阿滋漫画大王.jpg",
+};
 ---
 
 <section class="favorites-section reveal" aria-label="我最喜欢的动漫">
@@ -30,17 +43,17 @@ const { entries } = Astro.props;
     <div class="favorite-rail" data-favorite-rail>
       {entries.map((entry, index) => (
         <article class="favorite-card">
-          <a href={entry.url} target="_blank" rel="noreferrer" aria-label={`在 Bangumi 查看 ${entry.nameCn || entry.name}`}>
+          <button type="button" data-album-open={index} aria-label={`打开 ${entry.nameCn || entry.name} 的光碟展示`}>
             <div class="cover-frame">
               <img src={entry.image} alt="" loading={index < 5 ? "eager" : "lazy"} />
               <span class="rank-number">{String(index + 1).padStart(2, "0")}</span>
-              <span class="open-subject"><ExternalLink size={16} /></span>
+              <span class="open-subject"><Disc3 size={16} /></span>
               <span class="score-badge"><Star size={13} fill="currentColor" /> {entry.userScore.toFixed(1)}</span>
             </div>
             <h3>{entry.nameCn || entry.name}</h3>
             {entry.nameCn && <p>{entry.name}</p>}
             {siteConfig.showFavoriteNotes && entry.note && <blockquote>{entry.note}</blockquote>}
-          </a>
+          </button>
         </article>
       ))}
     </div>
@@ -55,7 +68,74 @@ const { entries } = Astro.props;
   )}
 </section>
 
+{entries.length > 0 && (
+  <dialog class="album-gallery" data-album-gallery aria-label="我最喜欢的动漫光碟画廊">
+    <div class="album-gallery__canvas">
+      <header class="album-gallery__header">
+        <div class="album-gallery__brand"><span class="album-gallery__brand-mark">A /</span> PRIVATE COLLECTION <span class="album-gallery__brand-sub">ANIME ON DISC</span></div>
+        <button class="album-gallery__close" type="button" data-album-close aria-label="关闭光碟画廊"><span>关闭画廊</span><X size={18} /></button>
+      </header>
+
+      <div class="album-gallery__intro" aria-live="polite">
+        <div class="album-gallery__eyebrow"><span data-album-number>01</span> <span class="album-gallery__slash">/</span> {String(entries.length).padStart(2, "0")} <span class="album-gallery__eyebrow-line"></span> MY FAVORITE ANIME</div>
+        <h2 data-album-title>{entries[0].nameCn || entries[0].name}</h2>
+        <p data-album-native>{entries[0].name}</p>
+      </div>
+
+      <div class="album-gallery__stage" data-album-stage tabindex="0" aria-label="光碟画廊：方向键浏览，回车打开，空格翻面">
+        <div class="album-gallery__orbit">
+          {entries.map((entry, index) => (
+            <button
+              type="button"
+              class="album-gallery__disc"
+              data-album-disc={index}
+              data-title={entry.nameCn || entry.name}
+              data-native={entry.name}
+              data-note={entry.note || ""}
+              data-score={entry.userScore.toFixed(1)}
+              data-url={entry.url}
+              aria-label={`${entry.nameCn || entry.name}，选中光碟后再次点击打开 Bangumi`}
+            >
+              <span class="album-gallery__disc-body">
+                <span class="album-gallery__disc-face album-gallery__disc-face--front">
+                  <img src={albumImages[entry.id] ? `/images/album/raw/${albumImages[entry.id]}` : entry.image} alt="" loading={index < 3 ? "eager" : "lazy"} draggable="false" />
+                  <span class="album-gallery__grooves"></span>
+                  <span class="album-gallery__disc-hole"></span>
+                </span>
+                <span class="album-gallery__disc-face album-gallery__disc-face--back">
+                  <span class="album-gallery__back-label"><span>PRIVATE<br />COLLECTION</span><strong>{String(index + 1).padStart(2, "0")}</strong><small>{entry.nameCn || entry.name}</small></span>
+                  <span class="album-gallery__disc-hole"></span>
+                </span>
+              </span>
+              <svg class="album-gallery__hover-ring" viewBox="0 0 1000 1000" aria-hidden="true">
+                <path d="M507 29 C720 12 929 174 969 405 C1012 629 862 900 618 970 C378 1035 116 893 40 660 C-30 435 83 170 306 63 C367 34 438 25 507 29" />
+                <path d="M515 15 C763 12 954 195 982 441 C1011 698 803 947 555 981 C312 1019 75 850 25 608 C-27 361 127 94 370 36" />
+              </svg>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <footer class="album-gallery__footer">
+        <div class="album-gallery__caption">
+          <span class="album-gallery__caption-kicker">ON REPEAT · <span data-album-score>{entries[0].userScore.toFixed(1)}</span> / 10</span>
+          <p data-album-note>{entries[0].note || entries[0].name}</p>
+          <span class="album-gallery__hint">拖动 / 滚动切换 · 点击光碟前往 Bangumi · 空格翻面</span>
+        </div>
+        <nav class="album-gallery__navigation" aria-label="光碟导航">
+          <button type="button" data-album-prev aria-label="上一张光碟"><ChevronLeft size={23} /></button>
+          <div class="album-gallery__pagination" data-album-pagination>
+            {entries.map((entry, index) => <button type="button" data-album-page={index} aria-label={`查看第 ${index + 1} 张：${entry.nameCn || entry.name}`}>{String(index + 1).padStart(2, "0")}</button>)}
+          </div>
+          <button type="button" data-album-next aria-label="下一张光碟"><ChevronRight size={23} /></button>
+        </nav>
+      </footer>
+    </div>
+  </dialog>
+)}
+
 <script>
+  import { setupAlbumGallery } from "../scripts/album-gallery";
   const rail = document.querySelector<HTMLElement>("[data-favorite-rail]");
   const previous = document.querySelector<HTMLButtonElement>("[data-rail-prev]");
   const next = document.querySelector<HTMLButtonElement>("[data-rail-next]");
@@ -72,4 +152,6 @@ const { entries } = Astro.props;
     event.preventDefault();
     rail.scrollLeft += event.deltaY;
   }, { passive: false });
+
+  setupAlbumGallery();
 </script>

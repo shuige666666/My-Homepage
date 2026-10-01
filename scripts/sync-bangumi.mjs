@@ -128,12 +128,14 @@ async function selectFavorites(entries, config) {
   const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
   const favorites = [];
 
-  for (const { id, note, score } of config.subjects.slice(0, 10)) {
+  for (const { id, note, score, displayName } of config.subjects.slice(0, 10)) {
     const displayScore = typeof score === "number" ? score : undefined;
     const entry = entriesById.get(id);
     if (entry) {
       favorites.push({
         ...entry,
+        // 精选中的人工名称独立于 Bangumi 译名，后续同步也保持一致。
+        nameCn: displayName?.trim() || entry.nameCn,
         userScore: displayScore ?? entry.userScore,
         note: note?.trim() || undefined,
       });
@@ -145,6 +147,7 @@ async function selectFavorites(entries, config) {
       const subject = await request(`/subjects/${id}`);
       favorites.push({
         ...normalizeSubject(subject, { userScore: displayScore }),
+        nameCn: displayName?.trim() || subject.name_cn || subject.name,
         note: note?.trim() || undefined,
       });
     } catch (error) {
