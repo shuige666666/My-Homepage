@@ -73,7 +73,7 @@ const albumImages: Record<number, string> = {
     <div class="album-gallery__canvas">
       <header class="album-gallery__header">
         <div class="album-gallery__brand"><span class="album-gallery__brand-mark">A /</span> PRIVATE COLLECTION <span class="album-gallery__brand-sub">ANIME ON DISC</span></div>
-        <button class="album-gallery__close" type="button" data-album-close aria-label="关闭光碟画廊"><span>关闭画廊</span><X size={18} /></button>
+        <button class="album-gallery__close" type="button" data-album-close aria-label="关闭光碟画廊" title="关闭画廊"><X size={18} stroke-width={1.7} /></button>
       </header>
 
       <div class="album-gallery__intro" aria-live="polite">
@@ -98,7 +98,7 @@ const albumImages: Record<number, string> = {
             >
               <span class="album-gallery__disc-body">
                 <span class="album-gallery__disc-face album-gallery__disc-face--front">
-                  <img src={albumImages[entry.id] ? `/images/album/raw/${albumImages[entry.id]}` : entry.image} alt="" loading={index < 3 ? "eager" : "lazy"} draggable="false" />
+                  <img src={albumImages[entry.id] ? `/images/album/raw/${albumImages[entry.id]}` : entry.image} alt="" loading={index === 0 ? "eager" : "lazy"} draggable="false" />
                   <span class="album-gallery__grooves"></span>
                   <span class="album-gallery__disc-hole"></span>
                 </span>
@@ -120,7 +120,7 @@ const albumImages: Record<number, string> = {
         <div class="album-gallery__caption">
           <span class="album-gallery__caption-kicker">ON REPEAT · <span data-album-score>{entries[0].userScore.toFixed(1)}</span> / 10</span>
           <p data-album-note>{entries[0].note || entries[0].name}</p>
-          <span class="album-gallery__hint">拖动 / 滚动切换 · 点击光碟前往 Bangumi · 空格翻面</span>
+          <span class="album-gallery__hint">拖动邻盘切换 · 按住中间光碟旋转 · 空格翻面 · 点击前往 Bangumi</span>
         </div>
         <nav class="album-gallery__navigation" aria-label="光碟导航">
           <button type="button" data-album-prev aria-label="上一张光碟"><ChevronLeft size={23} /></button>

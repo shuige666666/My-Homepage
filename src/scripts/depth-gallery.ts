@@ -179,6 +179,7 @@ class DepthGalleryExperience {
   private velocity = 0;
   private activeIndex = -1;
   private isVisible = true;
+  private frameId = 0;
   private lastFrameTime = 0;
   private viewportWidth = 1;
   private viewportHeight = 1;
@@ -242,7 +243,7 @@ class DepthGalleryExperience {
     this.lastFrameTime = window.performance.now();
     document.body.classList.add("depth-gallery-ready");
     this.syncPresentationState(this.renderProgress);
-    this.render();
+    this.startRender();
   }
 
   /**
@@ -321,6 +322,7 @@ class DepthGalleryExperience {
     const observer = new IntersectionObserver(
       ([entry]) => {
         this.isVisible = entry?.isIntersecting ?? true;
+        if (this.isVisible) this.startRender();
       },
       { rootMargin: "120px" },
     );
@@ -334,7 +336,15 @@ class DepthGalleryExperience {
       0,
       1,
     );
+    this.startRender();
   };
+
+  /** 离屏稳定后暂停逐帧循环，滚动或重新进入首屏时再唤醒。 */
+  private startRender(): void {
+    if (this.frameId || this.planes.length === 0) return;
+    this.lastFrameTime = window.performance.now();
+    this.frameId = requestAnimationFrame(this.render);
+  }
 
   /**
    * 将 WebGL 的惯性进度同步给 DOM，保证画廊、主页淡入和导航状态始终同拍。
@@ -352,6 +362,8 @@ class DepthGalleryExperience {
   }
 
   private readonly updatePointer = (event: PointerEvent): void => {
+    // 首屏离开视口后不再为主页和弹窗的每次指针移动读取布局。
+    if (!this.isVisible) return;
     const bounds = this.stage.getBoundingClientRect();
     this.pointerTarget.set(
       ((event.clientX - bounds.left) / Math.max(bounds.width, 1)) * 2 - 1,
@@ -429,7 +441,7 @@ class DepthGalleryExperience {
    * 让画面逐帧追赶原生滚动目标，再统一更新相机、图片、情绪色和文字。
    */
   private render = (frameTime = window.performance.now()): void => {
-    requestAnimationFrame(this.render);
+    this.frameId = 0;
     const deltaSeconds = THREE.MathUtils.clamp(
       (frameTime - this.lastFrameTime) / 1000,
       0,
@@ -481,11 +493,15 @@ class DepthGalleryExperience {
     this.backgroundMaterial.uniforms.uTime.value = window.performance.now() * 0.001;
     this.backgroundMaterial.uniforms.uVelocity.value = this.velocity;
 
-    this.renderer.autoClear = true;
-    this.renderer.render(this.backgroundScene, this.backgroundCamera);
-    this.renderer.autoClear = false;
-    this.renderer.clearDepth();
-    this.renderer.render(this.scene, this.camera);
+    // 主页接管后只推进交接状态，不让离屏画布与光碟画廊争用 GPU。
+    if (this.isVisible) {
+      this.renderer.autoClear = true;
+      this.renderer.render(this.backgroundScene, this.backgroundCamera);
+      this.renderer.autoClear = false;
+      this.renderer.clearDepth();
+      this.renderer.render(this.scene, this.camera);
+    }
+    this.frameId = requestAnimationFrame(this.render);
   };
 
   private updatePlanes(activeFloat: number, handoff: number): void {
