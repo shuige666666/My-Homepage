@@ -1,5 +1,29 @@
 import type { AlbumDiscLayout, AlbumDiscRenderer, AlbumDiscViewport } from "./album-disc-renderer";
 
+// 从左到右四张可见盘的静止姿态；pitch 是上下俯仰，yaw 是左右侧转，roll 是画面内倾斜。
+const DISC_ANGLE_SLOTS = [
+  { offset: -2, pitch: 30, yaw: -4, roll: 6 },
+  { offset: -1, pitch: 24, yaw: -24, roll: 11 },
+  { offset: 0, pitch: 12, yaw: -36, roll: 16 },
+  { offset: 1, pitch: 20, yaw: -48, roll: 0 },
+] as const;
+
+// 只需改这组参数：size 是各盘直径倍率；horizontalCenterDistance 是相邻盘心的水平距离（以底盘直径为单位）。
+const DISC_LAYOUT = {
+  size: {
+    farLeft: .705, // 最左盘
+    left: .846,    // 左侧盘
+    main: 1.08,      // 中间主盘；改成 1.08 即放大约 8%
+    right: 1.22,  // 右侧盘
+  },
+  horizontalCenterDistance: {
+    farLeftToLeft: .655, // 最左盘 ↔ 左侧盘
+    leftToMain: .8,      // 左侧盘 ↔ 中间主盘
+    mainToRight: 1.11,   // 中间主盘 ↔ 右侧盘
+  },
+  verticalSpread: 1, // 越大，左边越靠下、右边越靠上；1 为当前高度差。
+} as const;
+
 /** 初始化收藏光碟画廊，并把所有交互限制在打开的对话框内。 */
 export function setupAlbumGallery() {
   const dialog = document.querySelector<HTMLDialogElement>("[data-album-gallery]");
@@ -45,8 +69,13 @@ export function setupAlbumGallery() {
   let hitLayout: AlbumDiscLayout[] = [];
   let hitViewport: AlbumDiscViewport | null = null;
   let hoveredIndex = -1;
+  let entranceProgress = 1;
+  let entranceStartedAt = 0;
+  let entranceReady: Promise<void> = Promise.resolve();
+  let finishEntrance: (() => void) | null = null;
 
   const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+  const discSizes = [DISC_LAYOUT.size.farLeft, DISC_LAYOUT.size.left, DISC_LAYOUT.size.main, DISC_LAYOUT.size.right];
 
   /** 弹窗打开和视口变化时才读取布局，拖动中的逐帧绘制不再触发同步回流。 */
   function measureStage() {
@@ -60,9 +89,44 @@ export function setupAlbumGallery() {
     return stageMetrics;
   }
 
-  /** 中央盘更接近正面，左侧盘随轨迹逐渐转正。 */
-  function baseYaw(offset: number) {
-    return offset < 0 ? -10 - 22 * Math.exp(offset * 1.8) : -32;
+  /** 在四个静止姿态之间平滑插值，让滑动时的转角沿同一轨迹变化。 */
+  function discAngles(offset: number) {
+    const slot = clamp(offset + 2, 0, DISC_ANGLE_SLOTS.length - 1);
+    const left = Math.min(Math.floor(slot), DISC_ANGLE_SLOTS.length - 2);
+    const right = left + 1;
+    const t = slot - left;
+    const eased = t * t * (3 - 2 * t);
+    const start = DISC_ANGLE_SLOTS[left];
+    const end = DISC_ANGLE_SLOTS[right];
+    return {
+      pitch: start.pitch + (end.pitch - start.pitch) * eased,
+      yaw: start.yaw + (end.yaw - start.yaw) * eased,
+      roll: start.roll + (end.roll - start.roll) * eased,
+    };
+  }
+
+  /** 按左二、左一、主盘、右一的尺寸平滑过渡，同一张盘滑动时不会突然变大。 */
+  function discScale(offset: number) {
+    const slot = clamp(offset + 2, 0, discSizes.length - 1);
+    const left = Math.min(Math.floor(slot), discSizes.length - 2);
+    const t = slot - left;
+    const eased = t * t * (3 - 2 * t);
+    return discSizes[left] + (discSizes[left + 1] - discSizes[left]) * eased;
+  }
+
+  /** 将三个相邻盘心距离映射到原有横向轨迹，保留离屏盘的自然延伸。 */
+  function discHorizontalOffset(offset: number, discWidth: number) {
+    const distance = DISC_LAYOUT.horizontalCenterDistance;
+    if (offset >= 0) {
+      const ahead = offset;
+      const original = 1.08 * ahead + .03 * ahead * ahead + .5 * Math.max(ahead - 1, 0) ** 2;
+      return discWidth * original * distance.mainToRight / 1.11;
+    }
+    const behind = -offset;
+    const original = .8 * behind / (1 + Math.max(behind - 1, 0) * .1);
+    if (behind <= 1) return -discWidth * original * distance.leftToMain / .8;
+    const originalFarGap = 1.6 / 1.1 - .8;
+    return -discWidth * (distance.leftToMain + (original - .8) * distance.farLeftToLeft / originalFarGap);
   }
 
   /** 将指针射线投到当前三维盘面，只有落在可见圆盘内才算按中。 */
@@ -164,20 +228,30 @@ export function setupAlbumGallery() {
       const offset = index - position;
       const behind = Math.max(-offset, 0);
       const ahead = Math.max(offset, 0);
-      const x = offset < 0
-        ? -(discWidth * .92 * behind) / (1 + behind * .15)
-        : discWidth * (.98 * ahead + .03 * ahead * ahead + .5 * Math.max(ahead - 1, 0) ** 2);
-      const y = offset < 0
-        ? discWidth * .3 * (1 - Math.exp(-1.1 * behind))
-        : -discWidth * (.28 * ahead + .04 * ahead * ahead);
-      const scale = offset < 0
-        ? .42 + .58 * Math.exp(-.43 * behind)
-        : Math.min(1.28, 1 + .16 * ahead);
-      // 左侧盘逐渐朝向观众；中央与右侧盘保留顺着弧线的竖轴透视。
-      const approach = Math.exp(-behind * 1.8);
-      const yaw = baseYaw(offset);
-      const zAngle = offset < 0 ? 5 + 29 * approach : 34;
-      const visible = offset >= -2.75 && offset <= 1.4;
+      let x = discHorizontalOffset(offset, discWidth);
+      let y = offset < 0
+        ? stageHeight * .25 * (1 - Math.exp(-.85 * behind))
+        : -stageHeight * (.24 * ahead + .015 * ahead * ahead);
+      y *= DISC_LAYOUT.verticalSpread;
+      let scale = discScale(offset);
+      let { pitch, yaw, roll: zAngle } = discAngles(offset);
+      // 先露出左下的首盘，再让右上的邻盘跟进；两套盘面共用同一位置，避免贴图接管时跳动。
+      if (entranceProgress < 1 && index < 2) {
+        const delayed = clamp((entranceProgress - index * .13) / (1 - index * .13), 0, 1);
+        const arrive = 1 - Math.pow(1 - delayed, 3);
+        const remaining = 1 - arrive;
+        x += discWidth * (index === 0 ? -.14 : .17) * remaining;
+        y += stageHeight * (index === 0 ? .1 : -.08) * remaining;
+        scale *= 1 - .14 * remaining;
+        yaw += (index === 0 ? -7 : 6) * remaining;
+        zAngle += (index === 0 ? -6 : 5) * remaining;
+      }
+      // 依据盘面包围圆判断可见性；旋转和透视留足余量，避免边缘尚未离屏就突然消失。
+      const projectedRadius = discWidth * scale * .85;
+      const screenX = metrics.discLeft + x;
+      const screenY = metrics.discTop + y;
+      const visible = screenX + projectedRadius >= 0 && screenX - projectedRadius <= stageWidth
+        && screenY + projectedRadius >= 0 && screenY - projectedRadius <= stageHeight;
       disc.style.visibility = visible ? "visible" : "hidden";
       disc.style.pointerEvents = visible ? "auto" : "none";
       if (visible) {
@@ -185,13 +259,14 @@ export function setupAlbumGallery() {
         disc.style.setProperty("--album-y", `${y}px`);
         disc.style.setProperty("--album-z", `${zAngle}deg`);
         disc.style.setProperty("--album-y-rotation", `${yaw}deg`);
+        disc.style.setProperty("--album-pitch", `${pitch}deg`);
         disc.style.setProperty("--album-scale", String(scale));
         disc.style.setProperty("--album-flip", index === flippedIndex ? "180deg" : "0deg");
         disc.style.setProperty("--tilt-x", `${poses[index].x}deg`);
         disc.style.setProperty("--tilt-y", `${poses[index].y}deg`);
         disc.style.zIndex = String(100 + Math.round(offset * 10));
       }
-      layout.push({ x, y, scale, offset, zAngle, yaw: yaw + poses[index].y, pitch: poses[index].x, flip: flips[index].angle, visible });
+      layout.push({ x, y, scale, offset, zAngle, yaw: yaw + poses[index].y, pitch: pitch + poses[index].x, flip: flips[index].angle, visible });
     });
     hitLayout = layout;
     hitViewport = viewport;
@@ -244,6 +319,15 @@ export function setupAlbumGallery() {
     const elapsed = lastMotionAt === 0 ? 0 : Math.max(0, now - lastMotionAt);
     const dt = Math.min(elapsed / 1000, .04);
     lastMotionAt = now;
+    if (entranceProgress < 1) {
+      if (entranceStartedAt === 0) entranceStartedAt = now;
+      entranceProgress = clamp((now - entranceStartedAt) / 900, 0, 1);
+      if (entranceProgress === 1) {
+        dialog.classList.remove("is-entering");
+        finishEntrance?.();
+        finishEntrance = null;
+      }
+    }
     discRenderer?.observeFrameTime(elapsed);
     const dragging = Boolean(pointerStart && didDrag && pointerStart.discIndex === null);
     const target = dragging ? draggedPosition : destination;
@@ -251,7 +335,7 @@ export function setupAlbumGallery() {
     travelVelocity *= Math.exp(-(dragging ? 17 : 12) * dt);
     position = clamp(position + travelVelocity * dt, 0, discs.length - 1);
     if ((position === 0 && travelVelocity < 0) || (position === discs.length - 1 && travelVelocity > 0)) travelVelocity = 0;
-    let moving = Math.abs(target - position) > .001 || Math.abs(travelVelocity) > .012;
+    let moving = entranceProgress < 1 || Math.abs(target - position) > .001 || Math.abs(travelVelocity) > .012;
 
     poses.forEach((pose, index) => {
       const held = pointerStart?.discIndex === index && didDrag;
@@ -312,6 +396,8 @@ export function setupAlbumGallery() {
     if (!dialog?.open || opening !== animationGeneration) return;
     await discRenderer?.prepareOpeningArtwork();
     if (!dialog?.open || opening !== animationGeneration) return;
+    await entranceReady;
+    if (!dialog?.open || opening !== animationGeneration) return;
     navigate(lastIndex);
   }
 
@@ -328,6 +414,11 @@ export function setupAlbumGallery() {
     flippedIndex = -1;
     lastWheelAt = 0;
     hoveredIndex = -1;
+    finishEntrance?.();
+    entranceProgress = reduceMotion.matches ? 1 : 0;
+    entranceStartedAt = 0;
+    entranceReady = entranceProgress === 1 ? Promise.resolve() : new Promise<void>((resolve) => { finishEntrance = resolve; });
+    dialog?.classList.toggle("is-entering", entranceProgress < 1);
     poses.forEach((pose, poseIndex) => {
       pose.x = pose.y = pose.vx = pose.vy = pose.targetX = pose.targetY = 0;
       discs[poseIndex].classList.remove("is-hovered", "is-grabbed");
@@ -343,6 +434,7 @@ export function setupAlbumGallery() {
     stage?.focus({ preventScroll: true });
     discImages.slice(0, 2).forEach((image) => { if (image) image.loading = "eager"; });
     const physicalReady = ensurePhysicalDiscs();
+    if (entranceProgress < 1) startMotion();
     if (index !== 0) {
       const opening = ++animationGeneration;
       void prepareOpeningRoute(index, opening, physicalReady);
@@ -363,6 +455,9 @@ export function setupAlbumGallery() {
   closeButton?.addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => {
     animationGeneration += 1;
+    finishEntrance?.();
+    finishEntrance = null;
+    dialog.classList.remove("is-entering");
     cancelAnimationFrame(animationFrame);
     animationFrame = 0;
     document.body.style.overflow = previousBodyOverflow;
@@ -427,8 +522,9 @@ export function setupAlbumGallery() {
       const movement = event.clientX - pointerStart.x;
       // 参考站每像素约转四分之一度；保留背面的完整角程，而不是侧立时跳回正面。
       const intendedYaw = pointerStart.yaw + clamp(movement * .245, -180, 180);
-      poses[index].targetX = clamp(pointerStart.pitch + (pointerStart.y - event.clientY) * .18, -60, 60);
-      poses[index].targetY = intendedYaw - baseYaw(index - position);
+      poses[index].targetX = clamp(pointerStart.pitch + (pointerStart.y - event.clientY) * .18, -60, 60)
+        - discAngles(index - position).pitch;
+      poses[index].targetY = intendedYaw - discAngles(index - position).yaw;
     } else {
       poses[index].targetX = -y * 7;
       poses[index].targetY = x * 12;
@@ -457,8 +553,8 @@ export function setupAlbumGallery() {
     const discIndex = pressedDisc === discs[activeIndex] && Math.abs(position - activeIndex) < .6 ? activeIndex : null;
     pointerStart = {
       id: event.pointerId, x: event.clientX, y: event.clientY, position, discIndex,
-      yaw: discIndex === null ? 0 : baseYaw(discIndex - position) + poses[discIndex].y,
-      pitch: discIndex === null ? 0 : poses[discIndex].x,
+      yaw: discIndex === null ? 0 : discAngles(discIndex - position).yaw + poses[discIndex].y,
+      pitch: discIndex === null ? 0 : discAngles(discIndex - position).pitch + poses[discIndex].x,
       lastX: event.clientX, lastAt: performance.now(), velocity: 0,
     };
     if (discIndex !== null) pressedDisc?.classList.add("is-grabbed");

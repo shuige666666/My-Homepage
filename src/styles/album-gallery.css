@@ -21,7 +21,7 @@
 }
 
 .album-gallery[open] {
-  animation: album-reveal 460ms cubic-bezier(.2,.7,.2,1) both;
+  animation: album-reveal 300ms ease-out both;
 }
 
 .album-gallery__canvas {
@@ -32,6 +32,27 @@
   background: #f8f8f6;
   isolation: isolate;
 }
+
+/* 留一张白纸从下往上揭开画廊，盘列沿自身轨迹落位，不额外叠光晕。 */
+.album-gallery.is-entering .album-gallery__canvas::after {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  background: #f8f8f6;
+  content: "";
+  pointer-events: none;
+  animation: album-curtain 760ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.album-gallery.is-entering .album-gallery__header,
+.album-gallery.is-entering .album-gallery__intro,
+.album-gallery.is-entering .album-gallery__footer {
+  animation: album-copy-enter 620ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.album-gallery.is-entering .album-gallery__intro { animation-delay: 110ms; }
+.album-gallery.is-entering .album-gallery__footer { animation-delay: 220ms; }
+.album-gallery.is-entering .album-gallery__stage { pointer-events: none; }
 
 .album-gallery__header,
 .album-gallery__footer {
@@ -156,7 +177,7 @@
 
 .album-gallery__disc {
   position: absolute;
-  top: 47%;
+  top: 50%;
   left: 51.5%;
   display: block;
   width: min(42vw, 70vh, 660px);
@@ -168,7 +189,7 @@
   cursor: inherit;
   user-select: none;
   -webkit-user-select: none;
-  transform: translate3d(calc(-50% + var(--album-x, 0px)), calc(-50% + var(--album-y, 0px)), 0) rotateZ(var(--album-z, 34deg)) rotateY(calc(var(--album-y-rotation, -32deg) + var(--tilt-y, 0deg))) rotateX(var(--tilt-x, 0deg)) scale(var(--album-scale, 1));
+  transform: translate3d(calc(-50% + var(--album-x, 0px)), calc(-50% + var(--album-y, 0px)), 0) rotateZ(var(--album-z, 34deg)) rotateY(calc(var(--album-y-rotation, -32deg) + var(--tilt-y, 0deg))) rotateX(calc(var(--album-pitch, 0deg) + var(--tilt-x, 0deg))) scale(var(--album-scale, 1));
   transform-style: preserve-3d;
   will-change: transform;
 }
@@ -393,6 +414,13 @@
 .album-gallery__pagination button[aria-current="true"] { border-color: #292a26; color: #292a26; font-size: 14px; }
 
 @keyframes album-reveal { from { opacity: 0; } to { opacity: 1; } }
+@keyframes album-curtain { from { transform: translateY(0); } to { transform: translateY(-102%); } }
+@keyframes album-copy-enter { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+
+/* 较矮的桌面窗口把说明收起，给盘面与作品标题保留独立空间。 */
+@media (max-height: 800px) and (min-width: 801px) {
+  .album-gallery__hint { display: none; }
+}
 
 @media (max-height: 650px) and (min-width: 801px) {
   .album-gallery .album-gallery__footer { bottom: 12px; }
@@ -405,7 +433,7 @@
   .album-gallery__intro { top: 106px; left: 30px; width: calc(100% - 60px); }
   .album-gallery__intro h2 { max-width: 95%; margin-top: 13px; font-size: clamp(39px, 9vw, 72px); }
   .album-gallery__intro p { font-size: 13px; }
-  .album-gallery__disc { top: 49%; left: 50%; width: min(82vw, 55vh, 580px); }
+  .album-gallery__disc { top: 50%; left: 50%; width: min(82vw, 55vh, 580px); }
   .album-gallery .album-gallery__footer { bottom: 26px; display: block; }
   .album-gallery__caption { width: 100%; margin-left: 0; }
   .album-gallery__caption p { max-width: 75%; margin: 6px 0 16px; font-size: 19px; }
@@ -420,7 +448,7 @@
   .album-gallery__brand-mark { font-size: 23px; }
   .album-gallery__intro { top: 90px; }
   .album-gallery__intro h2 { font-size: clamp(35px, 10vw, 52px); }
-  .album-gallery__disc { top: 48%; width: min(89vw, 49vh); }
+  .album-gallery__disc { top: 50%; width: min(89vw, 49vh); }
   .album-gallery .album-gallery__footer { bottom: 23px; }
   .album-gallery__caption p { margin-bottom: 9px; font-size: 17px; }
   .album-gallery__navigation > button { width: 31px; height: 31px; }
@@ -429,5 +457,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .album-gallery[open] { animation: none; }
+  .album-gallery.is-entering .album-gallery__canvas::after,
+  .album-gallery.is-entering .album-gallery__header,
+  .album-gallery.is-entering .album-gallery__intro,
+  .album-gallery.is-entering .album-gallery__footer { animation: none; }
   .album-gallery__disc, .album-gallery__disc-body, .album-gallery__hover-ring, .album-gallery__hover-ring path { transition-duration: 0ms; }
 }

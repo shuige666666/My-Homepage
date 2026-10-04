@@ -536,6 +536,26 @@ background: linear-gradient(
 
 
 
+## “我最喜欢的动漫”中光碟调整
+
+### 光盘的倾斜旋转角度
+
+对应关系是：**`pitch` = 绕 X 轴，`yaw` = 绕 Y 轴，`roll` = 绕 Z 轴**。它们都在 [DISC_ANGLE_SLOTS (line 4)](E:/Study/My Homepage/src/scripts/album-gallery.ts:4) 中，单位是度。
+
+| 参数    | 轴               | 你会看到的变化                       |
+| ------- | ---------------- | ------------------------------------ |
+| `pitch` | X 轴（横轴）     | 盘面上下俯仰，上下边缘产生前后深度差 |
+| `yaw`   | Y 轴（竖轴）     | 盘面向左或向右侧转，正面会变窄       |
+| `roll`  | Z 轴（垂直屏幕） | 整张盘在画面里顺时针或逆时针歪斜     |
+
+
+
+### 尺寸和间距
+
+ [album-gallery.ts 的 `DISC_LAYOUT` (line 12)](E:/Study/My Homepage/src/scripts/album-gallery.ts:12)
+
+中间主盘改 `size.main`：当前是 `1`，改成 `1.08` 就会放大约 8%。其余三个 `size` 值从左到右对应最左盘、左侧盘和右侧盘。`horizontalCenterDistance` 控制相邻两盘的**水平盘心距离**，数值越大离得越远；`verticalSpread` 控制左下到右上的高低差。你调好的角度没有改，滑动时尺寸仍会平滑过渡。
+
 
 
 ## 构建与自动同步

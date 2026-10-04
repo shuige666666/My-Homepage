@@ -97,7 +97,10 @@ export class AlbumDiscRenderer {
     rimGeometry.rotateX(Math.PI / 2);
     this.sharedGeometry.push(frontGeometry, backGeometry, hubGeometry, hubInnerGeometry, rimGeometry);
 
+    // 每张盘内部按正反面、盘边、盘心绘制；相邻盘按序号整体叠放，侧转时不互相穿透。
+    const discLayer = { depthTest: false, depthWrite: false };
     const backMaterial = new THREE.MeshPhysicalMaterial({
+      ...discLayer,
       color: 0x426158,
       metalness: .46,
       roughness: .34,
@@ -112,6 +115,7 @@ export class AlbumDiscRenderer {
       envMapIntensity: 1.3,
     });
     const rimMaterial = new THREE.MeshPhysicalMaterial({
+      ...discLayer,
       color: 0xd5d9d9,
       metalness: .72,
       roughness: .19,
@@ -121,18 +125,16 @@ export class AlbumDiscRenderer {
       side: THREE.DoubleSide,
     });
     const hubMaterial = new THREE.MeshPhysicalMaterial({
+      ...discLayer,
       color: 0xdfe3e3,
       metalness: .18,
       roughness: .27,
-      transmission: .48,
-      thickness: .3,
-      ior: 1.48,
       clearcoat: 1,
       clearcoatRoughness: .09,
-      transparent: true,
       side: THREE.DoubleSide,
     });
     const hubInnerMaterial = new THREE.MeshPhysicalMaterial({
+      ...discLayer,
       color: 0xa8afb3,
       metalness: .66,
       roughness: .23,
@@ -141,8 +143,9 @@ export class AlbumDiscRenderer {
     });
     this.sharedMaterial.push(backMaterial, rimMaterial, hubMaterial, hubInnerMaterial);
 
-    images.forEach((image) => {
+    images.forEach((image, index) => {
       const frontMaterial = new THREE.MeshPhysicalMaterial({
+        ...discLayer,
         color: 0xffffff,
         metalness: .16,
         roughness: .58,
@@ -155,19 +158,27 @@ export class AlbumDiscRenderer {
         side: THREE.FrontSide,
       });
       const group = new THREE.Group();
+      group.renderOrder = index;
       const spin = new THREE.Group();
+      spin.renderOrder = index;
       group.add(spin);
-      spin.add(new THREE.Mesh(frontGeometry, frontMaterial));
+      const front = new THREE.Mesh(frontGeometry, frontMaterial);
+      front.renderOrder = 0;
+      spin.add(front);
       const back = new THREE.Mesh(backGeometry, backMaterial);
+      back.renderOrder = 0;
       back.rotation.y = Math.PI;
       back.position.z = -.009;
       spin.add(back);
       const rim = new THREE.Mesh(rimGeometry, rimMaterial);
+      rim.renderOrder = 1;
       spin.add(rim);
       // 盘心环在两侧各有一份；中孔保持真实透明，不用白色贴片遮挡。
       for (const side of [1, -1]) {
         const hub = new THREE.Mesh(hubGeometry, hubMaterial);
         const inner = new THREE.Mesh(hubInnerGeometry, hubInnerMaterial);
+        hub.renderOrder = 2;
+        inner.renderOrder = 3;
         hub.position.z = side * .012;
         inner.position.z = side * .013;
         spin.add(hub, inner);
@@ -375,7 +386,7 @@ export class AlbumDiscRenderer {
     layout.forEach((pose, index) => {
       const disc = this.discs[index];
       if (!disc) return;
-      if (pose.offset >= -3.2 && pose.offset <= 2) this.useArtwork(disc);
+      if (pose.visible) this.useArtwork(disc);
       disc.group.visible = pose.visible && Boolean(disc.texture);
       if (!pose.visible) return;
       disc.group.position.set(centerX + pose.x, centerY - pose.y, pose.offset * 14);
