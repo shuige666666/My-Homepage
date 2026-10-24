@@ -866,49 +866,6 @@ main {
   background: linear-gradient(180deg, rgba(255, 244, 113, 0.19), rgba(243, 166, 191, 0.11));
 }
 
-.timeline-tooltip {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  z-index: 2;
-  display: grid;
-  width: 156px;
-  padding: 8px 10px;
-  gap: 3px;
-  border: 1px solid rgba(143, 188, 214, 0.36);
-  border-radius: 7px 4px 7px 4px;
-  color: #476a82;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 10px 24px rgba(73, 117, 140, 0.16);
-  font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
-  font-size: 10px;
-  line-height: 1.4;
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, 5px);
-  transition: opacity 160ms ease, transform 160ms ease;
-}
-
-.timeline-tooltip span {
-  display: block;
-  max-height: 154px;
-  color: #718391;
-  overflow-y: auto;
-  line-height: 1.65;
-  white-space: normal;
-}
-
-.timeline-tooltip strong {
-  color: #53778f;
-  letter-spacing: 0.02em;
-}
-
-.timeline-hit-area:hover .timeline-tooltip,
-.timeline-hit-area:focus-visible .timeline-tooltip {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-
 .timeline-labels {
   display: grid;
   margin: -4px 24px 0;

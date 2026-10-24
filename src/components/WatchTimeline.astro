@@ -1,7 +1,8 @@
 ---
-import { CalendarRange, ChartNoAxesCombined, ChevronDown } from "@lucide/astro";
+import { ArrowUpRight, CalendarRange, ChartNoAxesCombined, ChevronDown, MoveHorizontal, Star } from "@lucide/astro";
 import type { AnimeEntry } from "@/types/bangumi";
 import SectionHeading from "./SectionHeading.astro";
+import "@/styles/watch-timeline.css";
 
 interface Props {
   entries: AnimeEntry[];
@@ -25,7 +26,8 @@ const months = Array.from({ length: monthCount }, (_, index) => {
     key,
     label: new Intl.DateTimeFormat("zh-CN", { month: "short" }).format(date),
     title: new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "long" }).format(date),
-    entries: entries.filter((entry) => entry.updatedAt.startsWith(key)),
+    entries: entries.filter((entry) => entry.updatedAt.startsWith(key))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
   };
 });
 
@@ -35,9 +37,12 @@ const ranges = [
   { value: "all", label: "全部记录", months },
 ];
 const total = entries.length;
+// 首次展示近期有记录的一页，空月份仍保留在时间轴中供选择。
+const initialMonth = [...ranges[0].months].reverse().find((month) => month.entries.length) ?? months[months.length - 1];
+const formatRecordDate = (value: string) => new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(new Date(value));
 ---
 
-<section class="watch-timeline reveal" aria-label="观看时间轴">
+<section id="watching-memories" class="watch-timeline reveal" aria-label="观看时间轴" data-initial-month={initialMonth?.key}>
   <div class="timeline-topline">
     <SectionHeading title="观看时间轴" eyebrow="WATCHING RHYTHM" />
     <details class="timeline-range-picker">
@@ -55,8 +60,56 @@ const total = entries.length;
       </div>
     </details>
   </div>
-  <p class="timeline-summary"><ChartNoAxesCombined size={14} />已记录 {total} 部动画，按标记为“看过”的月份统计</p>
+  <p class="timeline-summary"><ChartNoAxesCombined size={14} />已记录 {total} 部动画 · 按收藏记录更新时间归档</p>
   {entries.length > 0 ? (
+    <>
+    <div class="timeline-memory" aria-label="月度回忆">
+      <div class="memory-stage">
+        {months.map((month) => (
+          <article
+            class="memory-scene"
+            data-memory-month={month.key}
+            data-month-title={month.title}
+            data-month-count={month.entries.length}
+            hidden={month.key !== initialMonth.key}
+            aria-labelledby={`memory-title-${month.key}`}
+          >
+            <div class="memory-art" aria-hidden="true">
+              <div class="memory-deck" data-memory-deck>
+                {month.entries.length ? month.entries.slice(0, 3).map((entry, index) => (
+                  <figure class="memory-photo" data-memory-photo data-card-slot={index}>
+                    <div class="memory-photo-image">
+                      <img src={entry.image} alt="" loading="lazy" decoding="async" />
+                    </div>
+                    <figcaption><span>FRAME {String(index + 1).padStart(2, "0")}</span><span>{month.key.replace("-", ".")}</span></figcaption>
+                  </figure>
+                )) : (
+                  <div class="memory-photo memory-photo-empty" data-memory-photo data-card-slot="0">
+                    <CalendarRange size={26} stroke-width={1.2} />
+                    <span>留白的一页</span>
+                    <small>TO BE CONTINUED</small>
+                  </div>
+                )}
+              </div>
+              <div class="memory-sleeve"><span>ANIME ARCHIVE</span><i></i><span>{month.key.slice(0, 4)}</span></div>
+            </div>
+            <div class="memory-copy" data-memory-copy>
+              <p class="memory-eyebrow">MONTHLY MEMORIES</p>
+              <h3 class="memory-date" id={`memory-title-${month.key}`}>
+                <span class="memory-month-number">{month.key.slice(5)}</span>
+                <span class="memory-date-label"><span>月</span><span>{month.key.slice(0, 4)}</span></span>
+              </h3>
+              <p class="memory-count">{month.entries.length ? <>这一页，收录了 <span class="memory-count-total"><strong>{month.entries.length}</strong> 部动画</span></> : "这个月，暂时留白"}</p>
+              <p class="memory-caption">{month.entries.length ? month.entries[0].nameCn || month.entries[0].name : "等待下一段故事留下痕迹。"}</p>
+              <button class="memory-open" type="button" data-memory-toggle aria-expanded="false" aria-controls="timeline-memory-records" disabled={!month.entries.length}>
+                <span data-memory-toggle-label>{month.entries.length ? "展开本月记录" : "暂无观看记录"}</span><ChevronDown size={14} stroke-width={1.6} />
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+      <p class="memory-instruction"><MoveHorizontal size={13} stroke-width={1.5} /><span>选择下方月份，翻阅动画回忆</span></p>
+    </div>
     <div class="timeline-panels">
       {ranges.map((range) => {
         const rangeMonths = range.months;
@@ -75,7 +128,7 @@ const total = entries.length;
         return (
           <div class="timeline-panel" data-timeline-panel={range.value} hidden={range.value !== "12"}>
             <div class="timeline-chart-wrap">
-              <div class="timeline-chart-canvas" style={`--timeline-width: ${chartWidth}px`}>
+              <div class="timeline-chart-canvas" style={`--timeline-width: ${chartWidth}px`} data-chart-width={chartWidth}>
                 <svg class="timeline-chart" viewBox={`0 0 ${chartWidth} ${chartHeight}`} role="img" aria-label={`${range.label}观看记录折线图`}>
                   <defs>
                     <linearGradient id={`timeline-fill-${range.value}`} x1="0" x2="0" y1="0" y2="1">
@@ -83,23 +136,22 @@ const total = entries.length;
                       <stop offset="100%" stop-color="#dff1f4" stop-opacity="0.04" />
                     </linearGradient>
                   </defs>
-                  {[0.25, 0.5, 0.75].map((ratio) => <line x1={paddingX} x2={chartWidth - paddingX} y1={paddingY + ratio * (chartHeight - paddingY * 2)} y2={paddingY + ratio * (chartHeight - paddingY * 2)} />)}
+                  {[0.25, 0.5, 0.75].map((ratio) => <line class="timeline-grid-line" x1={paddingX} x2={chartWidth - paddingX} y1={paddingY + ratio * (chartHeight - paddingY * 2)} y2={paddingY + ratio * (chartHeight - paddingY * 2)} />)}
                   <polygon points={area} fill={`url(#timeline-fill-${range.value})`} />
                   <polyline points={polyline} />
-                  {points.map((point) => <circle class="timeline-point" cx={point.x} cy={point.y} r="5" />)}
+                  <line class="timeline-guide" data-timeline-guide x1="0" x2="0" y1={paddingY} y2={chartHeight - paddingY} style={`transform: translateX(${points.find((point) => point.key === initialMonth.key)?.x ?? 0}px)`} />
+                  {points.map((point) => <circle class:list={["timeline-point", { "is-highlighted": point.key === initialMonth.key }]} data-point-month={point.key} cx={point.x} cy={point.y} r="5" />)}
+                  <g class="timeline-marker" data-timeline-marker style={`transform: translate(${points.find((point) => point.key === initialMonth.key)?.x ?? 0}px, ${points.find((point) => point.key === initialMonth.key)?.y ?? 0}px)`}>
+                    <circle class="timeline-marker-halo" r="11" /><circle class="timeline-marker-core" r="5" />
+                  </g>
                 </svg>
                 <div class="timeline-hit-areas" style={`grid-template-columns: repeat(${rangeMonths.length}, minmax(0, 1fr))`}>
                   {points.map((point) => (
-                    <button class="timeline-hit-area" type="button" aria-label={`${point.title}：看过 ${point.count} 部`}>
-                      <span class="timeline-tooltip" role="tooltip">
-                        <strong>{point.title} · {point.count} 部</strong>
-                        <span>{point.entries.length ? point.entries.map((entry) => entry.nameCn || entry.name).join("、") : "暂无记录"}</span>
-                      </span>
-                    </button>
+                    <button class="timeline-hit-area" type="button" data-timeline-month={point.key} data-point-x={point.x} data-point-y={point.y} aria-label={`${point.title}：记录 ${point.count} 部动画`} aria-pressed={point.key === initialMonth.key ? "true" : "false"}></button>
                   ))}
                 </div>
                 <div class="timeline-labels" style={`grid-template-columns: repeat(${rangeMonths.length}, minmax(0, 1fr))`} aria-hidden="true">
-                  {rangeMonths.map((month) => <span>{month.label}</span>)}
+                  {rangeMonths.map((month) => <span data-label-month={month.key} class:list={{ "is-selected": month.key === initialMonth.key }}>{month.label}</span>)}
                 </div>
               </div>
             </div>
@@ -107,82 +159,34 @@ const total = entries.length;
         );
       })}
     </div>
+    <div class="memory-records" id="timeline-memory-records" hidden>
+      {months.map((month) => (
+        <section class="memory-record-month" data-record-month={month.key} hidden={month.key !== initialMonth.key} aria-labelledby={`memory-record-heading-${month.key}`}>
+          <div class="memory-record-heading"><h3 id={`memory-record-heading-${month.key}`}>{month.title}的记录</h3><span>{String(month.entries.length).padStart(2, "0")} ENTRIES</span></div>
+          {month.entries.length ? (
+            <ul class="memory-record-list">
+              {month.entries.map((entry) => (
+                <li>
+                  <a href={entry.url} target="_blank" rel="noreferrer" class="memory-record-link">
+                    <img src={entry.image} alt="" loading="lazy" decoding="async" />
+                    <span class="memory-record-text"><strong>{entry.nameCn || entry.name}</strong><span>{formatRecordDate(entry.updatedAt)} 记录</span></span>
+                    <span class="memory-record-score"><Star size={12} fill="currentColor" />{entry.userScore ? entry.userScore.toFixed(1) : "—"}</span>
+                    <ArrowUpRight class="memory-record-arrow" size={15} aria-hidden="true" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : <p class="memory-record-empty">这个月暂无观看记录。</p>}
+        </section>
+      ))}
+    </div>
+    <p class="timeline-sr-only" data-memory-status role="status" aria-live="polite" aria-atomic="true"></p>
+    </>
   ) : (
     <p class="compact-empty">同步后会在这里展示每月的观看记录。</p>
   )}
 </section>
 
 <script>
-  const picker = document.querySelector<HTMLDetailsElement>(".timeline-range-picker");
-  const rangeLabel = document.querySelector<HTMLElement>("[data-timeline-range-label]");
-  const rangeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-timeline-range]"));
-  const panels = Array.from(document.querySelectorAll<HTMLElement>("[data-timeline-panel]"));
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-  /** 将范围定位到最新月份，切换范围时继续从近期记录开始阅读。 */
-  const scrollToLatest = (panel: HTMLElement) => {
-    const chart = panel.querySelector<HTMLElement>(".timeline-chart-wrap");
-    if (chart) chart.scrollLeft = chart.scrollWidth;
-  };
-
-  /** 从当前可见的月份开始绘制折线，长时间轴不必等待屏幕外的历史段落。 */
-  const drawChart = (panel: HTMLElement) => {
-    if (reducedMotion.matches) return;
-    const chart = panel.querySelector<HTMLElement>(".timeline-chart-wrap")!;
-    const line = panel.querySelector<SVGPolylineElement>("polyline")!;
-    const area = panel.querySelector<SVGPolygonElement>("polygon")!;
-    const start = 100 * (1 - chart.scrollLeft / chart.scrollWidth);
-    line.animate([{ clipPath: `inset(0 ${start}% 0 0)` }, { clipPath: "inset(0 0% 0 0)" }],
-      { duration: 900, easing: "cubic-bezier(0.4, 0, 0.2, 1)" });
-    area.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, delay: 240, fill: "backwards" });
-    const visiblePoints = Array.from(panel.querySelectorAll<SVGCircleElement>(".timeline-point"))
-      .filter((point) => point.getBoundingClientRect().right >= chart.getBoundingClientRect().left);
-    visiblePoints.forEach((point, index) => {
-      point.animate([{ opacity: 0 }, { opacity: 1 }],
-        { duration: 220, delay: 100 + index / visiblePoints.length * 700, fill: "backwards" });
-    });
-  };
-
-  // 只在首次滚动到时间轴时绘制；范围切换时独立播放新图。
-  const timeline = document.querySelector<HTMLElement>(".watch-timeline")!;
-  const observer = new IntersectionObserver((entries) => {
-    if (!entries.some((entry) => entry.isIntersecting)) return;
-    const panel = panels.find((item) => !item.hidden);
-    if (panel) drawChart(panel);
-    observer.disconnect();
-  }, { threshold: 0.3 });
-  observer.observe(timeline);
-
-  panels.forEach((panel) => {
-    const points = panel.querySelectorAll(".timeline-point");
-    panel.querySelectorAll<HTMLButtonElement>(".timeline-hit-area").forEach((button, index) => {
-      /** 同步鼠标和键盘关注的月份节点，提示位置与数据点保持一致。 */
-      const highlight = () => points[index].classList.toggle("is-highlighted", button.matches(":hover, :focus-visible"));
-      ["pointerenter", "pointerleave", "focus", "blur"].forEach((event) => button.addEventListener(event, highlight));
-    });
-  });
-
-  const defaultPanel = panels.find((panel) => !panel.hidden);
-  if (defaultPanel) requestAnimationFrame(() => scrollToLatest(defaultPanel));
-
-  rangeButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const value = button.dataset.timelineRange;
-      if (!value) return;
-      if (button.getAttribute("aria-pressed") === "true") {
-        picker?.removeAttribute("open");
-        return;
-      }
-      // 快速切换时取消旧图动画，避免再次选中时沿用未完成的绘制进度。
-      panels.forEach((panel) => panel.getAnimations({ subtree: true }).forEach((animation) => animation.cancel()));
-      panels.forEach((panel) => { panel.hidden = panel.dataset.timelinePanel !== value; });
-      rangeButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
-      if (rangeLabel) rangeLabel.textContent = button.textContent?.trim() || "选择范围";
-      picker?.removeAttribute("open");
-      const activePanel = panels.find((panel) => panel.dataset.timelinePanel === value);
-      if (activePanel) requestAnimationFrame(() => {
-        scrollToLatest(activePanel);
-        drawChart(activePanel);
-      });
-    });
-  });
+  import "../scripts/watch-timeline";
 </script>

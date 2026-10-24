@@ -1,0 +1,548 @@
+/* 月度回忆沿用主页的纸白与雾蓝，以固定舞台承接卡片交接。 */
+.watch-timeline {
+  --memory-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.watch-timeline .timeline-summary {
+  margin-top: 13px;
+  padding: 0;
+  border: 0;
+  background: none;
+  transform: none;
+  line-height: 1.7;
+}
+
+.timeline-memory {
+  margin-top: 12px;
+}
+
+.memory-stage {
+  position: relative;
+  height: 236px;
+  isolation: isolate;
+}
+
+.memory-scene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 47% minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.memory-scene[hidden],
+.memory-records[hidden],
+.memory-record-month[hidden] {
+  display: none;
+}
+
+.memory-scene[inert] {
+  pointer-events: none;
+}
+
+.memory-art {
+  position: relative;
+  height: 224px;
+  min-width: 0;
+}
+
+/* 浅色圆环和底部投影托住照片，静止时不运行任何持续动画。 */
+.memory-art::before {
+  position: absolute;
+  content: "";
+  width: 180px;
+  height: 180px;
+  left: 50%;
+  top: 19px;
+  border: 1px solid rgba(143, 188, 214, 0.15);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(223, 241, 244, 0.3), rgba(248, 251, 251, 0) 70%);
+  transform: translateX(-50%);
+}
+
+.memory-art::after {
+  position: absolute;
+  content: "";
+  bottom: 22px;
+  left: 50%;
+  width: 140px;
+  height: 15px;
+  border-radius: 50%;
+  background: rgba(56, 86, 99, 0.12);
+  filter: blur(9px);
+  transform: translateX(-50%);
+  z-index: -1;
+}
+
+.memory-deck {
+  position: absolute;
+  inset: 0;
+}
+
+.memory-photo {
+  --card-x: 0px;
+  --card-y: 4px;
+  --card-angle: -6deg;
+  --card-scale: 1;
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  z-index: 3;
+  width: 110px;
+  margin: 0;
+  padding: 5px 5px 0;
+  border: 1px solid rgba(100, 132, 146, 0.14);
+  border-radius: 3px;
+  background: #fffefa;
+  box-shadow: 0 12px 22px -11px rgba(46, 71, 84, 0.34), 0 2px 5px rgba(46, 71, 84, 0.08);
+  transform: translate(-50%, -50%) translate(var(--card-x), var(--card-y)) rotate(var(--card-angle)) scale(var(--card-scale));
+  transform-origin: 50% 80%;
+}
+
+.memory-photo[data-card-slot="1"] {
+  --card-x: 34px;
+  --card-y: -3px;
+  --card-angle: 12deg;
+  --card-scale: 0.95;
+  z-index: 2;
+}
+
+.memory-photo[data-card-slot="2"] {
+  --card-x: -35px;
+  --card-y: -9px;
+  --card-angle: -17deg;
+  --card-scale: 0.91;
+  z-index: 1;
+}
+
+.memory-photo-image {
+  aspect-ratio: 0.72;
+  overflow: hidden;
+  background: var(--mist);
+}
+
+.memory-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.memory-photo figcaption {
+  display: flex;
+  justify-content: space-between;
+  padding-block: 7px 6px;
+  color: #829496;
+  font: 6px/1.2 "Courier New", monospace;
+  letter-spacing: 0.04em;
+}
+
+.memory-sleeve {
+  position: absolute;
+  z-index: 4;
+  bottom: 19px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 172px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(155, 177, 172, 0.26);
+  border-radius: 2px 2px 5px 5px;
+  color: #718781;
+  background: rgba(247, 250, 246, 0.91);
+  box-shadow: 0 3px 7px rgba(62, 89, 82, 0.05), inset 0 1px rgba(255, 255, 255, 0.9);
+  font: 7px/1 "Courier New", monospace;
+  letter-spacing: 0.07em;
+  transform: translateX(-50%) rotate(-2deg);
+}
+
+.memory-sleeve i {
+  height: 1px;
+  flex: 1;
+  background: rgba(147, 188, 163, 0.45);
+}
+
+.memory-photo-empty {
+  display: flex;
+  height: 159px;
+  padding: 27px 8px 20px;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  gap: 13px;
+  color: #92aaa5;
+  background: linear-gradient(145deg, #fffefa, #f1f7f4);
+}
+
+.memory-photo-empty > span {
+  color: #7f9591;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+
+.memory-photo-empty small {
+  font: 6px "Courier New", monospace;
+  letter-spacing: 0.06em;
+}
+
+.memory-copy {
+  min-width: 0;
+  padding-right: 3px;
+}
+
+.memory-eyebrow {
+  margin: 0 0 9px;
+  color: #859c9a;
+  font: 8px/1.4 "Courier New", monospace;
+  letter-spacing: 0.17em;
+}
+
+.memory-date {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  gap: 13px;
+  font-weight: 400;
+}
+
+.memory-month-number {
+  color: #456576;
+  font: 72px/0.92 Georgia, "Times New Roman", serif;
+  letter-spacing: -0.07em;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.memory-date-label {
+  display: grid;
+  gap: 9px;
+  padding-top: 8px;
+  color: #7d9697;
+  font-size: 11px;
+}
+
+.memory-date-label > span:last-child {
+  font: 10px "Courier New", monospace;
+  letter-spacing: 0.12em;
+}
+
+.memory-count {
+  margin: 14px 0 7px;
+  color: #55707c;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.memory-count strong {
+  color: #527768;
+  font-weight: 600;
+}
+
+.memory-count-total {
+  white-space: nowrap;
+}
+
+.memory-caption {
+  display: -webkit-box;
+  height: 32px;
+  margin: 0;
+  overflow: hidden;
+  color: #8a9ba3;
+  font-size: 10px;
+  line-height: 16px;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.memory-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  margin-top: 6px;
+  padding: 3px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(126, 161, 152, 0.4);
+  color: #587c71;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 180ms, border-color 180ms;
+}
+
+.memory-open:hover {
+  color: #2f584c;
+  border-color: #8eae9c;
+}
+
+.memory-open svg {
+  transition: transform 300ms var(--memory-ease);
+}
+
+.memory-open[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.memory-open:disabled {
+  border-color: transparent;
+  color: #9aaba9;
+  cursor: default;
+}
+
+.memory-open:disabled svg {
+  visibility: hidden;
+}
+
+.memory-instruction {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 5px;
+  color: #90a2a8;
+  font-size: 9px;
+  letter-spacing: 0.03em;
+}
+
+.watch-timeline .timeline-chart-wrap {
+  margin-top: 12px;
+}
+
+.watch-timeline .timeline-chart-canvas {
+  background: linear-gradient(180deg, transparent, rgba(223, 241, 244, 0.12));
+}
+
+.watch-timeline .timeline-chart .timeline-guide {
+  stroke: #a3bcae;
+  stroke-dasharray: 2 5;
+  stroke-width: 1;
+  opacity: 0.8;
+  transition: transform 360ms var(--memory-ease);
+}
+
+.timeline-marker {
+  pointer-events: none;
+  transition: transform 360ms var(--memory-ease);
+}
+
+.timeline-marker-halo {
+  fill: rgba(236, 224, 133, 0.28);
+}
+
+.timeline-marker-core {
+  fill: #f3e7a1;
+  stroke: #718f80;
+  stroke-width: 2.5;
+}
+
+.watch-timeline .timeline-hit-area::after {
+  top: 8px;
+  bottom: 5px;
+}
+
+.watch-timeline .timeline-hit-area:is(:hover, :focus-visible)::after {
+  border: 0;
+  background: rgba(147, 188, 163, 0.07);
+}
+
+.watch-timeline .timeline-hit-area:focus-visible {
+  outline-offset: -3px;
+}
+
+.timeline-labels .is-selected {
+  color: #58786b;
+  background: #f5efcc;
+}
+
+.memory-records {
+  overflow: hidden;
+}
+
+.memory-record-month {
+  padding-top: 24px;
+}
+
+.memory-record-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.memory-record-heading h3 {
+  margin: 0;
+  color: #567279;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.memory-record-heading > span {
+  color: #91a4a4;
+  font: 8px "Courier New", monospace;
+  letter-spacing: 0.08em;
+}
+
+.memory-record-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.memory-record-list li + li {
+  border-top: 1px solid rgba(143, 188, 214, 0.14);
+}
+
+.memory-record-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 3px;
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 180ms ease;
+}
+
+.memory-record-link:hover {
+  background: rgba(223, 241, 244, 0.23);
+}
+
+.memory-record-link > img {
+  width: 35px;
+  height: 47px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: var(--mist);
+  object-fit: cover;
+}
+
+.memory-record-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 6px;
+}
+
+.memory-record-text strong {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.memory-record-text > span {
+  color: #8b9ca4;
+  font-size: 9px;
+}
+
+.memory-record-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #a79250;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.memory-record-arrow {
+  flex-shrink: 0;
+  color: #8aa79d;
+  transition: transform 220ms var(--memory-ease);
+}
+
+.memory-record-link:hover .memory-record-arrow {
+  transform: translate(2px, -2px);
+}
+
+.memory-record-empty {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.timeline-sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .watch-timeline {
+    padding: 22px 16px;
+  }
+
+  .memory-stage {
+    height: 222px;
+  }
+
+  .memory-scene {
+    grid-template-columns: 47% minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .memory-art {
+    height: 210px;
+  }
+
+  .memory-art::before {
+    top: 28px;
+    width: 144px;
+    height: 144px;
+  }
+
+  .memory-photo {
+    width: 86px;
+    padding: 4px 4px 0;
+  }
+
+  .memory-photo[data-card-slot="1"] { --card-x: 24px; }
+  .memory-photo[data-card-slot="2"] { --card-x: -24px; }
+
+  .memory-photo figcaption {
+    padding-block: 6px;
+    font-size: 5px;
+  }
+
+  .memory-sleeve {
+    bottom: 28px;
+    width: 126px;
+    height: 26px;
+    padding-inline: 8px;
+    font-size: 6px;
+    gap: 5px;
+  }
+
+  .memory-photo-empty { height: 127px; }
+  .memory-photo-empty > span { font-size: 10px; }
+  .memory-photo-empty small { font-size: 5px; }
+  .memory-eyebrow { font-size: 7px; letter-spacing: 0.08em; }
+  .memory-month-number { font-size: 60px; }
+  .memory-date { gap: 10px; }
+  .memory-count { font-size: 11px; }
+  .memory-open { min-height: 44px; font-size: 10px; }
+  .memory-record-link { gap: 9px; }
+}
+
+/* 最窄屏幕收紧纸片扇面，给月份与正文保留完整的阅读空间。 */
+@media (max-width: 380px) {
+  .memory-photo { width: 74px; }
+  .memory-photo[data-card-slot="1"] { --card-x: 18px; --card-angle: 10deg; }
+  .memory-photo[data-card-slot="2"] { --card-x: -18px; --card-angle: -13deg; }
+  .memory-photo-empty { height: 114px; }
+  .memory-art::before { width: 124px; height: 124px; top: 38px; }
+  .memory-sleeve { width: 108px; bottom: 38px; font-size: 5px; }
+  .memory-photo figcaption { font-size: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .watch-timeline *, .watch-timeline *::after {
+    transition: none !important;
+  }
+}
