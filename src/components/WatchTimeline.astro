@@ -1,14 +1,16 @@
 ---
-import { ArrowUpRight, CalendarRange, ChartNoAxesCombined, ChevronDown, MoveHorizontal, Star } from "@lucide/astro";
+import { ArrowUpRight, CalendarRange, ChartNoAxesCombined, ChevronDown, ChevronRight, MoveHorizontal, Star } from "@lucide/astro";
 import type { AnimeEntry } from "@/types/bangumi";
 import SectionHeading from "./SectionHeading.astro";
 import "@/styles/watch-timeline.css";
 
 interface Props {
   entries: AnimeEntry[];
+  reviewSubjectIds?: number[];
 }
 
-const { entries } = Astro.props;
+const { entries, reviewSubjectIds = [] } = Astro.props;
+const reviewSubjects = new Set(reviewSubjectIds);
 const today = new Date();
 const recordDates = entries
   .map((entry) => new Date(entry.updatedAt))
@@ -165,16 +167,31 @@ const formatRecordDate = (value: string) => new Intl.DateTimeFormat("zh-CN", { m
           <div class="memory-record-heading"><h3 id={`memory-record-heading-${month.key}`}>{month.title}的记录</h3><span>{String(month.entries.length).padStart(2, "0")} ENTRIES</span></div>
           {month.entries.length ? (
             <ul class="memory-record-list">
-              {month.entries.map((entry) => (
-                <li>
-                  <a href={entry.url} target="_blank" rel="noreferrer" class="memory-record-link">
-                    <img src={entry.image} alt="" loading="lazy" decoding="async" />
-                    <span class="memory-record-text"><strong>{entry.nameCn || entry.name}</strong><span>{formatRecordDate(entry.updatedAt)} 记录</span></span>
-                    <span class="memory-record-score"><Star size={12} fill="currentColor" />{entry.userScore ? entry.userScore.toFixed(1) : "—"}</span>
-                    <ArrowUpRight class="memory-record-arrow" size={15} aria-hidden="true" />
-                  </a>
-                </li>
-              ))}
+              {month.entries.map((entry) => {
+                // 有评价时复用站内详情卡片；尚未评分的记录保留 Bangumi 入口。
+                const hasReview = reviewSubjects.has(entry.id);
+                const RecordControl = hasReview ? "button" : "a";
+                return (
+                  <li>
+                    <RecordControl
+                      class="memory-record-link"
+                      type={hasReview ? "button" : undefined}
+                      data-review-open={hasReview ? entry.id : undefined}
+                      aria-haspopup={hasReview ? "dialog" : undefined}
+                      aria-controls={hasReview ? "review-dialog" : undefined}
+                      aria-label={hasReview ? `查看《${entry.nameCn || entry.name}》的评分与短评` : undefined}
+                      href={hasReview ? undefined : entry.url}
+                      target={hasReview ? undefined : "_blank"}
+                      rel={hasReview ? undefined : "noreferrer"}
+                    >
+                      <img src={entry.image} alt="" loading="lazy" decoding="async" />
+                      <span class="memory-record-text"><strong>{entry.nameCn || entry.name}</strong><span>{formatRecordDate(entry.updatedAt)} 记录</span></span>
+                      <span class="memory-record-score"><Star size={12} fill="currentColor" />{entry.userScore ? entry.userScore.toFixed(1) : "—"}</span>
+                      {hasReview ? <ChevronRight class="memory-record-arrow" size={15} aria-hidden="true" /> : <ArrowUpRight class="memory-record-arrow" size={15} aria-hidden="true" />}
+                    </RecordControl>
+                  </li>
+                );
+              })}
             </ul>
           ) : <p class="memory-record-empty">这个月暂无观看记录。</p>}
         </section>

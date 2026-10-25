@@ -399,9 +399,15 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
   padding: 10px 3px;
+  border: 0;
   color: var(--ink);
+  background: transparent;
+  font: inherit;
+  text-align: left;
   text-decoration: none;
+  cursor: pointer;
   transition: background 180ms ease;
 }
 
@@ -454,6 +460,10 @@
 
 .memory-record-link:hover .memory-record-arrow {
   transform: translate(2px, -2px);
+}
+
+.memory-record-link[data-review-open]:hover .memory-record-arrow {
+  transform: translateX(3px);
 }
 
 .memory-record-empty {

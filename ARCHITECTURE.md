@@ -115,7 +115,7 @@ recentReviews  按更新时间排序的有评分记录
 - `src/pages/index.astro` 使用 `IntersectionObserver` 为 `.reveal` 区块添加进入视口的动画类，并支持 `prefers-reduced-motion`。
 - `FavoriteRail.astro` 通过横向滚动实现卡片轨道浏览，支持左右按钮和鼠标滚轮转换。
 - `WatchTimeline.astro` 按收藏记录更新时间生成月份统计、回忆叠卡与作品列表；`src/scripts/watch-timeline.ts` 管理月份预览、卡片交接、列表展开及时间范围切换，`src/styles/watch-timeline.css` 定义对应样式。首次选择近期有记录的月份，鼠标、触摸与键盘共用同一选择状态，并支持减少动态效果。
-- `RecentSections.astro` 使用原生 `<dialog>` 展示完整评分与短评，支持打开、关闭和前后切换。
+- `RecentSections.astro` 使用原生 `<dialog>` 展示完整评分与短评，支持打开、关闭和前后切换；时间轴作品通过动画 ID 打开对应评价卡片，关闭后焦点回到原作品入口。
 - `DepthGallery.astro` 将六幕配置序列化到 `data-gallery` 属性，交给 `src/scripts/depth-gallery.ts` 使用。
 
 ### 深度画廊

@@ -39,14 +39,14 @@ const visibleReviews = reviews.slice(0, 4);
         <p class="compact-empty">同步后展示最近标记为“看过”的动画。</p>
       )}
     </section>
-    <WatchTimeline entries={watchHistory} />
+    <WatchTimeline entries={watchHistory} reviewSubjectIds={reviews.map((entry) => entry.id)} />
   </div>
 
   <section class="reviews reveal" aria-label="最近评分与短评">
     <div class="reviews-topline">
       <SectionHeading title="评分与短评" eyebrow="LATEST NOTES" />
       {reviews.length > 0 && (
-        <button class="review-open-all" type="button" data-review-open aria-haspopup="dialog">
+        <button class="review-open-all" type="button" data-review-open aria-haspopup="dialog" aria-controls="review-dialog">
           查看全部
           <ChevronRight size={15} />
         </button>
@@ -74,7 +74,7 @@ const visibleReviews = reviews.slice(0, 4);
     )}
 
     {reviews.length > 0 && (
-      <dialog class="review-dialog" aria-label="全部评分与短评" data-review-dialog>
+      <dialog id="review-dialog" class="review-dialog" aria-label="全部评分与短评" data-review-dialog>
         <!-- 纸页与主卡片分层，避免主卡片入场动画建立层叠上下文时纸页覆盖底色。 -->
         <div class="review-stack review-stack-left near" aria-hidden="true"></div>
         <div class="review-stack review-stack-left far" aria-hidden="true"></div>
@@ -94,7 +94,7 @@ const visibleReviews = reviews.slice(0, 4);
 
           <div class="review-slides" data-review-slides>
             {reviews.map((entry, index) => (
-              <article class={`review-detail ${index === 0 ? "is-active" : ""}`} data-review-slide>
+              <article class={`review-detail ${index === 0 ? "is-active" : ""}`} data-review-slide={entry.id}>
                 <aside class="review-detail-subject">
                   <a class="review-detail-cover" href={entry.url} target="_blank" rel="noreferrer">
                     <img src={entry.image} alt={entry.nameCn || entry.name} loading="lazy" />
@@ -162,15 +162,17 @@ const visibleReviews = reviews.slice(0, 4);
 
 <script>
   const dialog = document.querySelector<HTMLDialogElement>("[data-review-dialog]");
-  const openButton = document.querySelector<HTMLButtonElement>("[data-review-open]");
+  const openButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-review-open]"));
   const closeButton = document.querySelector<HTMLButtonElement>("[data-review-close]");
   const prevButton = document.querySelector<HTMLButtonElement>("[data-review-prev]");
   const nextButton = document.querySelector<HTMLButtonElement>("[data-review-next]");
   const slides = Array.from(document.querySelectorAll<HTMLElement>("[data-review-slide]"));
+  const reviewIndexBySubject = new Map(slides.map((slide, index) => [slide.dataset.reviewSlide!, index]));
   const dots = Array.from(document.querySelectorAll<HTMLElement>("[data-review-dot]"));
   const count = document.querySelector<HTMLElement>("[data-review-count]");
   let activeIndex = 0;
   let animationTimer = 0;
+  let returnFocus: HTMLButtonElement | undefined;
 
   /**
    * 不播放动效时直接同步当前评价，主要用于初次打开弹窗。
@@ -225,9 +227,20 @@ const visibleReviews = reviews.slice(0, 4);
     }, 360);
   };
 
-  openButton?.addEventListener("click", () => {
-    syncActiveReview(0);
-    dialog?.showModal();
+  // 时间轴按动画 ID 定位同一张评价卡片，“查看全部”仍从第一条开始。
+  openButtons.forEach((button) => button.addEventListener("click", () => {
+    const subjectId = button.dataset.reviewOpen;
+    const index = subjectId ? reviewIndexBySubject.get(subjectId) : 0;
+    if (index === undefined || !dialog) return;
+    returnFocus = button;
+    syncActiveReview(index);
+    dialog.showModal();
+  }));
+
+  dialog?.addEventListener("close", () => {
+    // 关闭后回到原来的作品入口，不滚动页面或改变时间轴月份。
+    syncActiveReview(activeIndex);
+    returnFocus?.focus({ preventScroll: true });
   });
 
   closeButton?.addEventListener("click", () => dialog?.close());

@@ -5,3 +5,4 @@ dist-*-verify/
 .astro/
 .DS_Store
 npm-debug.log*
+.workbuddy/
