@@ -90,8 +90,8 @@ syncedAt       数据同步时间
 profile        用户名、昵称和 Bangumi 主页
 stats          看过、在看、想看数量
 favorites      首页最喜欢的动漫
-recentWatched  最近看过的动漫
-watchHistory   全部看过记录，用于时间轴
+recentWatched  “看过”和“抛弃”中最近更新的十部动漫
+watchHistory   全部“看过”和“抛弃”记录，用于时间轴
 recentReviews  按更新时间排序的有评分记录
 ```
 
@@ -103,7 +103,7 @@ recentReviews  按更新时间排序的有评分记录
 2. 按每页 50 条进行分页，避免接口分页上限导致统计或列表缺项。
 3. 将 Bangumi 返回的条目压缩为页面需要的稳定字段，例如名称、图片、评分、排名、评论和更新时间。
 4. 根据 `favorites.config.json` 选择最喜欢的动漫。手动配置中不在收藏分页里的条目，会额外请求条目详情进行补全。
-5. 生成 `stats`、`favorites`、`recentWatched`、`watchHistory` 和 `recentReviews`。
+5. 生成 `stats`、`favorites`、`recentWatched`、`watchHistory` 和 `recentReviews`。最近看过与时间轴合并“看过”“抛弃”两类记录，顶部“看过”数量只统计“看过”分类。
 6. 先写入 `src/data/bangumi.json.tmp`，完成后再重命名覆盖正式文件；同步失败时保留旧数据。
 
 本地网络需要代理时，脚本读取 `HTTPS_PROXY` 或 `HTTP_PROXY` 环境变量，并通过 `ProxyAgent` 发出请求。页面运行阶段不执行这段同步逻辑。

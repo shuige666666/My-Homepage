@@ -173,7 +173,9 @@ async function sync() {
   ]);
 
   const normalizedAll = all.map(normalizeCollection);
-  const normalizedWatched = watched
+  // 观看经历同时收录“看过”(2)与“抛弃”(5)，顶部统计仍使用各分类的实际数量。
+  const normalizedWatchHistory = all
+    .filter((entry) => entry.type === 2 || entry.type === 5)
     .map(normalizeCollection)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
@@ -197,8 +199,8 @@ async function sync() {
       wish: wish.length,
     },
     favorites,
-    recentWatched: normalizedWatched.slice(0, 10),
-    watchHistory: normalizedWatched,
+    recentWatched: normalizedWatchHistory.slice(0, 10),
+    watchHistory: normalizedWatchHistory,
     recentReviews,
   };
 
@@ -207,7 +209,7 @@ async function sync() {
   await writeFile(tempPath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
   await rename(tempPath, OUTPUT_PATH);
   console.log(
-    `Bangumi 数据同步完成：${favorites.length} 部偏好作品，${watched.length} 部看过。`,
+    `Bangumi 数据同步完成：${favorites.length} 部偏好作品，${watched.length} 部看过，${normalizedWatchHistory.length} 条观看记录。`,
   );
 }
 
