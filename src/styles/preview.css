@@ -272,9 +272,10 @@ body:has(.pv-page) .review-detail-comment {
   min-height: 0;
   animation: none;
 }
+/* 用本机安装的 Californian FB Regular 试排英文标题。 */
 .pv-collection .album-gallery__section-title {
   margin: 0;
-  font: var(--pv-heading-weight) clamp(24px, 2.2vw, 40px)/1.3 var(--pv-sans);
+  font: 400 clamp(28px, 2.8vw, 42px)/1.1 "Californian FB", Georgia, serif;
 }
 .pv-collection .album-gallery__stage:focus-visible {
   outline: 2px solid #567b73;
@@ -1174,9 +1175,6 @@ body:has(.pv-page) .review-detail-comment {
   .pv-collection {
     height: 100svh;
     min-height: 640px;
-  }
-  .pv-collection .album-gallery__section-title {
-    font-size: 24px;
   }
   .pv-section-heading {
     align-items: flex-start;

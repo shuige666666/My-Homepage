@@ -76,7 +76,7 @@ const albumImages: Record<number, string> = {
   <dialog class="album-gallery" data-album-gallery data-album-embedded={embedded || undefined} data-album-initial-index={startIndex} open={embedded} aria-label="我最喜欢的动漫光碟画廊">
     <div class="album-gallery__canvas">
       <header class="album-gallery__header">
-        {embedded ? <h2 class="album-gallery__section-title">我最喜欢的动漫</h2> : <>
+        {embedded ? <h2 class="album-gallery__section-title" lang="en">My Favorite Anime</h2> : <>
           <div class="album-gallery__brand"><span class="album-gallery__brand-mark">A /</span> PRIVATE COLLECTION <span class="album-gallery__brand-sub">ANIME ON DISC</span></div>
           <button class="album-gallery__close" type="button" data-album-close aria-label="关闭光碟画廊" title="关闭画廊"><X size={18} stroke-width={1.7} /></button>
         </>}
