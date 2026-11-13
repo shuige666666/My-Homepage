@@ -63,7 +63,6 @@ const formatRecordDate = (value: string) => new Intl.DateTimeFormat("zh-CN", { m
       </div>
     </details>
   </div>
-  <p class="timeline-summary"><ChartNoAxesCombined size={14} />已记录 {total} 部动画 · 按收藏记录更新时间归档</p>
   {entries.length > 0 ? (
     <>
     <div class="timeline-memory" aria-label="月度回忆">
@@ -165,7 +164,7 @@ const formatRecordDate = (value: string) => new Intl.DateTimeFormat("zh-CN", { m
     <div class="memory-records" id="timeline-memory-records" hidden>
       {months.map((month) => (
         <section class="memory-record-month" data-record-month={month.key} hidden={month.key !== initialMonth.key} aria-labelledby={`memory-record-heading-${month.key}`}>
-          <div class="memory-record-heading"><h3 id={`memory-record-heading-${month.key}`}>{month.title}的记录</h3><span>{String(month.entries.length).padStart(2, "0")} ENTRIES</span></div>
+          <div class="memory-record-heading"><h3 id={`memory-record-heading-${month.key}`}>{month.title}的记录</h3><span>{plainLabels ? `${month.entries.length} 部` : `${String(month.entries.length).padStart(2, "0")} ENTRIES`}</span></div>
           {month.entries.length ? (
             <ul class="memory-record-list">
               {month.entries.map((entry) => {

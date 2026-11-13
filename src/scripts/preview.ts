@@ -1,5 +1,6 @@
 import { setupPreviewMotion } from "./preview-motion";
-import { setupPreviewWatched } from "./preview-watched";
+import { setupPreviewJournal } from "./preview-watched";
+import { setupPreviewSnap } from "./preview-snap";
 
 /** 宽屏下同步图表坐标和月份点击区，避免固定高度让折线挤在画布中央。 */
 function setupPreviewTimelineScale() {
@@ -45,6 +46,7 @@ function setupPreviewTimelineScale() {
   });
 }
 
+setupPreviewSnap();
 setupPreviewMotion();
-setupPreviewWatched();
+setupPreviewJournal();
 setupPreviewTimelineScale();

@@ -20,8 +20,9 @@ const syncDate = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-d
   <div class="pv-page" id="preview-top">
     <a class="pv-skip" href="#preview-main">跳到主要内容</a>
     <header class="pv-header pv-container">
-      <a class="pv-brand" href="#preview-top" aria-label="返回顶部">
-        <span>{siteConfig.title}</span>
+      <a class="pv-brand" href="#preview-top" aria-label={`${siteConfig.title}，返回顶部`}>
+        <!-- 固定站名使用本机字体渲染的字标，随静态站点构建发布。 -->
+        <img src="/images/profile/preview-wordmark.png" alt={siteConfig.title} width="552" height="129" />
       </a>
       <nav class="pv-nav" aria-label="信息页导航">
         <a href="#preview-collection">我最喜欢的动漫</a>
@@ -60,11 +61,14 @@ const syncDate = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-d
         <FavoriteRail entries={data.favorites} embedded initialIndex={2} />
       </section>
 
-      <PreviewJournal watched={data.recentWatched} />
-      <PreviewReviews reviews={data.recentReviews} />
+      <PreviewJournal watched={data.recentWatched.slice(0, 8)} />
+      <div class="pv-review-track">
+        <span class="pv-review-anchor" id="preview-reviews" aria-hidden="true"></span>
+        <PreviewReviews reviews={data.recentReviews} />
+      </div>
 
       <!-- 将成熟的月度浏览组件放进通栏章节，所有覆盖样式只作用于预览。 -->
-      <section class="pv-memories pv-section" id="preview-memories" aria-label="观看时间轴" data-pv-motion-section>
+      <section class="pv-memories pv-section" id="preview-memories" aria-label="观看时间轴">
         <div class="pv-container">
           <WatchTimeline entries={records} reviewSubjectIds={data.recentReviews.map((entry) => entry.id)} plainLabels />
         </div>

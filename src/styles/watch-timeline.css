@@ -50,6 +50,8 @@
 /* 浅色圆环和底部投影托住照片，静止时不运行任何持续动画。 */
 .memory-art::before {
   position: absolute;
+  /* 圆环固定在照片层之后，月份交接时不会跑到正在淡出的封面前面。 */
+  z-index: 0;
   content: "";
   width: 180px;
   height: 180px;
@@ -78,6 +80,8 @@
 .memory-deck {
   position: absolute;
   inset: 0;
+  /* 叠卡整体高于装饰圆环；动画带 transform 时也不会被后一页的圆环盖住。 */
+  z-index: 1;
 }
 
 .memory-photo {

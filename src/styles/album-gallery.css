@@ -111,6 +111,16 @@
 .album-gallery__close:active { transform: scale(.95); }
 .album-gallery__close:focus-visible { outline: 2px solid #222725; outline-offset: 4px; }
 
+.album-gallery__section-title {
+  transition: opacity 240ms ease, transform 380ms cubic-bezier(.2,.7,.2,1);
+}
+
+/* 只在进入嵌入章节时隐藏模块标题，落位时与作品名一起淡入。 */
+.album-gallery.is-section-entering .album-gallery__section-title {
+  opacity: 0;
+  transform: translateY(-12px);
+}
+
 .album-gallery__intro {
   position: absolute;
   z-index: 3;
@@ -457,6 +467,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .album-gallery[open] { animation: none; }
+  .album-gallery.is-section-entering .album-gallery__section-title { opacity: 1; transform: none; }
   .album-gallery.is-entering .album-gallery__canvas::after,
   .album-gallery.is-entering .album-gallery__header,
   .album-gallery.is-entering .album-gallery__intro,
