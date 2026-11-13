@@ -1,0 +1,125 @@
+{
+  "items": [
+    {
+      "color": "rgb(41, 70, 94)",
+      "fontSize": "16px",
+      "gap": "34px",
+      "gridTemplateColumns": "180px 811.2px 216px",
+      "height": 302,
+      "selector": ".profile-hero",
+      "width": 1361
+    },
+    {
+      "color": "rgb(41, 70, 94)",
+      "fontSize": "42px",
+      "gap": "normal",
+      "gridTemplateColumns": "none",
+      "height": 50,
+      "selector": ".profile-copy h1",
+      "width": 811
+    },
+    {
+      "color": "rgb(41, 70, 94)",
+      "fontSize": "16px",
+      "gap": "normal",
+      "gridTemplateColumns": "none",
+      "height": 363,
+      "selector": ".favorites-section",
+      "width": 1361
+    },
+    {
+      "color": "rgb(41, 70, 94)",
+      "fontSize": "19px",
+      "gap": "normal",
+      "gridTemplateColumns": "none",
+      "height": 24,
+      "selector": ".section-heading h2",
+      "width": 133
+    },
+    {
+      "color": "rgb(41, 70, 94)",
+      "fontSize": "16px",
+      "gap": "20px",
+      "gridTemplateColumns": "724.025px 616.775px",
+      "height": 1227,
+      "selector": ".recent-layout",
+      "width": 1361
+    },
+    {
+      "color": "rgb(41, 70, 94)",
+      "fontSize": "16px",
+      "gap": "normal",
+      "gridTemplateColumns": "none",
+      "height": 600,
+      "selector": ".recent-watched",
+      "width": 724
+    },
+    {
+      "color": "rgb(41, 70, 94)",
+      "fontSize": "16px",
+      "gap": "16px 13px",
+      "gridTemplateColumns": "122.875px 122.887px 122.887px 122.887px 122.875px",
+      "height": 501,
+      "selector": ".recent-grid",
+      "width": 722
+    },
+    {
+      "color": "rgb(41, 70, 94)",
+      "fontSize": "16px",
+      "gap": "normal",
+      "gridTemplateColumns": "none",
+      "height": 232,
+      "selector": ".recent-card",
+      "width": 123
+    },
+    {
+      "color": "rgb(138, 154, 165)",
+      "fontSize": "9px",
+      "gap": "normal",
+      "gridTemplateColumns": "none",
+      "height": 14,
+      "selector": ".recent-card p",
+      "width": 123
+    },
+    {
+      "color": "rgb(41, 70, 94)",
+      "fontSize": "16px",
+      "gap": "normal",
+      "gridTemplateColumns": "none",
+      "height": 996,
+      "selector": ".reviews",
+      "width": 617
+    },
+    {
+      "color": "rgb(41, 70, 94)",
+      "fontSize": "16px",
+      "gap": "normal",
+      "gridTemplateColumns": "none",
+      "height": 510,
+      "selector": ".review-card",
+      "width": 274
+    },
+    {
+      "color": "rgb(91, 116, 133)",
+      "fontSize": "12px",
+      "gap": "7px",
+      "gridTemplateColumns": "none",
+      "height": 222,
+      "selector": ".review-comment",
+      "width": 240
+    },
+    {
+      "color": "rgb(41, 70, 94)",
+      "fontSize": "16px",
+      "gap": "normal",
+      "gridTemplateColumns": "none",
+      "height": 607,
+      "selector": ".watch-timeline",
+      "width": 724
+    }
+  ],
+  "viewport": {
+    "height": 900,
+    "width": 1440
+  }
+}

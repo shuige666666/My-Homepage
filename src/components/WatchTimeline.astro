@@ -7,9 +7,10 @@ import "@/styles/watch-timeline.css";
 interface Props {
   entries: AnimeEntry[];
   reviewSubjectIds?: number[];
+  plainLabels?: boolean;
 }
 
-const { entries, reviewSubjectIds = [] } = Astro.props;
+const { entries, reviewSubjectIds = [], plainLabels = false } = Astro.props;
 const reviewSubjects = new Set(reviewSubjectIds);
 const today = new Date();
 const recordDates = entries
@@ -88,21 +89,21 @@ const formatRecordDate = (value: string) => new Intl.DateTimeFormat("zh-CN", { m
                 )) : (
                   <div class="memory-photo memory-photo-empty" data-memory-photo data-card-slot="0">
                     <CalendarRange size={26} stroke-width={1.2} />
-                    <span>留白的一页</span>
-                    <small>TO BE CONTINUED</small>
+                    <span>{plainLabels ? "暂无记录" : "留白的一页"}</span>
+                    {!plainLabels && <small>TO BE CONTINUED</small>}
                   </div>
                 )}
               </div>
               <div class="memory-sleeve"><span>ANIME ARCHIVE</span><i></i><span>{month.key.slice(0, 4)}</span></div>
             </div>
             <div class="memory-copy" data-memory-copy>
-              <p class="memory-eyebrow">MONTHLY MEMORIES</p>
+              {!plainLabels && <p class="memory-eyebrow">MONTHLY MEMORIES</p>}
               <h3 class="memory-date" id={`memory-title-${month.key}`}>
                 <span class="memory-month-number">{month.key.slice(5)}</span>
                 <span class="memory-date-label"><span>月</span><span>{month.key.slice(0, 4)}</span></span>
               </h3>
-              <p class="memory-count">{month.entries.length ? <>这一页，收录了 <span class="memory-count-total"><strong>{month.entries.length}</strong> 部动画</span></> : "这个月，暂时留白"}</p>
-              <p class="memory-caption">{month.entries.length ? month.entries[0].nameCn || month.entries[0].name : "等待下一段故事留下痕迹。"}</p>
+              <p class="memory-count">{month.entries.length ? <>{!plainLabels && "这一页，收录了 "}<span class="memory-count-total"><strong>{month.entries.length}</strong> 部动画</span></> : plainLabels ? "暂无观看记录" : "这个月，暂时留白"}</p>
+              {(month.entries.length > 0 || !plainLabels) && <p class="memory-caption">{month.entries.length ? month.entries[0].nameCn || month.entries[0].name : "等待下一段故事留下痕迹。"}</p>}
               <button class="memory-open" type="button" data-memory-toggle aria-expanded="false" aria-controls="timeline-memory-records" disabled={!month.entries.length}>
                 <span data-memory-toggle-label>{month.entries.length ? "展开本月记录" : "暂无观看记录"}</span><ChevronDown size={14} stroke-width={1.6} />
               </button>
@@ -110,7 +111,7 @@ const formatRecordDate = (value: string) => new Intl.DateTimeFormat("zh-CN", { m
           </article>
         ))}
       </div>
-      <p class="memory-instruction"><MoveHorizontal size={13} stroke-width={1.5} /><span>选择下方月份，翻阅动画回忆</span></p>
+      <p class="memory-instruction"><MoveHorizontal size={13} stroke-width={1.5} /><span>{plainLabels ? "选择月份" : "选择下方月份，翻阅动画回忆"}</span></p>
     </div>
     <div class="timeline-panels">
       {ranges.map((range) => {

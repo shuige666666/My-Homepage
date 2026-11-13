@@ -7,9 +7,13 @@ import "../styles/album-gallery.css";
 
 interface Props {
   entries: AnimeEntry[];
+  embedded?: boolean;
+  initialIndex?: number;
 }
 
-const { entries } = Astro.props;
+const { entries, embedded = false, initialIndex = 0 } = Astro.props;
+const startIndex = embedded ? Math.max(0, Math.min(initialIndex, entries.length - 1)) : 0;
+const initialEntry = entries[startIndex];
 const albumImages: Record<number, string> = {
   1424: "轻音少女.jpg",
   400602: "葬送的芙莉莲.jpg",
@@ -24,7 +28,7 @@ const albumImages: Record<number, string> = {
 };
 ---
 
-<section class="favorites-section reveal" aria-label="我最喜欢的动漫">
+{!embedded && <section class="favorites-section reveal" aria-label="我最喜欢的动漫">
   <div class="section-topline">
     <SectionHeading title="我最喜欢的动漫" eyebrow="MY FAVORITE ANIME" />
     {entries.length > 0 && (
@@ -66,20 +70,22 @@ const albumImages: Record<number, string> = {
       </div>
     </div>
   )}
-</section>
+</section>}
 
 {entries.length > 0 && (
-  <dialog class="album-gallery" data-album-gallery aria-label="我最喜欢的动漫光碟画廊">
+  <dialog class="album-gallery" data-album-gallery data-album-embedded={embedded || undefined} data-album-initial-index={startIndex} open={embedded} aria-label="我最喜欢的动漫光碟画廊">
     <div class="album-gallery__canvas">
       <header class="album-gallery__header">
-        <div class="album-gallery__brand"><span class="album-gallery__brand-mark">A /</span> PRIVATE COLLECTION <span class="album-gallery__brand-sub">ANIME ON DISC</span></div>
-        <button class="album-gallery__close" type="button" data-album-close aria-label="关闭光碟画廊" title="关闭画廊"><X size={18} stroke-width={1.7} /></button>
+        {embedded ? <h2 class="album-gallery__section-title">我最喜欢的动漫</h2> : <>
+          <div class="album-gallery__brand"><span class="album-gallery__brand-mark">A /</span> PRIVATE COLLECTION <span class="album-gallery__brand-sub">ANIME ON DISC</span></div>
+          <button class="album-gallery__close" type="button" data-album-close aria-label="关闭光碟画廊" title="关闭画廊"><X size={18} stroke-width={1.7} /></button>
+        </>}
       </header>
 
       <div class="album-gallery__intro" aria-live="polite">
-        <div class="album-gallery__eyebrow"><span data-album-number>01</span> <span class="album-gallery__slash">/</span> {String(entries.length).padStart(2, "0")} <span class="album-gallery__eyebrow-line"></span> MY FAVORITE ANIME</div>
-        <h2 data-album-title>{entries[0].nameCn || entries[0].name}</h2>
-        <p data-album-native>{entries[0].name}</p>
+        <div class="album-gallery__eyebrow"><span data-album-number>{String(startIndex + 1).padStart(2, "0")}</span> <span class="album-gallery__slash">/</span> {String(entries.length).padStart(2, "0")} {!embedded && <><span class="album-gallery__eyebrow-line"></span> MY FAVORITE ANIME</>}</div>
+        <h2 data-album-title>{initialEntry.nameCn || initialEntry.name}</h2>
+        <p data-album-native>{initialEntry.name}</p>
       </div>
 
       <div class="album-gallery__stage" data-album-stage tabindex="0" aria-label="光碟画廊：方向键浏览，回车打开，空格翻面">
@@ -98,7 +104,7 @@ const albumImages: Record<number, string> = {
             >
               <span class="album-gallery__disc-body">
                 <span class="album-gallery__disc-face album-gallery__disc-face--front">
-                  <img src={albumImages[entry.id] ? `/images/album/raw/${albumImages[entry.id]}` : entry.image} alt="" loading={index === 0 ? "eager" : "lazy"} draggable="false" />
+                  <img src={albumImages[entry.id] ? `/images/album/raw/${albumImages[entry.id]}` : entry.image} alt="" loading={index === startIndex ? "eager" : "lazy"} draggable="false" />
                   <span class="album-gallery__grooves"></span>
                   <span class="album-gallery__disc-hole"></span>
                 </span>
@@ -118,8 +124,8 @@ const albumImages: Record<number, string> = {
 
       <footer class="album-gallery__footer">
         <div class="album-gallery__caption">
-          <span class="album-gallery__caption-kicker">ON REPEAT · <span data-album-score>{entries[0].userScore.toFixed(1)}</span> / 10</span>
-          <p data-album-note>{entries[0].note || entries[0].name}</p>
+          <span class="album-gallery__caption-kicker">{embedded ? "我的评分 · " : "ON REPEAT · "}<span data-album-score>{initialEntry.userScore.toFixed(1)}</span> / 10</span>
+          <p data-album-note>{initialEntry.note || initialEntry.name}</p>
           <span class="album-gallery__hint">拖动邻盘切换 · 按住中间光碟旋转 · 空格翻面 · 点击前往 Bangumi</span>
         </div>
         <nav class="album-gallery__navigation" aria-label="光碟导航">

@@ -24,10 +24,12 @@ const DISC_LAYOUT = {
   verticalSpread: 1, // 越大，左边越靠下、右边越靠上；1 为当前高度差。
 } as const;
 
-/** 初始化收藏光碟画廊，并把所有交互限制在打开的对话框内。 */
+/** 初始化收藏光碟画廊；默认保留弹层行为，嵌入模式在页面内展示同一套盘面。 */
 export function setupAlbumGallery() {
   const dialog = document.querySelector<HTMLDialogElement>("[data-album-gallery]");
   if (!dialog) return;
+  const embedded = dialog.dataset.albumEmbedded === "true";
+  let embeddedVisible = !embedded;
 
   const stage = dialog.querySelector<HTMLElement>("[data-album-stage]");
   const discs = Array.from(dialog.querySelectorAll<HTMLButtonElement>("[data-album-disc]"));
@@ -45,8 +47,9 @@ export function setupAlbumGallery() {
   if (!stage || discs.length === 0) return;
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-  let position = 0;
-  let destination = 0;
+  const initialIndex = embedded ? Math.max(0, Math.min(Number(dialog.dataset.albumInitialIndex) || 0, discs.length - 1)) : 0;
+  let position = initialIndex;
+  let destination = initialIndex;
   let shownIndex = -1;
   let flippedIndex = -1;
   let animationFrame = 0;
@@ -235,16 +238,18 @@ export function setupAlbumGallery() {
       y *= DISC_LAYOUT.verticalSpread;
       let scale = discScale(offset);
       let { pitch, yaw, roll: zAngle } = discAngles(offset);
-      // 先露出左下的首盘，再让右上的邻盘跟进；两套盘面共用同一位置，避免贴图接管时跳动。
-      if (entranceProgress < 1 && index < 2) {
-        const delayed = clamp((entranceProgress - index * .13) / (1 - index * .13), 0, 1);
+      // 嵌入模式从默认盘附近错落入场；弹层沿用原先的首盘、邻盘开场。
+      const entranceSlot = embedded ? index - initialIndex + 2 : index;
+      if (entranceProgress < 1 && entranceSlot >= 0 && entranceSlot < (embedded ? 4 : 2)) {
+        const delayed = clamp((entranceProgress - entranceSlot * .13) / (1 - entranceSlot * .13), 0, 1);
         const arrive = 1 - Math.pow(1 - delayed, 3);
         const remaining = 1 - arrive;
-        x += discWidth * (index === 0 ? -.14 : .17) * remaining;
-        y += stageHeight * (index === 0 ? .1 : -.08) * remaining;
+        const fromLeft = embedded ? index <= initialIndex : index === 0;
+        x += discWidth * (fromLeft ? -.14 : .17) * remaining;
+        y += stageHeight * (fromLeft ? .1 : -.08) * remaining;
         scale *= 1 - .14 * remaining;
-        yaw += (index === 0 ? -7 : 6) * remaining;
-        zAngle += (index === 0 ? -6 : 5) * remaining;
+        yaw += (fromLeft ? -7 : 6) * remaining;
+        zAngle += (fromLeft ? -6 : 5) * remaining;
       }
       // 依据盘面包围圆判断可见性；旋转和透视留足余量，避免边缘尚未离屏就突然消失。
       const projectedRadius = discWidth * scale * .85;
@@ -282,9 +287,9 @@ export function setupAlbumGallery() {
     physicalLoading = (async () => {
       const [module] = await Promise.all([
         import("./album-disc-renderer"),
-        Promise.all(discImages.slice(0, 2).map((image) => image?.decode().catch(() => undefined))),
+        Promise.all(openingImages().map((image) => image?.decode().catch(() => undefined))),
       ]);
-      if (!dialog?.open) return;
+      if (!dialog?.open || (embedded && !embeddedVisible)) return;
       const physical = new module.AlbumDiscRenderer(stage!, discImages);
       try {
         discRenderer = physical;
@@ -305,7 +310,7 @@ export function setupAlbumGallery() {
 
   /** 用同一条弹簧跟随拖动位置和导航目标，指针停下后盘面仍会柔和落位。 */
   function startMotion() {
-    if (animationFrame || reduceMotion.matches) return;
+    if (animationFrame || reduceMotion.matches || (embedded && !embeddedVisible)) return;
     discRenderer?.beginMotion();
     // 首帧的 rAF 时间戳可能早于 WebGL 初始化结束时的当前时间，不能拿它减较晚的启动时间。
     lastMotionAt = 0;
@@ -315,7 +320,7 @@ export function setupAlbumGallery() {
   /** 位移与盘面转角分别带阻尼，松手后保留少量惯性而不突然换成另一种缓动。 */
   function frame(now: number) {
     animationFrame = 0;
-    if (!dialog?.open) return;
+    if (!dialog?.open || (embedded && !embeddedVisible)) return;
     const elapsed = lastMotionAt === 0 ? 0 : Math.max(0, now - lastMotionAt);
     const dt = Math.min(elapsed / 1000, .04);
     lastMotionAt = now;
@@ -401,13 +406,18 @@ export function setupAlbumGallery() {
     navigate(lastIndex);
   }
 
-  /** 打开时始终从第一张盘出发，再滑到所选作品。 */
-  function openGallery(index: number, source: HTMLButtonElement) {
+  /** 预载当前开场附近的盘面，第三张起步时左右邻盘也能及时出现。 */
+  function openingImages() {
+    return embedded ? discImages.slice(Math.max(0, destination - 2), destination + 2) : discImages.slice(0, 2);
+  }
+
+  /** 弹层从首盘滑到选中作品；嵌入模式直接以指定盘作为起点。 */
+  function openGallery(index: number, source?: HTMLButtonElement) {
     cancelAnimationFrame(animationFrame);
     animationFrame = 0;
-    opener = source;
-    position = 0;
-    destination = 0;
+    opener = source ?? null;
+    position = embedded ? index : 0;
+    destination = position;
     travelVelocity = 0;
     dialog?.classList.remove("is-travelling");
     shownIndex = -1;
@@ -426,16 +436,19 @@ export function setupAlbumGallery() {
       discs[poseIndex].style.setProperty("--tilt-y", "0deg");
     });
     flips.forEach((flip) => { flip.angle = flip.velocity = 0; });
-    dialog?.showModal();
-    previousBodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    // 嵌入模式已经位于文档流中，不锁定整页滚动，也不抢走当前键盘焦点。
+    if (!embedded) {
+      dialog?.showModal();
+      previousBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    }
     measureStage();
     render();
-    stage?.focus({ preventScroll: true });
-    discImages.slice(0, 2).forEach((image) => { if (image) image.loading = "eager"; });
+    if (!embedded) stage?.focus({ preventScroll: true });
+    openingImages().forEach((image) => { if (image) image.loading = "eager"; });
     const physicalReady = ensurePhysicalDiscs();
     if (entranceProgress < 1) startMotion();
-    if (index !== 0) {
+    if (!embedded && index !== 0) {
       const opening = ++animationGeneration;
       void prepareOpeningRoute(index, opening, physicalReady);
     }
@@ -477,6 +490,8 @@ export function setupAlbumGallery() {
   pages.forEach((button, index) => button.addEventListener("click", () => navigate(index)));
 
   dialog.addEventListener("wheel", (event) => {
+    // 页面内的纵向滚动继续切换模块；横向手势和 Shift + 滚轮才切换光碟。
+    if (embedded && !event.shiftKey && Math.abs(event.deltaY) >= Math.abs(event.deltaX)) return;
     event.preventDefault();
     const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
     if (Math.abs(delta) < 5 || performance.now() - lastWheelAt < 260) return;
@@ -630,6 +645,39 @@ export function setupAlbumGallery() {
     else window.open(target.dataset.url, "_blank", "noopener,noreferrer");
   });
   window.addEventListener("resize", () => { if (dialog.open) { measureStage(); render(); } });
+  if (embedded) {
+    let hasEntered = false;
+    let measureFrame = 0;
+    // 整屏滚入视野时按原轨迹入场，离屏后释放 WebGL，返回时保留选中的作品。
+    const visibility = new IntersectionObserver(([entry]) => {
+      embeddedVisible = entry.isIntersecting;
+      if (embeddedVisible) {
+        measureStage();
+        if (!hasEntered) {
+          hasEntered = true;
+          openGallery(initialIndex);
+        } else {
+          render();
+          void ensurePhysicalDiscs();
+          startMotion();
+        }
+      } else {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+        discRenderer?.dispose();
+        discRenderer = null;
+        dialog.classList.remove("has-webgl");
+      }
+    }, { threshold: 0 });
+    measureStage();
+    render();
+    visibility.observe(dialog);
+    // 模块随页面滚动后重新读取屏幕坐标，避免拖动命中仍使用进入前的位置。
+    window.addEventListener("scroll", () => {
+      if (!embeddedVisible || measureFrame) return;
+      measureFrame = requestAnimationFrame(() => { measureFrame = 0; measureStage(); });
+    }, { passive: true });
+  }
   window.addEventListener("pagehide", () => {
     discRenderer?.dispose();
     discRenderer = null;

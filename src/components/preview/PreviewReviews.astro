@@ -1,0 +1,44 @@
+---
+import { ArrowRight, ArrowUpRight } from "@lucide/astro";
+import type { AnimeEntry } from "@/types/bangumi";
+
+interface Props { reviews: AnimeEntry[]; }
+const { reviews } = Astro.props;
+const [feature, ...others] = reviews;
+const formatter = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Shanghai" });
+
+/** 摘取真实短评；全文交给原版纸页阅读器，不新增作品描述。 */
+const excerpt = (comment: string, length: number) => {
+  const text = comment.replace(/\s+/g, " ").trim();
+  return text.length > length ? `${text.slice(0, length).trim()}…` : text;
+};
+---
+
+<section class="pv-reviews pv-section" id="preview-reviews" aria-labelledby="preview-reviews-title" data-pv-motion-section>
+  <div class="pv-container">
+    <div class="pv-section-heading" data-pv-reveal>
+      <h2 id="preview-reviews-title">评分与短评</h2>
+      {reviews.length > 0 && <button class="pv-text-link" type="button" data-review-open aria-haspopup="dialog" aria-controls="review-dialog">查看全部 <span class="pv-total">{reviews.length}</span><ArrowUpRight size={19} /></button>}
+    </div>
+    {feature ? <div class="pv-review-layout">
+      <article class="pv-feature-record">
+        <div class="pv-feature-art" data-pv-reveal>
+          <button class="pv-feature-image" type="button" data-review-open={feature.id} aria-label={`阅读 ${feature.nameCn || feature.name} 的完整短评`} aria-haspopup="dialog" aria-controls="review-dialog"><img src={feature.image} alt={feature.nameCn || feature.name} loading="lazy" decoding="async" /><span class="pv-cover-open" aria-hidden="true"><ArrowUpRight size={23} /></span></button>
+        </div>
+        <div class="pv-feature-copy" data-pv-reveal style="--pv-stagger: 1">
+          <p class="pv-record-date"><time datetime={feature.updatedAt}>{formatter.format(new Date(feature.updatedAt))}</time></p>
+          <h3>{feature.nameCn || feature.name}</h3>
+          <div class="pv-record-score"><strong>{feature.userScore.toFixed(1)}</strong><span>/ 10<small>我的评分</small></span></div>
+          <p class="pv-feature-excerpt">{feature.comment ? excerpt(feature.comment, 115) : "暂无短评。"}</p>
+          <button class="pv-text-link" type="button" data-review-open={feature.id} aria-haspopup="dialog" aria-controls="review-dialog">阅读完整短评 <ArrowRight size={18} /></button>
+        </div>
+      </article>
+      <div class="pv-side-records">
+        {others.slice(0, 3).map((entry, index) => <article class="pv-side-record" data-pv-reveal style={`--pv-stagger: ${index + 2}`}>
+          <img src={entry.image} alt="" loading="lazy" decoding="async" />
+          <div><p class="pv-side-date"><time datetime={entry.updatedAt}>{formatter.format(new Date(entry.updatedAt))}</time><span>{entry.userScore.toFixed(1)} / 10</span></p><h3>{entry.nameCn || entry.name}</h3><p class="pv-side-excerpt">{entry.comment ? excerpt(entry.comment, 45) : "暂无短评。"}</p><button type="button" class="pv-side-open" data-review-open={entry.id} aria-label={`阅读 ${entry.nameCn || entry.name} 的短评`} aria-haspopup="dialog" aria-controls="review-dialog">阅读短评 <ArrowUpRight size={14} /></button></div>
+        </article>)}
+      </div>
+    </div> : <p class="pv-empty">暂无评分与短评。</p>}
+  </div>
+</section>

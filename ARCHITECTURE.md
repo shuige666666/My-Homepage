@@ -2,7 +2,7 @@
 
 本文记录当前仓库已经实现的项目结构、数据流和部署链路。它以实际代码为准，不记录尚未实现的服务端接口、数据库或内容集合方案。
 
-最后核对：2026-09-05
+最后核对：2026-09-05；独立信息页预览补充：2026-11-12；预览动效修订：2026-11-13
 
 ## 1. 架构概览
 
@@ -65,12 +65,27 @@ BaseLayout
 | `src/components/SiteHeader.astro` | 渲染品牌标题和 Bangumi 外部链接。 |
 | `src/components/ProfileHero.astro` | 展示用户资料、头像、简介、Bangumi 主页和观看统计。 |
 | `src/components/FavoriteRail.astro` | 展示最喜欢的动漫横向卡片轨道；支持按钮和鼠标滚轮浏览。 |
-| `src/components/RecentSections.astro` | 展示最近观看、评分与短评；包含评分详情弹窗和前后评价切换。 |
+| `src/components/RecentSections.astro` | 展示最近观看、评分与短评；组合时间轴和共用的评分详情弹窗。 |
+| `src/components/ReviewDialog.astro` | 原版纸页评分详情弹窗；按作品打开、前后评价切换和关闭后的焦点恢复，供原主页与预览共用。 |
 | `src/components/WatchTimeline.astro` | 根据观看记录生成月份统计折线图；支持近一年、近两年和全部记录切换。 |
 | `src/components/SectionHeading.astro` | 提供各内容区块共用的标题结构。 |
 | `src/components/DepthGallery.astro` | 提供首页开场六幕画廊的静态标记、图片配置和画布入口。 |
 
 Astro 负责在构建阶段生成页面结构，组件中的 `<script>` 只在浏览器加载后注册局部交互，因此页面不需要客户端框架运行时。
+
+### 2.1 独立信息页预览
+
+`src/pages/preview.astro` 提供 `/preview` 设计样稿，读取同一份 Bangumi 快照，依次展示个人资料、十张收藏光碟、最近看过、评分与短评、观看时间轴。桌面端各内容模块默认占一个视口；时间轴展开记录时允许自然增高，手机端优先保证内容可读。仅使用模块名称、真实资料和必要操作提示。
+
+`src/components/preview/PreviewJournal.astro` 展示全部十条最近记录的海报横向轨道；`PreviewReviews.astro` 独立展示一条主评和三条侧评，所有阅读入口复用 `ReviewDialog.astro`，保留原版纸页样式和翻页动画。`src/scripts/preview-watched.ts` 负责海报按钮、键盘浏览、可见范围和进度；纵向滚轮继续浏览整页。
+
+`src/scripts/preview-motion.ts` 使用 Web Animations 和 IntersectionObserver 编排错落入场，并按章节滚动位置驱动图像轻微旋转与位移。文字及章节高度保持稳定，静止阅读时不运行持续循环；支持减少动态效果及手机端减弱运动。`src/scripts/preview.ts` 初始化预览交互，并按时间轴实际宽度同步折线与月份点击坐标。
+
+预览通过 `FavoriteRail` 的可选 `embedded` 属性，把原光碟舞台作为非模态内容直接嵌入页面；`initialIndex={2}` 让第三张直接作为起点，左右邻盘一同入场。`album-gallery.ts` 在该模式中按可见性装载与释放 WebGL，保留盘面材质、运动轨迹、拖动、翻面和十张导航；纵向滚动继续浏览页面，横向手势或 Shift + 滚轮切换作品。默认弹层模式仍从首盘进入选中作品，开场画廊代码未改动；尚未添加循环轮播。
+
+`WatchTimeline` 的可选 `plainLabels` 属性简化预览文案，原主页仍使用原文案和布局。`src/styles/preview.css` 只由预览入口导入，使用 `pv-` 前缀和预览容器限定覆盖范围。未添加新数据字段、依赖或运行时 API。
+
+原版短评弹层的窄屏适配在预览样式中做局部修正：资料区按长标题自然撑开，正文在独立区域内滚动，避免与资料重叠。原版弹层的 HTML、翻页脚本和桌面样式保持不变。
 
 ## 3. 数据架构
 
@@ -115,7 +130,7 @@ recentReviews  按更新时间排序的有评分记录
 - `src/pages/index.astro` 使用 `IntersectionObserver` 为 `.reveal` 区块添加进入视口的动画类，并支持 `prefers-reduced-motion`。
 - `FavoriteRail.astro` 通过横向滚动实现卡片轨道浏览，支持左右按钮和鼠标滚轮转换。
 - `WatchTimeline.astro` 按收藏记录更新时间生成月份统计、回忆叠卡与作品列表；`src/scripts/watch-timeline.ts` 管理月份预览、卡片交接、列表展开及时间范围切换，`src/styles/watch-timeline.css` 定义对应样式。首次选择近期有记录的月份，鼠标、触摸与键盘共用同一选择状态，并支持减少动态效果。
-- `RecentSections.astro` 使用原生 `<dialog>` 展示完整评分与短评，支持打开、关闭和前后切换；时间轴作品通过动画 ID 打开对应评价卡片，关闭后焦点回到原作品入口。
+- `ReviewDialog.astro` 使用原生 `<dialog>` 展示完整评分与短评，支持打开、关闭和前后切换；时间轴作品通过动画 ID 打开对应评价卡片，关闭后焦点回到原作品入口。
 - `DepthGallery.astro` 将六幕配置序列化到 `data-gallery` 属性，交给 `src/scripts/depth-gallery.ts` 使用。
 
 ### 深度画廊
@@ -211,6 +226,7 @@ npx wrangler deploy
 │  ├─ data/                             页面配置和 Bangumi 数据快照
 │  ├─ layouts/                          Astro 页面布局
 │  ├─ pages/index.astro                 首页入口
+│  ├─ pages/preview.astro               独立信息页设计预览
 │  ├─ scripts/depth-gallery.ts          Three.js 开场画廊运行时
 │  ├─ styles/                            全局和画廊样式
 │  ├─ types/bangumi.ts                  数据类型

@@ -1,0 +1,189 @@
+---
+import { CalendarDays, ChevronLeft, ChevronRight, ExternalLink, Star, X } from "@lucide/astro";
+import type { AnimeEntry } from "@/types/bangumi";
+
+interface Props { reviews: AnimeEntry[]; }
+const { reviews } = Astro.props;
+const formatter = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
+/** 按原版格式显示收藏记录日期。 */
+const formatDate = (value: string) => value ? formatter.format(new Date(value)) : "尚未同步";
+---
+
+<!-- 原主页与预览共用同一套纸页弹层，保留原有排版及翻页动画。 -->
+{reviews.length > 0 && (
+  <dialog id="review-dialog" class="review-dialog" aria-label="全部评分与短评" data-review-dialog>
+    <!-- 纸页与主卡片分层，避免主卡片入场动画建立层叠上下文时纸页覆盖底色。 -->
+    <div class="review-stack review-stack-left near" aria-hidden="true"></div>
+    <div class="review-stack review-stack-left far" aria-hidden="true"></div>
+    <div class="review-stack review-stack-right near" aria-hidden="true"></div>
+    <div class="review-stack review-stack-right far" aria-hidden="true"></div>
+    <div class="review-modal-shell">
+      <button class="review-dialog-close" type="button" data-review-close aria-label="关闭全部评论窗口">
+        <X size={21} />
+      </button>
+
+      <button class="review-slide-button previous" type="button" data-review-prev aria-label="查看更新一条评价">
+        <ChevronLeft size={30} />
+      </button>
+      <button class="review-slide-button next" type="button" data-review-next aria-label="查看更早一条评价">
+        <ChevronRight size={30} />
+      </button>
+
+      <div class="review-slides" data-review-slides>
+        {reviews.map((entry, index) => (
+          <article class={`review-detail ${index === 0 ? "is-active" : ""}`} data-review-slide={entry.id}>
+            <aside class="review-detail-subject">
+              <a class="review-detail-cover" href={entry.url} target="_blank" rel="noreferrer">
+                <img src={entry.image} alt={entry.nameCn || entry.name} loading="lazy" />
+              </a>
+              <div class="review-detail-meta">
+                <p class="review-detail-kicker">SUBJECT</p>
+                <h3>{entry.nameCn || entry.name}</h3>
+                {entry.nameCn && <p class="review-detail-original">{entry.name}</p>}
+                <dl>
+                  <div>
+                    <dt>我的评分</dt>
+                    <dd><Star size={15} fill="currentColor" />{entry.userScore.toFixed(1)}</dd>
+                  </div>
+                  <div>
+                    <dt>记录日期</dt>
+                    <dd><CalendarDays size={15} />{formatDate(entry.updatedAt)}</dd>
+                  </div>
+                  <div>
+                    <dt>Bangumi</dt>
+                    <dd>{entry.bangumiScore ? entry.bangumiScore.toFixed(1) : "暂无"}</dd>
+                  </div>
+                  <div>
+                    <dt>排名</dt>
+                    <dd>{entry.rank ? `#${entry.rank}` : "暂无"}</dd>
+                  </div>
+                </dl>
+                <a class="review-detail-link" href={entry.url} target="_blank" rel="noreferrer">
+                  打开 Bangumi
+                  <ExternalLink size={14} />
+                </a>
+              </div>
+            </aside>
+
+            <section class="review-detail-note">
+              <div class="review-detail-heading">
+                <div>
+                  <p class="review-detail-kicker">MY REVIEW</p>
+                  <h3>我的评价</h3>
+                </div>
+                <span><Star size={16} fill="currentColor" />{entry.userScore.toFixed(1)}</span>
+              </div>
+              <div class="review-detail-quote" aria-hidden="true">“</div>
+              <p class={entry.comment ? "review-detail-comment" : "review-detail-comment is-empty"}>
+                {entry.comment || "这次只留下了评分，没有写短评。"}
+              </p>
+              <div class="review-detail-foot">
+                <span>第 {index + 1} / {reviews.length} 条</span>
+              </div>
+            </section>
+          </article>
+        ))}
+      </div>
+
+      <div class="review-dialog-progress" aria-live="polite">
+        <span data-review-count>1 / {reviews.length}</span>
+        <div class="review-progress-dots">
+          {reviews.map((_, index) => <i class={index === 0 ? "is-active" : ""} data-review-dot></i>)}
+        </div>
+      </div>
+    </div>
+  </dialog>
+)}
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>("[data-review-dialog]");
+  const openButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-review-open]"));
+  const closeButton = document.querySelector<HTMLButtonElement>("[data-review-close]");
+  const prevButton = document.querySelector<HTMLButtonElement>("[data-review-prev]");
+  const nextButton = document.querySelector<HTMLButtonElement>("[data-review-next]");
+  const slides = Array.from(document.querySelectorAll<HTMLElement>("[data-review-slide]"));
+  const reviewIndexBySubject = new Map(slides.map((slide, index) => [slide.dataset.reviewSlide!, index]));
+  const dots = Array.from(document.querySelectorAll<HTMLElement>("[data-review-dot]"));
+  const count = document.querySelector<HTMLElement>("[data-review-count]");
+  let activeIndex = 0;
+  let animationTimer = 0;
+  let returnFocus: HTMLButtonElement | undefined;
+
+  /**
+   * 不播放动效时直接同步当前评价，主要用于初次打开弹窗。
+   */
+  const syncActiveReview = (nextIndex: number) => {
+    window.clearTimeout(animationTimer);
+    if (!slides.length) return;
+    activeIndex = (nextIndex + slides.length) % slides.length;
+    slides.forEach((slide, index) => {
+      slide.classList.remove("is-entering", "is-leaving", "from-next", "from-prev", "to-next", "to-prev");
+      slide.classList.toggle("is-active", index === activeIndex);
+    });
+    dots.forEach((dot, index) => dot.classList.toggle("is-active", index === activeIndex));
+    if (count) count.textContent = `${activeIndex + 1} / ${slides.length}`;
+  };
+
+  /**
+   * 先淡出旧评价，再从浏览方向轻移接入新评价，保持卡片大小与阅读位置稳定。
+   */
+  const setActiveReview = (nextIndex: number, direction: "next" | "prev" = "next") => {
+    if (!slides.length) return;
+    const normalizedIndex = (nextIndex + slides.length) % slides.length;
+    if (normalizedIndex === activeIndex) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      syncActiveReview(normalizedIndex);
+      return;
+    }
+
+    window.clearTimeout(animationTimer);
+    const currentSlide = slides[activeIndex];
+    const nextSlide = slides[normalizedIndex];
+    // 连续点击时沿用当前透明度，避免尚未显现的卡片突然闪亮再退场。
+    currentSlide.style.setProperty("--review-exit-opacity", getComputedStyle(currentSlide).opacity);
+
+    // 连续点击时，先清掉所有滑页的激活态，避免上一轮退场页重新进入文档流。
+    slides.forEach((slide) => {
+      slide.classList.remove("is-active", "is-entering", "is-leaving", "from-next", "from-prev", "to-next", "to-prev");
+    });
+
+    currentSlide.classList.add("is-active", "is-leaving", direction === "next" ? "to-prev" : "to-next");
+    nextSlide.classList.add("is-active", "is-entering", direction === "next" ? "from-next" : "from-prev");
+
+    activeIndex = normalizedIndex;
+    dots.forEach((dot, index) => dot.classList.toggle("is-active", index === activeIndex));
+    if (count) count.textContent = `${activeIndex + 1} / ${slides.length}`;
+
+    animationTimer = window.setTimeout(() => {
+      slides.forEach((slide, index) => {
+        slide.classList.remove("is-entering", "is-leaving", "from-next", "from-prev", "to-next", "to-prev");
+        slide.classList.toggle("is-active", index === activeIndex);
+      });
+    }, 360);
+  };
+
+  // 时间轴按动画 ID 定位同一张评价卡片，“查看全部”仍从第一条开始。
+  openButtons.forEach((button) => button.addEventListener("click", () => {
+    const subjectId = button.dataset.reviewOpen;
+    const index = subjectId ? reviewIndexBySubject.get(subjectId) : 0;
+    if (index === undefined || !dialog) return;
+    returnFocus = button;
+    syncActiveReview(index);
+    dialog.showModal();
+  }));
+
+  dialog?.addEventListener("close", () => {
+    // 关闭后回到原来的作品入口，不滚动页面或改变时间轴月份。
+    syncActiveReview(activeIndex);
+    returnFocus?.focus({ preventScroll: true });
+  });
+
+  closeButton?.addEventListener("click", () => dialog?.close());
+  prevButton?.addEventListener("click", () => setActiveReview(activeIndex - 1, "prev"));
+  nextButton?.addEventListener("click", () => setActiveReview(activeIndex + 1, "next"));
+
+  dialog?.addEventListener("click", (event) => {
+    // 点击半透明遮罩时关闭窗口，避免误触内容区域导致关闭。
+    if (event.target === dialog) dialog.close();
+  });
+</script>
