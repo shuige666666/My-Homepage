@@ -22,6 +22,13 @@ const SCROLL_DAMPING = -Math.log(1 - 0.08) * 60;
 const VELOCITY_DAMPING = -Math.log(1 - 0.12) * 60;
 const POINTER_DAMPING = -Math.log(1 - 0.055) * 60;
 
+interface ArtworkFrame {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 const backgroundVertexShader = `
   varying vec2 vUv;
 
@@ -80,7 +87,7 @@ const backgroundFragmentShader = `
  */
 export function mountDepthGallery(): void {
   const section = document.querySelector<HTMLElement>("#depth-intro");
-  const homepage = document.querySelector<HTMLElement>(".page-shell");
+  const homepage = document.querySelector<HTMLElement>("[data-depth-home]");
   if (!section || !homepage || section.dataset.mounted === "true") return;
 
   section.dataset.mounted = "true";
@@ -96,7 +103,7 @@ export function mountDepthGallery(): void {
   }
 
   try {
-    const experience = new DepthGalleryExperience(section, canvas, items);
+    const experience = new DepthGalleryExperience(section, canvas, items, homepage);
     experience.init().catch((error) => {
       // 纹理下载或初始化失败时同样回退，避免异步异常留下空白首屏。
       console.warn("Depth gallery assets could not be initialized.", error);
@@ -138,6 +145,68 @@ function mountStaticScroll(section: HTMLElement): void {
   window.addEventListener("resize", update, { passive: true });
 }
 
+/** 用第六幕在视口中的投影和明信片的实际尺寸做可逆的图像交接。 */
+class PostcardHandoff {
+  private readonly postcard: HTMLElement;
+  private readonly image: HTMLImageElement;
+  private readonly overlay: HTMLElement;
+  private readonly overlayImage: HTMLImageElement;
+  private destination: { width: number; height: number; angle: number; border: number } | null = null;
+
+  constructor(private readonly homepage: HTMLElement) {
+    this.postcard = homepage.querySelector<HTMLElement>(".pv-postcard")!;
+    this.image = this.postcard.querySelector("img")!;
+    this.overlay = document.querySelector<HTMLElement>(".depth-postcard")!;
+    this.overlayImage = this.overlay.querySelector("img")!;
+    const observer = new ResizeObserver(() => this.measure());
+    observer.observe(this.image);
+  }
+
+  /** 缓存落点尺寸，滚动时只更新相对视口的位置。 */
+  measure(): void {
+    const style = getComputedStyle(this.postcard);
+    this.destination = {
+      width: this.image.clientWidth,
+      height: this.image.clientHeight,
+      angle: parseFloat(style.getPropertyValue("--pv-postcard-angle")),
+      border: parseFloat(style.paddingLeft),
+    };
+  }
+
+  /** 动画落定后由主页里原有的明信片接手。 */
+  settle(): void {
+    if (this.overlay.hidden) return;
+    this.overlay.hidden = true;
+    this.homepage.classList.remove("is-postcard-handoff");
+  }
+
+  /** 在同一张图上插值位置和裁切尺寸，白边随缩小逐渐出现。 */
+  render(progress: number, source: ArtworkFrame): boolean {
+    if (!this.overlayImage.complete || !this.overlayImage.naturalWidth) return false;
+    if (!this.destination) this.measure();
+    const target = this.destination!;
+    if (target.width === 0 || target.height === 0) return false;
+    const bounds = this.image.getBoundingClientRect();
+    const width = THREE.MathUtils.lerp(source.width, target.width, progress);
+    const height = THREE.MathUtils.lerp(source.height, target.height, progress);
+    const x = THREE.MathUtils.lerp(source.x, bounds.left + bounds.width / 2, progress);
+    const y = THREE.MathUtils.lerp(source.y, bounds.top + bounds.height / 2, progress);
+    const angle = target.angle * progress;
+    const border = target.border * smoothstep(progress);
+
+    this.overlay.style.width = `${width}px`;
+    this.overlay.style.height = `${height}px`;
+    this.overlay.style.transform = `translate3d(${x - width / 2 - border}px, ${y - height / 2 - border}px, 0) rotate(${angle}deg)`;
+    this.overlay.style.setProperty("--depth-postcard-border", `${border}px`);
+    this.overlay.style.setProperty("--depth-postcard-shadow", String(smoothstep(progress)));
+    if (this.overlay.hidden) {
+      this.overlay.hidden = false;
+      this.homepage.classList.add("is-postcard-handoff");
+    }
+    return true;
+  }
+}
+
 class DepthGalleryExperience {
   private readonly section: HTMLElement;
   private readonly stage: HTMLElement;
@@ -173,6 +242,8 @@ class DepthGalleryExperience {
   private readonly colorRgb: HTMLElement | null;
   private readonly colorHex: HTMLElement | null;
   private readonly progressCurrent: HTMLElement | null;
+  private readonly postcard: PostcardHandoff;
+  private readonly projectedCenter = new THREE.Vector3();
   private renderProgress = 0;
   private scrollProgress = 0;
   private previousGalleryProgress = 0;
@@ -184,15 +255,19 @@ class DepthGalleryExperience {
   private viewportWidth = 1;
   private viewportHeight = 1;
   private compositionHeight = 1;
+  private galleryDistance = 1;
+  private galleryEnd = 0.84;
 
   constructor(
     section: HTMLElement,
     canvas: HTMLCanvasElement,
     items: GalleryItem[],
+    private readonly homepage: HTMLElement,
   ) {
     this.section = section;
     this.stage = canvas.parentElement ?? section;
     this.items = items;
+    this.postcard = new PostcardHandoff(homepage);
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       alpha: false,
@@ -230,16 +305,17 @@ class DepthGalleryExperience {
   async init(): Promise<void> {
     this.setupBackground();
     this.setupTrail();
-    this.bindEvents();
     this.resize();
     this.updateScrollState();
 
     await this.createPlanes();
+    this.bindEvents();
+    this.resize();
     // 纹理加载期间浏览器可能恢复历史滚动位置，因此启动前重新读取一次真实目标。
     this.updateScrollState();
     // 首次渲染从当前页面位置开始，避免刷新在中途时从第一幕长距离追赶。
     this.renderProgress = this.scrollProgress;
-    this.previousGalleryProgress = THREE.MathUtils.clamp(this.renderProgress / 0.84, 0, 1);
+    this.previousGalleryProgress = Math.min(this.renderProgress / this.galleryEnd, 1);
     this.lastFrameTime = window.performance.now();
     document.body.classList.add("depth-gallery-ready");
     this.syncPresentationState(this.renderProgress);
@@ -330,12 +406,11 @@ class DepthGalleryExperience {
   }
 
   private readonly updateScrollState = (): void => {
-    const distance = Math.max(this.section.offsetHeight - this.viewportHeight, 1);
-    this.scrollProgress = THREE.MathUtils.clamp(
-      -this.section.getBoundingClientRect().top / distance,
-      0,
-      1,
-    );
+    const travel = -this.section.getBoundingClientRect().top;
+    // 锚点会按物理像素取整，落在末端一像素以内也视为到位。
+    this.scrollProgress = travel >= this.galleryDistance - 1
+      ? 1
+      : Math.max(0, travel / this.galleryDistance);
     this.startRender();
   };
 
@@ -351,13 +426,13 @@ class DepthGalleryExperience {
    */
   private syncPresentationState(progress: number): number {
     const handoff = smoothstep(
-      THREE.MathUtils.clamp((progress - 0.84) / 0.16, 0, 1),
+      THREE.MathUtils.clamp((progress - this.galleryEnd) / (1 - this.galleryEnd), 0, 1),
     );
     this.section.style.setProperty("--depth-progress", progress.toFixed(4));
     this.section.style.setProperty("--depth-handoff", handoff.toFixed(4));
     document.documentElement.style.setProperty("--homepage-reveal", handoff.toFixed(4));
-    document.body.classList.toggle("depth-gallery-home", handoff > 0.92);
-    document.body.classList.toggle("depth-gallery-active", handoff <= 0.92);
+    document.body.classList.toggle("depth-gallery-home", handoff === 1);
+    document.body.classList.toggle("depth-gallery-active", handoff < 1);
     return handoff;
   }
 
@@ -382,6 +457,11 @@ class DepthGalleryExperience {
     const bounds = this.stage.getBoundingClientRect();
     const width = Math.max(Math.round(bounds.width), 1);
     const height = Math.max(Math.round(bounds.height), 1);
+    const gallery = this.section.getBoundingClientRect();
+    this.galleryDistance = Math.max(gallery.height - bounds.height, 1);
+    // 第六幕的停止位置以信息页开始固定的位置为准。
+    this.galleryEnd = (this.homepage.getBoundingClientRect().top - gallery.top) / this.galleryDistance;
+    this.postcard.measure();
     const isFirstLayout = this.viewportWidth === 1 && this.viewportHeight === 1;
     const widthChanged = Math.abs(width - this.viewportWidth) > 1;
     const stageChanged =
@@ -420,7 +500,7 @@ class DepthGalleryExperience {
     const visibleWidth = visibleHeight * this.camera.aspect;
 
     this.planes.forEach((plane, index) => {
-      const planeHeight = this.getPlaneHeight(plane.userData.aspectRatio);
+      const planeHeight = this.getPlaneHeight(plane.userData.aspectRatio, index);
       const width = planeHeight * plane.userData.aspectRatio;
       let availableShift = Math.max((visibleWidth - width) * 0.46, 0);
 
@@ -450,7 +530,7 @@ class DepthGalleryExperience {
     this.lastFrameTime = frameTime;
     const isSettling = Math.abs(this.scrollProgress - this.renderProgress) >= 0.00001;
     // 快速滚出画廊后仍需完成惯性和主页交接，追上目标后才暂停离屏渲染。
-    if ((!this.isVisible && !isSettling) || this.planes.length === 0) return;
+    if ((!isSettling && (!this.isVisible || this.renderProgress === 1)) || this.planes.length === 0) return;
 
     // 原生滚动只负责提供目标值；指数阻尼负责生成由快到慢、可逆的惯性尾巴。
     const scrollBlend = 1 - Math.exp(-SCROLL_DAMPING * deltaSeconds);
@@ -459,11 +539,13 @@ class DepthGalleryExperience {
       this.scrollProgress,
       scrollBlend,
     );
-    if (Math.abs(this.scrollProgress - this.renderProgress) < 0.00001) {
+    // 淡入最末尾已看不出变化，及时交还停留段的滚动控制。
+    const handoffSettled = this.scrollProgress === 1 && 1 - this.renderProgress < (1 - this.galleryEnd) * 0.01;
+    if (handoffSettled || Math.abs(this.scrollProgress - this.renderProgress) < 0.00001) {
       this.renderProgress = this.scrollProgress;
     }
 
-    const galleryProgress = THREE.MathUtils.clamp(this.renderProgress / 0.84, 0, 1);
+    const galleryProgress = Math.min(this.renderProgress / this.galleryEnd, 1);
     const activeFloat = galleryProgress * (this.items.length - 1);
     const handoff = this.syncPresentationState(this.renderProgress);
 
@@ -494,7 +576,7 @@ class DepthGalleryExperience {
     this.backgroundMaterial.uniforms.uVelocity.value = this.velocity;
 
     // 主页接管后只推进交接状态，不让离屏画布与光碟画廊争用 GPU。
-    if (this.isVisible) {
+    if (this.isVisible && handoff < 1) {
       this.renderer.autoClear = true;
       this.renderer.render(this.backgroundScene, this.backgroundCamera);
       this.renderer.autoClear = false;
@@ -509,42 +591,61 @@ class DepthGalleryExperience {
     const currentIndex = Math.floor(activeFloat);
     const nextIndex = Math.min(currentIndex + 1, this.planes.length - 1);
     const blend = activeFloat - currentIndex;
+    // 第六幕完全出现时收掉惯性倾角，使画布和交接图的起点一致。
+    const motion = 1 - smoothstep(THREE.MathUtils.clamp((activeFloat - this.planes.length + 1.1) / 0.1, 0, 1));
 
     this.planes.forEach((plane, index) => {
-      const planeHeight = this.getPlaneHeight(plane.userData.aspectRatio);
+      const planeHeight = this.getPlaneHeight(plane.userData.aspectRatio, index);
       let opacity = 0;
       if (index === currentIndex) opacity = Math.pow(1 - blend, 2.6);
       if (index === nextIndex) opacity = Math.max(opacity, 1 - Math.pow(1 - blend, 2.2));
       const distanceFromCamera = this.camera.position.z - plane.position.z;
       const proximityFade = THREE.MathUtils.clamp((distanceFromCamera - 0.8) / 3.4, 0, 1);
       opacity *= proximityFade;
-      const isLastPlane = index === this.planes.length - 1;
-      const centerBlend = isLastPlane ? handoff : 0;
       const parallax = opacity * (isMobile ? 0.065 : 0.2);
-      const baseX = THREE.MathUtils.lerp(plane.userData.baseX, 0, centerBlend);
 
-      plane.material.opacity = opacity * (1 - handoff * 0.82);
-      plane.position.x = baseX + this.pointerCurrent.x * parallax;
+      plane.material.opacity = opacity;
+      plane.position.x = plane.userData.baseX + this.pointerCurrent.x * parallax;
       plane.position.y =
         this.getCompositionOffsetY() +
         this.pointerCurrent.y * parallax * 0.45 +
-        THREE.MathUtils.clamp(this.velocity, -1, 1) * (isMobile ? 0.025 : 0.07);
-      plane.rotation.x = -this.pointerCurrent.y * opacity * this.velocity * 0.035;
-      plane.rotation.y = this.pointerCurrent.x * opacity * this.velocity * 0.04;
+        THREE.MathUtils.clamp(this.velocity, -1, 1) * motion * (isMobile ? 0.025 : 0.07);
+      plane.rotation.x = -this.pointerCurrent.y * opacity * this.velocity * motion * 0.035;
+      plane.rotation.y = this.pointerCurrent.x * opacity * this.velocity * motion * 0.04;
 
-      const pulse = 1 + Math.min(Math.abs(this.velocity), 1) * 0.025 + centerBlend * 0.055;
+      const pulse = 1 + Math.min(Math.abs(this.velocity), 1) * motion * 0.025;
       plane.scale.set(
         planeHeight * plane.userData.aspectRatio * pulse,
         planeHeight * pulse,
         1,
       );
     });
+
+    const last = this.planes[this.planes.length - 1];
+    if (handoff <= 0 || handoff >= 1) {
+      this.postcard.settle();
+      return;
+    }
+
+    // 第六幕已完全显示，按相机投影交棒给浮层，画片继续保持原来的中心和比例。
+    this.camera.updateMatrixWorld();
+    this.projectedCenter.copy(last.position).project(this.camera);
+    const pixelScale = this.viewportHeight / (
+      2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * (this.camera.position.z - last.position.z)
+    );
+    const drawingPostcard = this.postcard.render(handoff, {
+      x: (this.projectedCenter.x + 1) * this.viewportWidth / 2,
+      y: (1 - this.projectedCenter.y) * this.viewportHeight / 2,
+      width: last.scale.x * pixelScale,
+      height: last.scale.y * pixelScale,
+    });
+    if (drawingPostcard) last.material.opacity = 0;
   }
 
   /**
    * 同时限制画框的可见宽高，确保不同横竖比例在窄屏上也不会被裁切。
    */
-  private getPlaneHeight(aspectRatio: number): number {
+  private getPlaneHeight(aspectRatio: number, index: number): number {
     const isMobile = this.viewportWidth <= 760;
     const cameraDistance = 5;
     const visibleHeight =
@@ -552,7 +653,9 @@ class DepthGalleryExperience {
     const visibleWidth = visibleHeight * this.camera.aspect;
     const preferredHeight = isMobile ? 2.42 : 3.02;
     const maximumHeight = visibleHeight * (isMobile ? 0.66 : 0.79);
-    const maximumWidth = visibleWidth * (isMobile ? 0.84 : 0.9);
+    // 窄屏第六幕留出缩到明信片的空间，前五幕沿用原来的边距。
+    const widthRatio = isMobile ? (index === this.items.length - 1 ? 0.96 : 0.84) : 0.9;
+    const maximumWidth = visibleWidth * widthRatio;
     return Math.min(preferredHeight, maximumHeight, maximumWidth / aspectRatio);
   }
 

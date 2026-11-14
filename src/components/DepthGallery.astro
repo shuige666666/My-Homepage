@@ -1,5 +1,6 @@
 ---
 import "@/styles/depth-gallery.css";
+import { siteConfig } from "@/data/site";
 
 const galleryItems = [
   {
@@ -50,7 +51,7 @@ const galleryItems = [
   {
     index: "06",
     word: "daybreak",
-    texture: "/images/depth-gallery/optimized/06.webp",
+    texture: siteConfig.heroArtworkPath,
     accent: "#91b8d6",
     background: "#eaf4f8",
     blob1: "#bfe5f7",
@@ -107,6 +108,11 @@ const galleryItems = [
     </div>
   </div>
 </section>
+
+<!-- 交接时接替第六幕画片，在主页上方移动到明信片的实际位置。 -->
+<div class="depth-postcard" aria-hidden="true" hidden>
+  <img src={siteConfig.heroArtworkPath} alt="" />
+</div>
 
 <script>
   import { mountDepthGallery } from "@/scripts/depth-gallery";

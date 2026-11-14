@@ -5,7 +5,7 @@ const FAN_LAYOUT = {
 } as const;
 
 const ENTRY_END = 0.045;
-const FAN_END = 0.64;
+export const FAN_END = 0.64;
 const GATHER_END = 0.76;
 const FILL_END = 0.85;
 const EXPAND_END = 0.935;
@@ -197,6 +197,7 @@ export function setupPreviewJournal() {
     const elapsed = Math.min(now - previousFrame, 32);
     const jumped = !previousFrame || Math.abs(target - previousProgress) > 0.28;
     previousProgress = target;
+    // 从短评停留段回滚时，先从真正的时间线尾端开始，再反向展开海报。
     if (jumped || target === 1 || rect.top > 0) displayProgress = target;
     else
       displayProgress +=

@@ -5,6 +5,7 @@ export function setupPreviewMotion() {
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const compact = window.matchMedia("(max-width: 760px)");
   const sections = Array.from(page.querySelectorAll<HTMLElement>("[data-pv-motion-section]"));
+  const heroStage = page.querySelector<HTMLElement>(".pv-hero-stage");
   const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
   const tracks: { element: HTMLElement; animation: Animation; total: number; stagger: number }[] = [];
   let frame = 0;
@@ -28,16 +29,18 @@ export function setupPreviewMotion() {
     });
   }
 
-  /** 用章节位置驱动内部图像，章节落在屏幕中央时回到稳定姿态。 */
+  /** 从信息页自身的顶部计算位移，交接期间由画廊控制首屏整体入场。 */
   function renderScroll() {
     frame = 0;
     if (reducedMotion.matches) return;
     const height = window.innerHeight;
+    const pageTop = page!.getBoundingClientRect().top;
+    const heroTop = heroStage?.getBoundingClientRect().top ?? pageTop;
     sections.forEach((section) => {
       const rect = section.getBoundingClientRect();
       if (rect.bottom < -height * .15 || rect.top > height * 1.15) return;
-      const origin = section.classList.contains("pv-hero") ? 80 : 0;
-      const progress = clamp((rect.top - origin) / height, -1, 1);
+      const travel = section.classList.contains("pv-hero") ? Math.min(0, heroTop) : rect.top;
+      const progress = clamp(travel / height, -1, 1);
       // 手机只保留很轻的位移，避免窄屏海报旋转时遮住标题或触摸入口。
       section.style.setProperty("--pv-scroll", (progress * (compact.matches ? .3 : 1)).toFixed(4));
     });

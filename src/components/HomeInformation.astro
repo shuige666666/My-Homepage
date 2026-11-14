@@ -1,0 +1,97 @@
+---
+import { ArrowUpRight } from "@lucide/astro";
+import FavoriteRail from "@/components/FavoriteRail.astro";
+import WatchTimeline from "@/components/WatchTimeline.astro";
+import ReviewDialog from "@/components/ReviewDialog.astro";
+import PreviewJournal from "@/components/preview/PreviewJournal.astro";
+import PreviewReviews from "@/components/preview/PreviewReviews.astro";
+import bangumiData from "@/data/bangumi.json";
+import { siteConfig } from "@/data/site";
+import type { BangumiPageData } from "@/types/bangumi";
+import "@/styles/preview.css";
+
+interface Props {
+  withIntro?: boolean;
+}
+
+const { withIntro = false } = Astro.props;
+const topId = withIntro ? "top" : "preview-top";
+const data = bangumiData as BangumiPageData;
+const records = data.watchHistory ?? data.recentWatched;
+const syncDate = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Shanghai" }).format(new Date(data.syncedAt));
+---
+
+  <div class="pv-page" id={withIntro ? undefined : topId} data-depth-home={withIntro || undefined}>
+    <main class="pv-main">
+      <div class="pv-hero-track">
+        {/* 回到顶部时直接对齐完整显示的首屏。 */}
+        {withIntro && <span id={topId} class="depth-home-anchor" data-depth-home-top aria-hidden="true"></span>}
+        <div class="pv-hero-stage">
+          <a class="pv-skip" href="#preview-main">跳到主要内容</a>
+          <header class="pv-header pv-container">
+            <a class="pv-brand" href={`#${topId}`} aria-label={`${siteConfig.title}，返回顶部`}>
+              <!-- 固定站名使用本机字体渲染的字标，随静态站点构建发布。 -->
+              <img src="/images/profile/preview-wordmark.png" alt={siteConfig.title} width="552" height="129" />
+            </a>
+            <nav class="pv-nav" aria-label="信息页导航">
+              <a href="#preview-collection">我最喜欢的动漫</a>
+              <a href="#preview-journal">最近看过</a>
+              <a href="#preview-reviews">评分与短评</a>
+              <a href="#preview-memories">观看时间轴</a>
+            </nav>
+            <a class="pv-original" href="/legacy#top">旧版主页 <ArrowUpRight size={16} /></a>
+          </header>
+
+          <section id="preview-main" class="pv-hero pv-container" aria-labelledby="preview-name" data-pv-motion-section tabindex="-1">
+            <div class="pv-hero-copy">
+              <div class="pv-byline" data-pv-reveal={!withIntro || undefined}>
+                <img src={siteConfig.avatarPath} alt={`${data.profile.nickname}的头像`} width="44" height="44" />
+                <a href={data.profile.bangumiUrl} target="_blank" rel="noreferrer">Bangumi 个人主页 <ArrowUpRight size={15} /></a>
+              </div>
+              <div class="pv-hero-heading">
+                <h1 id="preview-name" data-pv-reveal={!withIntro || undefined} style="--pv-stagger: 1">{data.profile.nickname}</h1>
+                <p class="pv-hero-quote" data-pv-reveal={!withIntro || undefined} style="--pv-stagger: 2">{siteConfig.introduction}</p>
+              </div>
+              <dl class="pv-stats" aria-label="动画收藏统计" data-pv-reveal={!withIntro || undefined} style="--pv-stagger: 3">
+                <div><dt>看过</dt><dd>{data.stats.watched}<span>部</span></dd></div>
+                <div><dt>在看</dt><dd>{data.stats.watching}<span>部</span></dd></div>
+                <div><dt>想看</dt><dd>{data.stats.wish}<span>部</span></dd></div>
+              </dl>
+            </div>
+            <div class="pv-hero-art" data-pv-reveal={!withIntro || undefined} data-pv-reveal-art style="--pv-stagger: 1">
+              <figure class="pv-postcard">
+                <img src={siteConfig.heroArtworkPath} alt="蓝发角色与彩带，明亮的动画瞬间" fetchpriority="high" width="2048" height="1152" />
+              </figure>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- 在新信息页整屏呈现十张光碟，旧版主页继续使用弹层入口。 -->
+      <section class="pv-collection pv-section" id="preview-collection" aria-label="我最喜欢的动漫">
+        <FavoriteRail entries={data.favorites} embedded initialIndex={2} />
+      </section>
+
+      <PreviewJournal watched={data.recentWatched.slice(0, 8)} />
+      <div class="pv-review-track">
+        <span class="pv-review-anchor" id="preview-reviews" aria-hidden="true"></span>
+        <PreviewReviews reviews={data.recentReviews} />
+      </div>
+
+      <!-- 新信息页和旧版主页共用月度浏览组件。 -->
+      <section class="pv-memories pv-section" id="preview-memories" aria-label="观看时间轴">
+        <div class="pv-container">
+          <WatchTimeline entries={records} reviewSubjectIds={data.recentReviews.map((entry) => entry.id)} plainLabels />
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="pv-footer pv-container"><strong>{data.profile.nickname}</strong><p>数据来自 <a href="https://bangumi.tv/" target="_blank" rel="noreferrer">Bangumi</a> · 更新于 {syncDate}</p><a href={`#${topId}`}>回到顶部 <ArrowUpRight size={16} /></a></footer>
+
+  </div>
+  <ReviewDialog reviews={data.recentReviews} />
+
+<script>
+  import "@/scripts/preview";
+</script>

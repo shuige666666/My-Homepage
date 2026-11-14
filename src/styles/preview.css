@@ -1,13 +1,13 @@
 @charset "UTF-8";
 
-/* 完整短评弹层在预览容器外，字体变量定义在页面的 body 上。 */
+/* 开幕交接共用信息页底色，独立的短评弹层也继承页面字体。 */
 body:has(.pv-page) {
+  --pv-paper: #f8faf7;
   --pv-sans: "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", sans-serif;
 }
 
-/* 整屏预览保持独立作用域，原主页的布局和光碟参数不受影响。 */
+/* 新信息页的整屏样式和旧版主页各自使用独立作用域。 */
 .pv-page {
-  --pv-paper: #f8faf7;
   --pv-review-paper: #f2f3ed;
   --pv-journal-travel: 410svh;
   --pv-review-hold: calc(var(--pv-journal-travel) * 0.2);
@@ -247,10 +247,11 @@ body:has(.pv-page) .review-detail-comment {
   padding: 12px;
 }
 .pv-postcard {
+  --pv-postcard-angle: -3deg;
   margin: 0;
   padding: 12px;
   background: white;
-  transform: rotate(-3deg);
+  transform: rotate(var(--pv-postcard-angle));
   box-shadow:
     0 15px 38px #354b4220,
     0 1px 3px #354b4212;
@@ -1175,8 +1176,8 @@ body:has(.pv-page) .review-detail-comment {
     padding: 0 7px;
   }
   .pv-postcard {
+    --pv-postcard-angle: -2deg;
     padding: 8px;
-    transform: rotate(-2deg);
   }
   .pv-collection {
     height: 100svh;

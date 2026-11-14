@@ -4,6 +4,7 @@ export const siteConfig = {
   introduction: "永远相信美好的事情即将发生",
   showFavoriteNotes: false,
   avatarPath: "/images/profile/avatar.webp",
+  heroArtworkPath: "/images/depth-gallery/optimized/06.webp",
   username: "860550",
   links: {
     watched: "https://bangumi.tv/anime/list/860550/collect",

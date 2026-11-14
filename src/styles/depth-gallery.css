@@ -1,39 +1,28 @@
+:root {
+  --depth-intro-height: 520svh;
+  --depth-stage-height: 100vh;
+}
+
 .depth-intro {
   --depth-progress: 0;
   --depth-handoff: 0;
   --depth-safe-bottom: 0px;
   position: relative;
   z-index: 1;
-  height: 520svh;
+  height: var(--depth-intro-height);
   color: #282a27;
   background: #f2ead7;
 }
 
 @supports (height: 100lvh) {
+  :root {
+    --depth-stage-height: 100lvh;
+  }
+
   .depth-intro {
     /* 控件锚定在最小安全视口内，地址栏收起后下方只增加渐变留白。 */
     --depth-safe-bottom: max(0px, calc(100lvh - 100svh));
   }
-}
-
-.depth-intro::after {
-  position: absolute;
-  right: 0;
-  bottom: 100vh;
-  bottom: 100lvh;
-  left: 0;
-  z-index: 4;
-  height: clamp(120px, 22svh, 220px);
-  content: "";
-  background: linear-gradient(
-    to bottom,
-    rgb(248 251 251 / 0),
-    rgb(248 251 251 / 0.28) 38%,
-    var(--paper) 100%
-  );
-  opacity: var(--depth-handoff);
-  pointer-events: none;
-  will-change: opacity;
 }
 
 .depth-gallery-sticky {
@@ -42,8 +31,7 @@
   left: 0;
   z-index: 2;
   width: 100%;
-  height: 100vh;
-  height: 100lvh;
+  height: var(--depth-stage-height);
   overflow: hidden;
   pointer-events: none;
 }
@@ -61,6 +49,27 @@
   display: block;
   opacity: calc(1 - var(--depth-handoff));
   transition: opacity 80ms linear;
+}
+
+/* 交接图独立于画廊背景的透明度，用裁切适配主页明信片的比例。 */
+.depth-postcard {
+  position: fixed;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  box-sizing: content-box;
+  border: var(--depth-postcard-border, 0px) solid white;
+  box-shadow:
+    0 15px 38px rgb(53 75 66 / calc(0.125 * var(--depth-postcard-shadow, 0))),
+    0 1px 3px rgb(53 75 66 / calc(0.07 * var(--depth-postcard-shadow, 0)));
+  pointer-events: none;
+}
+
+.depth-postcard img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .depth-static-art {
@@ -89,7 +98,8 @@
 .depth-progress {
   position: absolute;
   z-index: 3;
-  opacity: calc(1 - var(--depth-handoff));
+  /* 标签先退场，避免与逐渐显现的主页字标和昵称重叠。 */
+  opacity: calc(1 - var(--depth-handoff) * 2.5);
   transition: opacity 100ms linear;
 }
 
@@ -245,30 +255,61 @@
   transform: translateY(0);
 }
 
-.depth-intro ~ .page-shell {
+/* 首屏固定在视口内，从第六幕结束到停留行程结束共用一个滚动区间。 */
+.pv-page[data-depth-home] {
+  --depth-home-fade: calc((var(--depth-intro-height) - var(--depth-stage-height)) * 0.16);
+  --depth-home-rest: clamp(144px, 24svh, 240px);
+  position: relative;
   z-index: 4;
-  margin-top: -100vh;
-  margin-top: -100lvh;
-  background: var(--paper);
+  margin-top: calc(-1 * (var(--depth-stage-height) + var(--depth-home-fade)));
+  background: transparent;
+  overflow: visible;
+}
+
+[data-depth-home] .pv-hero-track {
+  position: relative;
+}
+
+/* 占位属于容器内容，固定的首屏才能随它延长。 */
+[data-depth-home] .pv-hero-track::after {
+  content: "";
+  display: block;
+  height: calc(var(--depth-home-fade) + var(--depth-home-rest));
+}
+
+body:is(.depth-gallery-fallback, .depth-gallery-reduced) [data-depth-home] {
+  --depth-home-fade: 0px;
+  --depth-home-rest: 0px;
+}
+
+.depth-home-anchor {
+  position: absolute;
+  inset: var(--depth-home-fade) auto auto 0;
+}
+
+[data-depth-home] .pv-hero-stage {
+  position: sticky;
+  top: 0;
+  background: var(--pv-paper);
   opacity: var(--homepage-reveal, 0);
-  will-change: opacity;
 }
 
-.depth-intro ~ .page-shell > * {
-  transform: translateY(calc((1 - var(--homepage-reveal, 0)) * 12svh));
-  will-change: transform;
+[data-depth-home].is-postcard-handoff .pv-postcard {
+  visibility: hidden;
 }
 
-body.depth-gallery-active {
-  overflow-x: hidden;
+/* 跨过短暂停留段后才启动首屏离场时的视差。 */
+[data-depth-home].pv-motion-on .pv-postcard {
+  transform: translateY(calc(var(--pv-scroll, 0) * -38px))
+    rotate(calc(var(--pv-postcard-angle) + var(--pv-scroll, 0) * 5deg));
 }
 
-body.depth-gallery-active .page-shell {
+body:has([data-depth-home]) {
+  overflow-x: clip;
+}
+
+body.depth-gallery-active [data-depth-home] .pv-hero-stage {
   pointer-events: none;
-}
-
-body.depth-gallery-home .page-shell {
-  pointer-events: auto;
 }
 
 body.depth-gallery-fallback .depth-intro,

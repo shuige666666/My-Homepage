@@ -1,38 +1,11 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import DepthGallery from "@/components/DepthGallery.astro";
-import SiteHeader from "@/components/SiteHeader.astro";
-import ProfileHero from "@/components/ProfileHero.astro";
-import FavoriteRail from "@/components/FavoriteRail.astro";
-import RecentSections from "@/components/RecentSections.astro";
-import bangumiData from "@/data/bangumi.json";
+import HomeInformation from "@/components/HomeInformation.astro";
 import { siteConfig } from "@/data/site";
-import type { BangumiPageData } from "@/types/bangumi";
-
-const data = bangumiData as BangumiPageData;
-const syncDate = data.syncedAt
-  ? new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "long", day: "numeric" }).format(new Date(data.syncedAt))
-  : "尚未同步";
 ---
 
 <BaseLayout title={siteConfig.title} description={siteConfig.description}>
   <DepthGallery />
-  <div id="top" class="page-shell">
-    <SiteHeader />
-    <main>
-      <ProfileHero data={data} />
-      <FavoriteRail entries={data.favorites} />
-      <RecentSections watched={data.recentWatched} watchHistory={data.watchHistory} reviews={data.recentReviews} />
-    </main>
-    <footer>
-      <p>动画记录来自 <a href="https://bangumi.tv/" target="_blank" rel="noreferrer">Bangumi</a></p>
-      <p>数据更新于 {syncDate}</p>
-    </footer>
-    <div class="page-orbit orbit-left" aria-hidden="true"></div>
-    <div class="page-orbit orbit-right" aria-hidden="true"></div>
-  </div>
+  <HomeInformation withIntro />
 </BaseLayout>
-
-<script>
-  import "../scripts/home-motion";
-</script>
