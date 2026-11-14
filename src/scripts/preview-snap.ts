@@ -25,10 +25,18 @@ const HERO_EXIT_WHEEL_THRESHOLD = 6;
 const HERO_EXIT_DURATION = 760;
 const GESTURE_GAP = 135;
 const ALIGN_TOLERANCE = 1.5;
+// 触摸位移放大 15%，余滑按松手速度衰减，最多滑过视口的 28%。
+const TOUCH_SCROLL_SCALE = 1.15;
+const TOUCH_SNAP_DISTANCE = 42;
+const TOUCH_FLING_MIN_SPEED = .12;
+const TOUCH_FLING_DAMPING = 8;
+const TOUCH_FLING_LIMIT = .28;
+const TOUCH_FLING_MAX_DURATION = 440;
 
 type Boundary = { at: number; snap?: SnapRoute };
 type ScrollAction = { target: number } | SnapRoute;
 type ActiveSnap = SnapRoute & { origin: number; progress: number; writtenY: number; reversing: boolean };
+type TouchDrag = { x: number; y: number; lastY: number; lastAt: number; speed: number; used: boolean };
 
 /** 求解 cubic-bezier(.32, 0, .18, 1)，起步有加速，后半段逐渐收住。 */
 function pageEase(time: number) {
@@ -63,7 +71,8 @@ export function setupPreviewSnap() {
   let consumedWheel: { direction: Direction; until: number } | null = null;
   let wheelDelta = 0;
   let oppositeDelta = 0;
-  let touch: { x: number; y: number; lastY: number; used: boolean } | null = null;
+  let touch: TouchDrag | null = null;
+  let touchFrame = 0;
   let active: ActiveSnap | null = null;
 
   /** 用稳定舞台的位置计算各章节入口和可读区域的末端。 */
@@ -96,7 +105,7 @@ export function setupPreviewSnap() {
   }
 
   /** 沿滚动方向处理第一个边界，长章节内的行程由其自身的动画或内容使用。 */
-  function scrollAction(delta: number): ScrollAction | undefined {
+  function scrollAction(delta: number, coasting = false): ScrollAction | undefined {
     const y = window.scrollY;
     const direction: Direction = delta > 0 ? 1 : -1;
     const { hero, heroEnd, collection, collectionEnd, journal, journalEnd,
@@ -129,6 +138,7 @@ export function setupPreviewSnap() {
     for (const { at, snap } of boundaries) {
       const distance = direction * (at - y);
       if (distance > ALIGN_TOLERANCE || (!snap && distance > 0.5)) {
+        if (coasting) return distance <= Math.abs(delta) ? { target: at } : undefined;
         // 首屏停留的最后一段也由同一笔输入推进，跨过后才启动换页。
         if (snap?.fromBoundary !== undefined) return distance <= delta ? snap : undefined;
         if (distance > Math.abs(delta) + ALIGN_TOLERANCE) return;
@@ -136,7 +146,7 @@ export function setupPreviewSnap() {
       }
       // 已在过渡区中的位置也能继续吸附，例如从窄屏地址栏变化后接着滚动。
       if (snap && direction * (snap.target - y) > ALIGN_TOLERANCE
-        && (direction === 1 || distance >= -ALIGN_TOLERANCE)) return snap;
+        && (direction === 1 || distance >= -ALIGN_TOLERANCE)) return coasting ? { target: y } : snap;
     }
   }
 
@@ -214,7 +224,44 @@ export function setupPreviewSnap() {
     }
   }
 
+  /** 新的手势或导航接管时立即中止上一段余滑。 */
+  function stopTouchMomentum() {
+    if (!touchFrame) return;
+    cancelAnimationFrame(touchFrame);
+    touchFrame = 0;
+  }
+
+  /** 短评与时间轴使用松手速度续滑，行程在当前阅读段的边界内收住。 */
+  function startTouchMomentum(speed: number) {
+    const start = window.scrollY;
+    const speedMagnitude = Math.abs(speed);
+    if (speedMagnitude < TOUCH_FLING_MIN_SPEED || reviewAnchor!.getBoundingClientRect().top > ALIGN_TOLERANCE || reviews!.inert) return;
+
+    const scrollRoot = document.documentElement;
+    const direction = Math.sign(speed);
+    const duration = Math.min(TOUCH_FLING_MAX_DURATION, 1000 * Math.log(speedMagnitude / .035) / TOUCH_FLING_DAMPING);
+    const damping = (ms: number) => 1 - Math.exp(-TOUCH_FLING_DAMPING * ms / 1000);
+    const travelFraction = damping(duration);
+    const naturalDistance = speedMagnitude * 1000 / TOUCH_FLING_DAMPING * travelFraction;
+    const delta = direction * Math.min(scrollRoot.clientHeight * TOUCH_FLING_LIMIT, naturalDistance);
+    // 复用主动滚动的边界，余滑到达边界就停，下一次手势再触发换页。
+    const target = scrollAction(delta, true)?.target ?? start + delta;
+    const distance = Math.min(scrollRoot.scrollHeight - scrollRoot.clientHeight, Math.max(0, target)) - start;
+    if (distance * direction < 2) return;
+
+    // 从松手速度向零速衰减，距离不足时提前收住，避免在吸附边界突然刹停。
+    const startedAt = performance.now();
+    function tick(now: number) {
+      const elapsed = Math.min(duration, Math.max(0, now - startedAt));
+      const position = start + distance * damping(elapsed) / travelFraction;
+      window.scrollTo({ top: position, behavior: "instant" });
+      touchFrame = elapsed < duration ? requestAnimationFrame(tick) : 0;
+    }
+    touchFrame = requestAnimationFrame(tick);
+  }
+
   window.addEventListener("wheel", (event) => {
+    stopTouchMomentum();
     // 横向光碟手势、浏览器缩放与模态窗口中的滚动有各自的处理逻辑。
     const mode = event.deltaMode;
     if (reducedMotion.matches || event.defaultPrevented || !event.cancelable || event.ctrlKey || event.shiftKey
@@ -266,23 +313,29 @@ export function setupPreviewSnap() {
   }, { passive: false });
 
   window.addEventListener("touchstart", (event) => {
+    stopTouchMomentum();
     const finger = event.touches[0];
     touch = event.touches.length === 1 && !inScrollableRecords(event.target) && !document.querySelector("dialog:modal")
-      ? { x: finger.clientX, y: finger.clientY, lastY: finger.clientY, used: false } : null;
+      ? { x: finger.clientX, y: finger.clientY, lastY: finger.clientY, lastAt: event.timeStamp, speed: 0, used: false } : null;
   }, { passive: true });
   window.addEventListener("touchmove", (event) => {
     if (!touch || !event.cancelable || reducedMotion.matches || event.defaultPrevented
       || event.touches.length !== 1) return;
     const finger = event.touches[0];
     const distance = touch.y - finger.clientY;
-    const delta = touch.lastY - finger.clientY;
+    const delta = (touch.lastY - finger.clientY) * TOUCH_SCROLL_SCALE;
     touch.lastY = finger.clientY;
     if (touch.used) { event.preventDefault(); return; }
-    if (Math.abs(finger.clientX - touch.x) > Math.abs(distance) * 1.15 || !delta) return;
+    if (Math.abs(finger.clientX - touch.x) > Math.abs(distance) * 1.15) {
+      touch.speed = 0;
+      return;
+    }
+    if (!delta) return;
     const direction: Direction = delta > 0 ? 1 : -1;
+    const movedEnough = Math.abs(distance) * TOUCH_SCROLL_SCALE >= TOUCH_SNAP_DISTANCE;
     event.preventDefault();
     if (active) {
-      if (Math.abs(distance) >= 42 && direction !== active.direction) {
+      if (movedEnough && direction !== active.direction) {
         touch.used = true;
         reverse();
       }
@@ -293,16 +346,28 @@ export function setupPreviewSnap() {
       touch.used = true;
       applyScroll(next);
     } else if (next) {
-      if (Math.abs(distance) >= 42) {
+      touch.speed = 0;
+      if (movedEnough) {
         touch.used = true;
         applyScroll(next);
       }
     } else {
-      // 手指逐段推进长章节，避免松手后的惯性跨过下一章节的吸附边界。
+      // 用最后几帧的手速估算余滑，快速反向时以新的方向重新取样。
+      const elapsed = event.timeStamp - touch.lastAt;
+      const speed = delta / Math.max(8, elapsed);
+      touch.speed = elapsed > 80 || Math.sign(touch.speed) !== direction ? speed : touch.speed * .35 + speed * .65;
+      touch.lastAt = event.timeStamp;
       window.scrollBy({ top: delta, behavior: "instant" });
     }
   }, { passive: false });
-  window.addEventListener("touchend", () => { touch = null; }, { passive: true });
+  window.addEventListener("touchend", (event) => {
+    if (touch && !touch.used && !active && !reducedMotion.matches) {
+      // 手指停住再松开时，余滑随停顿衰减至零。
+      const freshness = Math.max(0, 1 - (event.timeStamp - touch.lastAt) / 90);
+      startTouchMomentum(touch.speed * freshness);
+    }
+    touch = null;
+  }, { passive: true });
   window.addEventListener("touchcancel", () => { touch = null; }, { passive: true });
 
   window.addEventListener("keydown", (event) => {
@@ -317,6 +382,7 @@ export function setupPreviewSnap() {
     else if (event.key === " " && !(target instanceof Element && target.closest("a, button, summary, [data-album-stage]"))) direction = event.shiftKey ? -1 : 1;
     else return;
 
+    stopTouchMomentum();
     if (active) {
       event.preventDefault();
       if (!event.repeat && direction !== active.direction) reverse();
@@ -332,7 +398,12 @@ export function setupPreviewSnap() {
   window.addEventListener("scroll", () => {
     if (active && Math.abs(window.scrollY - active.writtenY) > 4) cancel();
   }, { passive: true });
-  window.addEventListener("resize", cancel, { passive: true });
-  window.addEventListener("hashchange", cancel);
-  reducedMotion.addEventListener("change", cancel);
+  /** 视口或导航改变时同时放下换页与触摸余滑。 */
+  function cancelScrollMotion() {
+    cancel();
+    stopTouchMomentum();
+  }
+  window.addEventListener("resize", cancelScrollMotion, { passive: true });
+  window.addEventListener("hashchange", cancelScrollMotion);
+  reducedMotion.addEventListener("change", cancelScrollMotion);
 }
