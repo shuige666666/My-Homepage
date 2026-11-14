@@ -5,7 +5,7 @@ export function setupPreviewMotion() {
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const compact = window.matchMedia("(max-width: 760px)");
   const sections = Array.from(page.querySelectorAll<HTMLElement>("[data-pv-motion-section]"));
-  const heroStage = page.querySelector<HTMLElement>(".pv-hero-stage");
+  const heroStage = page.querySelector<HTMLElement>(".pv-hero-stage") ?? page;
   const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
   const tracks: { element: HTMLElement; animation: Animation; total: number; stagger: number }[] = [];
   let frame = 0;
@@ -34,15 +34,17 @@ export function setupPreviewMotion() {
     frame = 0;
     if (reducedMotion.matches) return;
     const height = window.innerHeight;
-    const pageTop = page!.getBoundingClientRect().top;
-    const heroTop = heroStage?.getBoundingClientRect().top ?? pageTop;
+    const heroTop = heroStage.getBoundingClientRect().top;
     sections.forEach((section) => {
       const rect = section.getBoundingClientRect();
       if (rect.bottom < -height * .15 || rect.top > height * 1.15) return;
-      const travel = section.classList.contains("pv-hero") ? Math.min(0, heroTop) : rect.top;
+      const isHero = section.classList.contains("pv-hero");
+      const travel = isHero ? Math.min(0, heroTop) : rect.top;
       const progress = clamp(travel / height, -1, 1);
+      // 首屏的视差在停留段末尾从零速接上，避免滚动起步时昵称和明信片突然抢位。
+      const eased = isHero ? progress * (1 - (1 + progress) ** 2) : progress;
       // 手机只保留很轻的位移，避免窄屏海报旋转时遮住标题或触摸入口。
-      section.style.setProperty("--pv-scroll", (progress * (compact.matches ? .3 : 1)).toFixed(4));
+      section.style.setProperty("--pv-scroll", (eased * (compact.matches ? .3 : 1)).toFixed(4));
     });
     // 已在视口内的内容（尤其首屏统计）必须完全落定；只有从视口下方进入时才渐进显现。
     tracks.forEach(({ element, animation, total, stagger }) => {

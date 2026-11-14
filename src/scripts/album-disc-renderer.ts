@@ -365,10 +365,11 @@ export class AlbumDiscRenderer {
 
   /** 盘列停稳后恢复清晰画布，不让慢帧时降低的画质一直保留。 */
   settle() {
-    if (this.isIdle) return;
+    if (this.isIdle) return false;
     this.isIdle = true;
     this.motionScale = 1;
     this.applyResolution();
+    return true;
   }
 
   /** 尺寸或画质档位变化时才重建画布缓冲区。 */

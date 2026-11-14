@@ -2,6 +2,7 @@ import type { AlbumDiscLayout, AlbumDiscRenderer, AlbumDiscViewport } from "./al
 import type { PreviewSnapDetail } from "./preview-snap";
 
 const ALBUM_PRELOAD_MARGIN = 180;
+const ALBUM_IDLE_MARGIN = 40;
 const PAGE_TRAVEL_RESOLUTION = .65;
 const LANDING_YAW_SPEED = 205; // 盘列落位时，主盘开始左右翻摆的角速度（度/秒）。
 
@@ -68,6 +69,8 @@ export function setupAlbumGallery() {
   let discRenderer: AlbumDiscRenderer | null = null;
   let physicalLoading: Promise<void> | null = null;
   let physicalFailed = false;
+  let physicalStartTimer = 0;
+  let embeddedAtRest = false;
   let opener: HTMLButtonElement | null = null;
   let previousBodyOverflow = "";
   let lastWheelAt = 0;
@@ -302,14 +305,14 @@ export function setupAlbumGallery() {
         import("./album-disc-renderer"),
         Promise.all(openingImages().map((image) => image?.decode().catch(() => undefined))),
       ]);
-      if (!dialog?.open || (embedded && !embeddedVisible)) return;
+      // 冷启动的上下文和贴图编译留到舞台停稳后，入场用同一轨迹的 CSS 盘。
+      if (!dialog?.open || (embedded && !canStartEmbeddedRenderer())) return;
       const physical = new module.AlbumDiscRenderer(stage!, discImages, embedded);
       try {
         discRenderer = physical;
-        if (scrollTravel) physical.beginMotion(PAGE_TRAVEL_RESOLUTION);
-        else physical.settle();
+        physical.settle();
         render();
-        if (embedded && !scrollTravel) physical.prepareNearbyArtwork(Math.max(0, destination - 4), destination + 4);
+        if (embedded) physical.prepareNearbyArtwork(Math.max(0, destination - 4), destination + 4);
         dialog.classList.add("has-webgl");
       } catch (error) {
         discRenderer = null;
@@ -404,6 +407,7 @@ export function setupAlbumGallery() {
       travelVelocity = 0;
       discRenderer?.settle();
       render();
+      scheduleEmbeddedRenderer();
     }
   }
 
@@ -450,7 +454,37 @@ export function setupAlbumGallery() {
       const { from, to } = scrollTravel;
       return discImages.slice(Math.max(0, Math.floor(Math.min(from, to)) - 2), Math.ceil(Math.max(from, to)) + 2);
     }
+    // 首次从 01 滑向默认盘位，靠近舞台时也要提前解码首盘与途经封面。
+    if (introPending) return discImages.slice(0, initialIndex + 2);
     return embedded ? discImages.slice(Math.max(0, destination - 2), destination + 2) : discImages.slice(0, 2);
+  }
+
+  /** 舞台占满视口且页面和盘列都停稳后才切换渲染方式。 */
+  function canStartEmbeddedRenderer() {
+    return embeddedAtRest && !scrollTravel && !animationFrame && !pointerStart;
+  }
+
+  /** 窄屏可以先看到盘面上半部，也可以滚到舞台底部再停下。 */
+  function updateEmbeddedRest() {
+    if (!embeddedVisible) return;
+    const bounds = dialog!.getBoundingClientRect();
+    const bottom = Math.min(bounds.height, document.documentElement.clientHeight);
+    embeddedAtRest = bounds.top <= ALBUM_IDLE_MARGIN && bounds.bottom >= bottom - ALBUM_IDLE_MARGIN;
+    scheduleEmbeddedRenderer();
+  }
+
+  /** 舞台落位后再创建物理盘，已创建的光碟在此时恢复静止画质。 */
+  function scheduleEmbeddedRenderer() {
+    if (!embedded || physicalStartTimer || physicalLoading || physicalFailed || !canStartEmbeddedRenderer()) return;
+    // 先让 CSS 盘绘出落位画面，再准备高画质首帧。
+    physicalStartTimer = window.setTimeout(() => {
+      physicalStartTimer = 0;
+      if (!canStartEmbeddedRenderer()) return;
+      if (discRenderer) {
+        if (discRenderer.settle()) render();
+        discRenderer.prepareNearbyArtwork(Math.max(0, destination - 4), destination + 4);
+      } else void ensurePhysicalDiscs();
+    }, 100);
   }
 
   /** 原版弹层从首盘滑到选中作品。 */
@@ -676,6 +710,7 @@ export function setupAlbumGallery() {
       stage.focus({ preventScroll: true });
     }
     aimDisc(event, hoveredDisc(event));
+    scheduleEmbeddedRenderer();
   });
   window.addEventListener("pointercancel", () => {
     if (!pointerStart) return;
@@ -703,7 +738,12 @@ export function setupAlbumGallery() {
     if (index !== Math.round(position) || Math.abs(position - index) > .12) navigate(index);
     else window.open(target.dataset.url, "_blank", "noopener,noreferrer");
   });
-  window.addEventListener("resize", () => { if (dialog.open) { measureStage(); render(); } });
+  window.addEventListener("resize", () => {
+    if (!dialog.open) return;
+    measureStage();
+    render();
+    if (embedded) updateEmbeddedRest();
+  });
   if (embedded) {
     /** 临近收藏时保留已加载的盘面，离开附近后才释放，短距离往返不用重建画布。 */
     function releaseIfDistant() {
@@ -721,6 +761,7 @@ export function setupAlbumGallery() {
       const detail = (event as CustomEvent<PreviewSnapDetail>).detail;
       if (detail.phase === "start") {
         if (reduceMotion.matches || (pointerStart && didDrag) || (detail.from !== "collection" && detail.to !== "collection")) return;
+        embeddedAtRest = false;
         // 章节标题和作品名同时入场，收藏页内切换光碟时标题保持可读。
         dialog!.classList.toggle("is-section-entering", detail.to === "collection");
         const intro = introPending && detail.from === "hero" && detail.to === "collection";
@@ -733,7 +774,6 @@ export function setupAlbumGallery() {
           if (previous) {
             scrollTravel = null;
             position = destination = to;
-            discRenderer?.settle();
             render();
           }
           return;
@@ -751,7 +791,10 @@ export function setupAlbumGallery() {
         return;
       }
       if (detail.phase === "end" || detail.phase === "cancel") dialog!.classList.remove("is-section-entering");
-      if (!scrollTravel) return;
+      if (!scrollTravel) {
+        if (detail.phase === "end" || detail.phase === "cancel") updateEmbeddedRest();
+        return;
+      }
       const travel = scrollTravel;
       if (detail.phase === "progress") {
         position = travel.from + (travel.to - travel.from) * detail.progress;
@@ -767,30 +810,47 @@ export function setupAlbumGallery() {
       destination = detail.phase === "end" ? travel.to : Math.round(position);
       if (detail.phase === "end" || reduceMotion.matches) position = destination;
       releaseIfDistant();
-      discRenderer?.settle();
       render();
-      if (embeddedVisible) discRenderer?.prepareNearbyArtwork(Math.max(0, destination - 4), destination + 4);
       if (detail.phase === "cancel" || poses.some((pose) => pose.yawRebounding)) startMotion();
+      updateEmbeddedRest();
     }
 
     document.addEventListener("pv:snap", handleSnap);
+    window.addEventListener("scroll", () => { embeddedAtRest = false; }, { passive: true });
+    window.addEventListener("scrollend", updateEmbeddedRest);
     const visibility = new IntersectionObserver(([entry]) => {
       embeddedVisible = entry.isIntersecting;
       if (embeddedVisible) {
         measureStage();
         render();
-        openingImages().forEach((image) => { if (image) image.loading = "eager"; });
-        void ensurePhysicalDiscs();
-        startMotion();
-      } else if (!scrollTravel) {
-        releaseIfDistant();
+        updateEmbeddedRest();
+      } else {
+        embeddedAtRest = false;
+        if (!scrollTravel) releaseIfDistant();
       }
     }, { rootMargin: `${ALBUM_PRELOAD_MARGIN}px 0px` });
     measureStage();
     render();
     visibility.observe(dialog);
+    const homeStage = document.querySelector(".pv-hero-stage");
+    const preload = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      openingImages().forEach((image) => {
+        if (!image) return;
+        image.loading = "eager";
+        void image.decode().catch(() => undefined);
+      });
+      // 模块和封面可在前一屏加载，WebGL 上下文仍然等舞台落定再创建。
+      void import("./album-disc-renderer").catch(() => undefined);
+      preload.disconnect();
+    });
+    // 开场第六幕开始交接时预载封面，直接跳到收藏也走同一个入口。
+    if (homeStage) preload.observe(homeStage);
+    preload.observe(dialog);
   }
   window.addEventListener("pagehide", () => {
+    clearTimeout(physicalStartTimer);
+    physicalStartTimer = 0;
     discRenderer?.dispose();
     discRenderer = null;
     dialog.classList.remove("has-webgl");

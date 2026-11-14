@@ -17,9 +17,12 @@ interface SnapRoute {
   to: Section;
   direction: Direction;
   target: number;
+  fromBoundary?: number;
 }
 
 const WHEEL_THRESHOLD = 36;
+const HERO_EXIT_WHEEL_THRESHOLD = 6;
+const HERO_EXIT_DURATION = 760;
 const GESTURE_GAP = 135;
 const ALIGN_TOLERANCE = 1.5;
 
@@ -79,7 +82,6 @@ export function setupPreviewSnap() {
     return {
       hero,
       heroEnd: Math.max(heroRestEnd, collectionTop - height),
-      heroRestEnd,
       collection: collectionTop,
       collectionEnd: Math.max(collectionTop, journalTop - height),
       journal: journalTop,
@@ -97,7 +99,7 @@ export function setupPreviewSnap() {
   function scrollAction(delta: number): ScrollAction | undefined {
     const y = window.scrollY;
     const direction: Direction = delta > 0 ? 1 : -1;
-    const { hero, heroEnd, heroRestEnd, collection, collectionEnd, journal, journalEnd,
+    const { hero, heroEnd, collection, collectionEnd, journal, journalEnd,
       journalFanEnd, reviews: reviewsTop, reviewsRestEnd, reviewsEnd, memories: memoriesTop, hasJournalAnimation } = scrollLayout(y);
 
     // 画廊和海报动画可能还在追赶滚动位置，完全显现后才能消耗阅读行程。
@@ -111,8 +113,7 @@ export function setupPreviewSnap() {
     // 起点负责保留可读行程，终点负责吸附；跨过多个章节时只处理遇到的第一个。
     const boundaries: Boundary[] = direction === 1 ? [
       { at: hero },
-      { at: heroRestEnd },
-      { at: heroEnd, snap: { from: "hero", to: "collection", direction, target: collection } },
+      { at: heroEnd, snap: { from: "hero", to: "collection", direction, target: collection, fromBoundary: heroEnd } },
       { at: collectionEnd, snap: { from: "collection", to: "journal", direction, target: journal } },
       hasJournalAnimation ? { at: reviewsTop }
         : { at: journalEnd, snap: { from: "journal", to: "reviews", direction, target: reviewsTop } },
@@ -128,8 +129,9 @@ export function setupPreviewSnap() {
     for (const { at, snap } of boundaries) {
       const distance = direction * (at - y);
       if (distance > ALIGN_TOLERANCE || (!snap && distance > 0.5)) {
+        // 首屏停留的最后一段也由同一笔输入推进，跨过后才启动换页。
+        if (snap?.fromBoundary !== undefined) return distance <= delta ? snap : undefined;
         if (distance > Math.abs(delta) + ALIGN_TOLERANCE) return;
-        // 上行跨到章节顶部时直接衔接上一屏。下行进入停留段时先对齐。
         return direction === -1 && snap ? snap : { target: at };
       }
       // 已在过渡区中的位置也能继续吸附，例如从窄屏地址栏变化后接着滚动。
@@ -164,10 +166,17 @@ export function setupPreviewSnap() {
   /** 每帧直接写入曲线上的位置，避免原生平滑滚动再次插值。 */
   function animateTo(next: SnapRoute, returnTo?: number) {
     cancelAnimationFrame(frame);
+    // 滚轮跨过首屏停留末尾时，先用这笔输入走完剩余行程，再从首屏边缘起步。
+    const boundary = next.fromBoundary;
+    if (boundary !== undefined && window.scrollY < boundary) {
+      window.scrollTo({ top: boundary, behavior: "instant" });
+    }
     const start = window.scrollY;
     const distance = next.target - start;
     const reversing = returnTo !== undefined;
-    const duration = reversing ? Math.max(360, Math.min(1000, 1000 * Math.sqrt(Math.abs(distance) / window.innerHeight))) : 1000;
+    const heroExit = next.from === "hero" && next.to === "collection";
+    const duration = heroExit ? HERO_EXIT_DURATION
+      : reversing ? Math.max(360, Math.min(1000, 1000 * Math.sqrt(Math.abs(distance) / window.innerHeight))) : 1000;
     const startedAt = performance.now();
     active = { ...next, origin: returnTo ?? start, progress: 0, writtenY: start, reversing };
     oppositeDelta = 0;
@@ -176,7 +185,8 @@ export function setupPreviewSnap() {
     function tick(now: number) {
       if (!active) return;
       const time = Math.min(1, Math.max(0, (now - startedAt) / duration));
-      active.progress = time === 1 ? 1 : pageEase(time);
+      // 首屏离场立即给位移反馈，尾段逐渐减速；盘列仍使用同一份进度。
+      active.progress = heroExit ? 1 - (1 - time) ** 2.4 : time === 1 ? 1 : pageEase(time);
       window.scrollTo({ top: start + distance * active.progress, behavior: "instant" });
       active.writtenY = window.scrollY;
       announce(time === 1 ? "end" : "progress");
@@ -241,11 +251,18 @@ export function setupPreviewSnap() {
     }
     if (Math.sign(wheelDelta) !== direction) wheelDelta = 0;
     wheelDelta += delta;
-    if (!("from" in next) || Math.abs(wheelDelta) >= WHEEL_THRESHOLD) {
-      consumedWheel = { direction, until: now + GESTURE_GAP };
-      wheelDelta = 0;
-      applyScroll(next);
-    }
+    if ("from" in next && next.fromBoundary !== undefined) {
+      const remaining = Math.max(0, next.fromBoundary - window.scrollY);
+      // 停留段内按原滚轮距离走，只有超过末尾的输入计入换页阈值。
+      wheelDelta = Math.max(0, wheelDelta - remaining);
+      if (remaining > 0 && remaining <= delta) {
+        window.scrollTo({ top: next.fromBoundary, behavior: "instant" });
+      }
+      if (wheelDelta < HERO_EXIT_WHEEL_THRESHOLD) return;
+    } else if ("from" in next && Math.abs(wheelDelta) < WHEEL_THRESHOLD) return;
+    consumedWheel = { direction, until: now + GESTURE_GAP };
+    wheelDelta = 0;
+    applyScroll(next);
   }, { passive: false });
 
   window.addEventListener("touchstart", (event) => {
