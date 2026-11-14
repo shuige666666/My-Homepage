@@ -41,8 +41,10 @@ const syncDate = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-d
             <img src={siteConfig.avatarPath} alt={`${data.profile.nickname}的头像`} width="44" height="44" />
             <a href={data.profile.bangumiUrl} target="_blank" rel="noreferrer">Bangumi 个人主页 <ArrowUpRight size={15} /></a>
           </div>
-          <h1 id="preview-name" data-pv-reveal style="--pv-stagger: 1">{data.profile.nickname}</h1>
-          <p class="pv-hero-quote" data-pv-reveal style="--pv-stagger: 2">{siteConfig.introduction}</p>
+          <div class="pv-hero-heading">
+            <h1 id="preview-name" data-pv-reveal style="--pv-stagger: 1">{data.profile.nickname}</h1>
+            <p class="pv-hero-quote" data-pv-reveal style="--pv-stagger: 2">{siteConfig.introduction}</p>
+          </div>
           <dl class="pv-stats" aria-label="动画收藏统计" data-pv-reveal style="--pv-stagger: 3">
             <div><dt>看过</dt><dd>{data.stats.watched}<span>部</span></dd></div>
             <div><dt>在看</dt><dd>{data.stats.watching}<span>部</span></dd></div>
