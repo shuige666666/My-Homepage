@@ -49,7 +49,7 @@ const albumImages: Record<number, string> = {
         <article class="favorite-card">
           <button type="button" data-album-open={index} aria-label={`打开 ${entry.nameCn || entry.name} 的光碟展示`}>
             <div class="cover-frame">
-              <img src={entry.image} alt="" loading={index < 5 ? "eager" : "lazy"} />
+              <img src={entry.poster?.thumbnail ?? entry.image} alt="" loading={index < 5 ? "eager" : "lazy"} />
               <span class="rank-number">{String(index + 1).padStart(2, "0")}</span>
               <span class="open-subject"><Disc3 size={16} /></span>
               <span class="score-badge"><Star size={13} fill="currentColor" /> {entry.userScore.toFixed(1)}</span>

@@ -34,7 +34,7 @@ const formatDate = (value: string) => value ? formatter.format(new Date(value)) 
           <article class={`review-detail ${index === 0 ? "is-active" : ""}`} data-review-slide={entry.id}>
             <aside class="review-detail-subject">
               <a class="review-detail-cover" href={entry.url} target="_blank" rel="noreferrer">
-                <img src={entry.image} alt={entry.nameCn || entry.name} loading="lazy" />
+                <img src={entry.poster?.large ?? entry.image} alt={entry.nameCn || entry.name} loading="lazy" />
               </a>
               <div class="review-detail-meta">
                 <p class="review-detail-kicker">SUBJECT</p>

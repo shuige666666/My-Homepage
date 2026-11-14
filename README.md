@@ -41,7 +41,7 @@ $env:HTTPS_PROXY='http://127.0.0.1:7890'
 npm run sync:bangumi
 ```
 
-脚本只有在全部请求和数据整理成功后才会替换 `src/data/bangumi.json`。同步失败时，旧数据会继续保留。
+数据同步成功后，脚本会更新 `src/data/bangumi.json`，并把新增或更换的海报生成大图和缩略图，存入 `public/images/bangumi/`。已有海报直接复用。单张海报下载失败时会优先使用上次的本地副本，首次缺图时使用 Bangumi 图片链接。
 
 
 
@@ -147,7 +147,7 @@ npm run dev
 确认效果后提交并推送。GitHub Actions 和 Cloudflare 会自动同步与重新部署：
 
 ```bash
-git add src/data/favorites.config.json src/data/bangumi.json
+git add src/data/favorites.config.json src/data/bangumi.json public/images/bangumi/
 git commit -m "content: update favorite anime"
 git push
 ```
@@ -565,7 +565,7 @@ npm run build
 npm run preview
 ```
 
-GitHub Actions 工作流 `.github/workflows/sync-bangumi.yml` 会每天自动同步一次，也支持在 Actions 页面手动触发。数据变化后，工作流会提交更新后的 JSON，并触发托管平台重新部署。
+GitHub Actions 工作流 `.github/workflows/sync-bangumi.yml` 会每天自动同步一次，也支持在 Actions 页面手动触发。构建成功后，工作流将更新的 JSON 和新增海报一并提交，供 Cloudflare 重新部署。
 
 ### 本地同步方法
 

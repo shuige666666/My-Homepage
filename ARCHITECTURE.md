@@ -119,7 +119,8 @@ recentReviews  按更新时间排序的有评分记录
 3. 将 Bangumi 返回的条目压缩为页面需要的稳定字段，例如名称、图片、评分、排名、评论和更新时间。
 4. 根据 `favorites.config.json` 选择最喜欢的动漫。手动配置中不在收藏分页里的条目，会额外请求条目详情进行补全。
 5. 生成 `stats`、`favorites`、`recentWatched`、`watchHistory` 和 `recentReviews`。最近看过与时间轴合并“看过”“抛弃”两类记录，顶部“看过”数量只统计“看过”分类。
-6. 先写入 `src/data/bangumi.json.tmp`，完成后再重命名覆盖正式文件；同步失败时保留旧数据。
+6. 按 Bangumi 封面地址去重，在 `public/images/bangumi/` 补充等比例的 WebP 大图和缩略图。下载失败时优先沿用该作品的旧副本，没有副本时保留 Bangumi 链接供页面使用。
+7. 将数据先写入临时文件，完成后再重命名覆盖 `src/data/bangumi.json`。数据同步失败时保留旧快照。
 
 本地网络需要代理时，脚本读取 `HTTPS_PROXY` 或 `HTTP_PROXY` 环境变量，并通过 `ProxyAgent` 发出请求。页面运行阶段不执行这段同步逻辑。
 
@@ -153,6 +154,7 @@ src/styles/global.css        全局颜色变量、页面布局、内容卡片、
 src/styles/depth-gallery.css 开场画廊的固定舞台、过渡、背景和移动端规则
 public/images/profile/       头像等公开图片资源
 public/images/depth-gallery/ 画廊原图和 optimized/ 优化图片
+public/images/bangumi/       随站点发布的 Bangumi 海报大图与缩略图
 ```
 
 `public/` 下的文件会以静态资源形式直接复制到构建结果，组件通过 `/images/...` 路径引用。数据文件位于 `src/data/`，由 Astro 在构建时打包进生成的页面。
@@ -187,8 +189,8 @@ checkout
 → npm ci
 → npm run sync:bangumi
 → npm run build
-→ 仅暂存 src/data/bangumi.json
-→ 数据有变化时提交并推送
+→ 暂存 src/data/bangumi.json 和 public/images/bangumi/
+→ 有变化时提交并推送
 ```
 
 连续的自动同步会尝试 amend 上一条 `github-actions[bot]` 的 `chore: refresh Bangumi data` 提交，避免数据刷新持续增加提交数量；其他情况则创建新的自动提交。

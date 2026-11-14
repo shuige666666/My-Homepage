@@ -81,7 +81,7 @@ const formatRecordDate = (value: string) => new Intl.DateTimeFormat("zh-CN", { m
                 {month.entries.length ? month.entries.slice(0, 3).map((entry, index) => (
                   <figure class="memory-photo" data-memory-photo data-card-slot={index}>
                     <div class="memory-photo-image">
-                      <img src={entry.image} alt="" loading="lazy" decoding="async" />
+                      <img src={entry.poster?.large ?? entry.image} alt="" loading="lazy" decoding="async" />
                     </div>
                     <figcaption><span>FRAME {String(index + 1).padStart(2, "0")}</span><span>{month.key.replace("-", ".")}</span></figcaption>
                   </figure>
@@ -184,7 +184,7 @@ const formatRecordDate = (value: string) => new Intl.DateTimeFormat("zh-CN", { m
                       target={hasReview ? undefined : "_blank"}
                       rel={hasReview ? undefined : "noreferrer"}
                     >
-                      <img src={entry.image} alt="" loading="lazy" decoding="async" />
+                      <img src={entry.poster?.thumbnail ?? entry.image} alt="" loading="lazy" decoding="async" />
                       <span class="memory-record-text"><strong>{entry.nameCn || entry.name}</strong><span>{formatRecordDate(entry.updatedAt)} 记录</span></span>
                       <span class="memory-record-score"><Star size={12} fill="currentColor" />{entry.userScore ? entry.userScore.toFixed(1) : "—"}</span>
                       {hasReview ? <ChevronRight class="memory-record-arrow" size={15} aria-hidden="true" /> : <ArrowUpRight class="memory-record-arrow" size={15} aria-hidden="true" />}

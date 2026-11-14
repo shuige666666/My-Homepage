@@ -3,6 +3,7 @@ export interface AnimeSubject {
   name: string;
   nameCn: string;
   image: string;
+  poster?: { large: string; thumbnail: string };
   bangumiScore: number;
   rank: number | null;
   url: string;

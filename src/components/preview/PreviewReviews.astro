@@ -23,7 +23,7 @@ const excerpt = (comment: string, length: number) => {
     {feature ? <div class="pv-review-layout">
       <article class="pv-feature-record">
         <div class="pv-feature-art">
-          <button class="pv-feature-image" type="button" data-review-open={feature.id} aria-label={`阅读 ${feature.nameCn || feature.name} 的完整短评`} aria-haspopup="dialog" aria-controls="review-dialog"><img src={feature.image} alt={feature.nameCn || feature.name} loading="lazy" decoding="async" /><span class="pv-cover-open" aria-hidden="true"><ArrowUpRight size={23} /></span></button>
+          <button class="pv-feature-image" type="button" data-review-open={feature.id} aria-label={`阅读 ${feature.nameCn || feature.name} 的完整短评`} aria-haspopup="dialog" aria-controls="review-dialog"><img src={feature.poster?.large ?? feature.image} alt={feature.nameCn || feature.name} loading="lazy" decoding="async" /><span class="pv-cover-open" aria-hidden="true"><ArrowUpRight size={23} /></span></button>
         </div>
         <div class="pv-feature-copy">
           <p class="pv-record-date"><time datetime={feature.updatedAt}>{formatter.format(new Date(feature.updatedAt))}</time></p>
@@ -35,7 +35,7 @@ const excerpt = (comment: string, length: number) => {
       </article>
       <div class="pv-side-records">
         {others.slice(0, 3).map((entry) => <article class="pv-side-record">
-          <img src={entry.image} alt="" loading="lazy" decoding="async" />
+          <img src={entry.poster?.thumbnail ?? entry.image} alt="" loading="lazy" decoding="async" />
           <div><p class="pv-side-date"><time datetime={entry.updatedAt}>{formatter.format(new Date(entry.updatedAt))}</time><span>{entry.userScore.toFixed(1)} / 10</span></p><h3>{entry.nameCn || entry.name}</h3><p class="pv-side-excerpt">{entry.comment ? excerpt(entry.comment, 45) : "暂无短评。"}</p><button type="button" class="pv-side-open" data-review-open={entry.id} aria-label={`阅读 ${entry.nameCn || entry.name} 的短评`} aria-haspopup="dialog" aria-controls="review-dialog">阅读短评 <ArrowUpRight size={14} /></button></div>
         </article>)}
       </div>

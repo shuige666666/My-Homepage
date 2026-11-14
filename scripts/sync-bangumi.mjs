@@ -1,7 +1,8 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ProxyAgent, setGlobalDispatcher } from "undici";
+import { syncPosters } from "./bangumi-posters.mjs";
 
 const USERNAME = "860550";
 const API_BASE = "https://api.bgm.tv/v0";
@@ -109,6 +110,22 @@ async function readFavoritesConfig() {
   }
 }
 
+/** 读取上次同步结果，在封面下载失败时提供已有副本。 */
+async function readPreviousSnapshot() {
+  try {
+    return JSON.parse(await readFile(OUTPUT_PATH, "utf8"));
+  } catch (error) {
+    if (error.code === "ENOENT") return {};
+    throw error;
+  }
+}
+
+/** 汇总首页和预览页各模块使用的海报记录。 */
+function getPosterEntries(snapshot) {
+  return ["favorites", "recentWatched", "watchHistory", "recentReviews"]
+    .flatMap((key) => snapshot[key] ?? []);
+}
+
 /**
  * 根据配置生成最喜欢动漫；手动模式严格遵循配置中的条目顺序。
  */
@@ -163,13 +180,14 @@ async function selectFavorites(entries, config) {
  * 拉取并整理页面所需数据；只有全部完成后才会替换旧文件。
  */
 async function sync() {
-  const [profile, all, watched, watching, wish, favoritesConfig] = await Promise.all([
+  const [profile, all, watched, watching, wish, favoritesConfig, previous] = await Promise.all([
     request(`/users/${USERNAME}`),
     fetchCollections(),
     fetchCollections(2),
     fetchCollections(3),
     fetchCollections(1),
     readFavoritesConfig(),
+    readPreviousSnapshot(),
   ]);
 
   const normalizedAll = all.map(normalizeCollection);
@@ -204,10 +222,17 @@ async function sync() {
     recentReviews,
   };
 
+  await syncPosters(getPosterEntries(result), getPosterEntries(previous), headers);
+
   await mkdir(dirname(OUTPUT_PATH), { recursive: true });
-  const tempPath = `${OUTPUT_PATH}.tmp`;
-  await writeFile(tempPath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
-  await rename(tempPath, OUTPUT_PATH);
+  // 同步完成后再替换数据文件。各进程使用各自的临时文件。
+  const tempPath = `${OUTPUT_PATH}.${process.pid}.tmp`;
+  try {
+    await writeFile(tempPath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
+    await rename(tempPath, OUTPUT_PATH);
+  } finally {
+    await rm(tempPath, { force: true });
+  }
   console.log(
     `Bangumi 数据同步完成：${favorites.length} 部偏好作品，${watched.length} 部看过，${normalizedWatchHistory.length} 条观看记录。`,
   );

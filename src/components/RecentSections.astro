@@ -27,7 +27,7 @@ const visibleReviews = reviews.slice(0, 4);
             <article class="recent-card">
               <a href={entry.url} target="_blank" rel="noreferrer">
                 <div class="recent-cover">
-                  <img src={entry.image} alt="" loading="lazy" />
+                  <img src={entry.poster?.thumbnail ?? entry.image} alt="" loading="lazy" />
                   <span><ExternalLink size={15} /></span>
                 </div>
                 <h3>{entry.nameCn || entry.name}</h3>

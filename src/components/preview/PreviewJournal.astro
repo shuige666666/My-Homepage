@@ -29,7 +29,7 @@ const formatter = new Intl.DateTimeFormat("zh-CN", {
           <article class="pv-journal__slot" data-pv-journal-slot>
             <a class="pv-journal__card" href={entry.url} target="_blank" rel="noreferrer">
               <span class="pv-journal__frame">
-                <img src={entry.image} alt="" loading="lazy" decoding="async" />
+                <img src={entry.poster?.large ?? entry.image} alt="" loading="lazy" decoding="async" />
                 {index === watched.length - 1 && (
                   <svg class="pv-journal__wave" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                     <path data-pv-journal-wave />
