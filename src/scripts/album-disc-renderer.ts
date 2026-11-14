@@ -28,7 +28,6 @@ interface DiscMesh {
   image: HTMLImageElement | null;
   button: HTMLButtonElement | null;
   texture: THREE.Texture | null;
-  loadingArtwork: Promise<void> | null;
   artworkFailed: boolean;
 }
 
@@ -44,6 +43,7 @@ export class AlbumDiscRenderer {
   private readonly environment: THREE.WebGLRenderTarget;
   private width = 0;
   private height = 0;
+  private resolutionDirty = true;
   private basePixelRatio = 1;
   private idlePixelRatio = 1;
   private isIdle = false;
@@ -56,7 +56,9 @@ export class AlbumDiscRenderer {
   private lastViewport: AlbumDiscViewport | null = null;
   private contextLost = false;
   private disposed = false;
-  private redrawFrame = 0;
+  private readonly artworkQueue = new Set<number>();
+  private artworkFrame = 0;
+  private artworkUploadsPaused = false;
 
   constructor(stage: HTMLElement, images: Array<HTMLImageElement | null>, brightArtwork = false) {
     this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
@@ -69,7 +71,7 @@ export class AlbumDiscRenderer {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.06;
     this.renderer.domElement.addEventListener("webglcontextlost", (event) => {
-      // 显卡上下文丢失时立即露出仍在同步位置的 CSS 盘，避免弹窗变空白。
+      // 显卡上下文丢失时立即露出仍在同步位置的 CSS 盘。
       event.preventDefault();
       this.contextLost = true;
       stage.closest(".album-gallery")?.classList.remove("has-webgl");
@@ -192,21 +194,26 @@ export class AlbumDiscRenderer {
       const disc: DiscMesh = {
         group, spin, material: frontMaterial, image,
         button: image?.closest<HTMLButtonElement>("[data-album-disc]") ?? null,
-        texture: null, loadingArtwork: null, artworkFailed: false,
+        texture: null, artworkFailed: false,
       };
       this.discs.push(disc);
     });
   }
 
-  /** 封面解码完成后准备纹理，静止时合并补画一帧。 */
-  private useArtwork(disc: DiscMesh): Promise<void> {
+  /** 接收已解码的封面。当前正在移动时，仅将它加入上传队列。 */
+  queueArtwork(index: number) {
+    const disc = this.discs[index];
+    if (disc.texture || disc.artworkFailed || this.disposed || this.contextLost) return;
+    this.artworkQueue.add(index);
+    this.scheduleArtworkUpload();
+  }
+
+  /** 把已解码的封面上传给 GPU，完成后这张盘才可以由 WebGL 绘制。 */
+  private uploadArtwork(disc: DiscMesh) {
     const image = disc.image;
-    if (!image || disc.texture || disc.artworkFailed) return Promise.resolve();
-    if (disc.loadingArtwork) return disc.loadingArtwork;
-    image.loading = "eager";
-    disc.loadingArtwork = image.decode().then(() => {
-      if (this.disposed || !image.naturalWidth || !image.naturalHeight) return;
-      const texture = new THREE.Texture(image);
+    if (!image?.naturalWidth || !image.naturalHeight) return;
+    const texture = new THREE.Texture(image);
+    try {
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
       if (image.naturalWidth > image.naturalHeight) {
@@ -217,36 +224,50 @@ export class AlbumDiscRenderer {
         texture.offset.y = (1 - texture.repeat.y) / 2;
       }
       texture.needsUpdate = true;
+      this.renderer.initTexture(texture);
       disc.texture = texture;
       disc.material.map = texture;
       if (disc.material.emissive.getHex() !== 0) disc.material.emissiveMap = texture;
       disc.material.needsUpdate = true;
-      this.scheduleArtworkDraw();
-    }).catch(() => {
+    } catch {
+      texture.dispose();
       // 单张封面加载失败时仍保留对应 CSS 光碟，不阻断整个画廊。
       disc.artworkFailed = true;
-    }).finally(() => { disc.loadingArtwork = null; });
-    return disc.loadingArtwork;
+    }
   }
 
-  /** 多张海报同时解码后合并重绘，滚动中由下一帧运动统一呈现。 */
-  private scheduleArtworkDraw() {
-    if (this.redrawFrame || !this.isIdle || !this.lastViewport) return;
-    this.redrawFrame = requestAnimationFrame(() => {
-      this.redrawFrame = 0;
-      if (this.isIdle && this.lastViewport) this.draw(this.lastLayout, this.lastViewport);
+  /** 静止时每帧预传一张。当前可见盘优先，远处盘留到后续帧处理。 */
+  private scheduleArtworkUpload() {
+    if (this.artworkUploadsPaused || this.artworkFrame || !this.isIdle || this.disposed || this.contextLost || !this.artworkQueue.size) return;
+    this.artworkFrame = requestAnimationFrame(() => {
+      this.artworkFrame = 0;
+      if (!this.isIdle || this.contextLost) return;
+      const visible = Array.from(this.artworkQueue).find((index) => this.lastLayout[index]?.visible);
+      const index = visible ?? this.artworkQueue.values().next().value;
+      if (index === undefined) return;
+      const disc = this.discs[index];
+      this.artworkQueue.delete(index);
+      this.uploadArtwork(disc);
+      if (disc.texture) {
+        // 当前盘先画出 WebGL 版本再隐藏 CSS。离屏盘到入镜时已可直接使用纹理。
+        if (visible !== undefined && this.lastViewport) this.draw(this.lastLayout, this.lastViewport);
+        disc.button?.classList.add("has-physical-artwork");
+      }
+      this.scheduleArtworkUpload();
     });
   }
 
-  /** 等开场盘的实体贴图完成首帧，再让盘列开始长距离滑动。 */
-  async prepareOpeningArtwork() {
-    await this.useArtwork(this.discs[0]);
-    if (!this.disposed && this.lastViewport) this.draw(this.lastLayout, this.lastViewport);
+  /** 在手指或页面开始移动时停掉后台上传，避免纹理更新与换页争用同一帧。 */
+  suspendArtworkUploads() {
+    this.artworkUploadsPaused = true;
+    cancelAnimationFrame(this.artworkFrame);
+    this.artworkFrame = 0;
   }
 
-  /** 靠近收藏时提前解码相邻封面，提前准备第一段滑行用到的纹理。 */
-  prepareNearbyArtwork(start: number, end: number) {
-    this.discs.slice(start, end).forEach((disc) => { void this.useArtwork(disc); });
+  /** 手势结束且盘列停稳后，接着处理未上传的封面。 */
+  resumeArtworkUploads() {
+    this.artworkUploadsPaused = false;
+    this.scheduleArtworkUpload();
   }
 
   /** 暗色环境中的几条柔和灯带让高光随盘面法线移动。 */
@@ -344,13 +365,13 @@ export class AlbumDiscRenderer {
     if (average > 26.5 && this.qualityLevel < 3) {
       this.qualityLevel = Math.min(3, this.qualityLevel + (average > 45 ? 2 : 1));
       this.fastWindows = 0;
-      this.applyResolution();
+      this.resolutionDirty = true;
     } else if (average < 17.5 && this.qualityLevel > 0) {
       this.fastWindows += 1;
       if (this.fastWindows >= 4) {
         this.qualityLevel -= 1;
         this.fastWindows = 0;
-        this.applyResolution();
+        this.resolutionDirty = true;
       }
     } else this.fastWindows = 0;
   }
@@ -360,7 +381,7 @@ export class AlbumDiscRenderer {
     if (!this.isIdle && this.motionScale === scale) return;
     this.isIdle = false;
     this.motionScale = scale;
-    this.applyResolution();
+    this.resolutionDirty = true;
   }
 
   /** 盘列停稳后恢复清晰画布，不让慢帧时降低的画质一直保留。 */
@@ -368,13 +389,14 @@ export class AlbumDiscRenderer {
     if (this.isIdle) return false;
     this.isIdle = true;
     this.motionScale = 1;
-    this.applyResolution();
+    this.resolutionDirty = true;
+    this.scheduleArtworkUpload();
     return true;
   }
 
-  /** 尺寸或画质档位变化时才重建画布缓冲区。 */
+  /** 调分辨率会清空画布，放在实际绘制之前，保证中间没有空白帧。 */
   private applyResolution() {
-    if (!this.width || !this.height) return;
+    this.resolutionDirty = false;
     const ratio = this.isIdle
       ? this.idlePixelRatio
       : this.basePixelRatio * Math.min(this.motionScale, [1, .85, .7, .55][this.qualityLevel]);
@@ -397,7 +419,7 @@ export class AlbumDiscRenderer {
       this.basePixelRatio = Math.max(.85, Math.min(window.devicePixelRatio || 1, 1.25, Math.sqrt(3_200_000 / (width * height))));
       // 静止时只绘制一帧，允许恢复更接近设备像素密度的封面细节。
       this.idlePixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, width <= 760 ? 1.5 : 1.75, Math.sqrt(5_000_000 / (width * height))));
-      this.applyResolution();
+      this.resolutionDirty = true;
       this.camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(height / (2 * 1450)));
       this.camera.aspect = width / height;
       this.camera.near = 1;
@@ -406,10 +428,10 @@ export class AlbumDiscRenderer {
       this.camera.lookAt(0, 0, 0);
       this.camera.updateProjectionMatrix();
     }
+    if (this.resolutionDirty) this.applyResolution();
     layout.forEach((pose, index) => {
       const disc = this.discs[index];
       if (!disc) return;
-      if (pose.visible && !disc.texture) this.useArtwork(disc);
       disc.group.visible = pose.visible && Boolean(disc.texture);
       if (!pose.visible) return;
       disc.group.position.set(centerX + pose.x, centerY - pose.y, pose.offset * 14);
@@ -419,17 +441,14 @@ export class AlbumDiscRenderer {
       disc.spin.rotation.y = THREE.MathUtils.degToRad(pose.flip);
     });
     this.renderer.render(this.scene, this.camera);
-    // 首帧画好后才隐藏对应的 CSS 备用盘，避免加载慢时露出白盘。
-    this.discs.forEach((disc) => {
-      if (disc.group.visible && !disc.button?.classList.contains("has-physical-artwork")) disc.button?.classList.add("has-physical-artwork");
-    });
   }
 
   /** 关闭画廊或离开页面时释放画布与封面纹理。 */
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
-    cancelAnimationFrame(this.redrawFrame);
+    cancelAnimationFrame(this.artworkFrame);
+    this.artworkQueue.clear();
     this.discs.forEach((disc) => {
       disc.material.dispose();
       disc.texture?.dispose();

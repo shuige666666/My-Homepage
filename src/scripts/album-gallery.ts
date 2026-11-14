@@ -5,6 +5,8 @@ const ALBUM_PRELOAD_MARGIN = 180;
 const ALBUM_IDLE_MARGIN = 40;
 const PAGE_TRAVEL_RESOLUTION = .65;
 const LANDING_YAW_SPEED = 205; // 盘列落位时，主盘开始左右翻摆的角速度（度/秒）。
+const COVER_PRELOAD_BATCH_SIZE = 2;
+const ALBUM_SCROLL_SETTLE_MS = 120;
 
 // 从左到右四张可见盘的静止姿态；pitch 是上下俯仰，yaw 是左右侧转，roll 是画面内倾斜。
 const DISC_ANGLE_SLOTS = [
@@ -40,6 +42,8 @@ export function setupAlbumGallery() {
   const stage = dialog.querySelector<HTMLElement>("[data-album-stage]");
   const discs = Array.from(dialog.querySelectorAll<HTMLButtonElement>("[data-album-disc]"));
   const discImages = discs.map((disc) => disc.querySelector<HTMLImageElement>("img"));
+  const readyCovers = new Set<number>();
+  const pendingCovers = new Set<number>();
   const openers = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-album-open]"));
   const closeButton = dialog.querySelector<HTMLButtonElement>("[data-album-close]");
   const previous = dialog.querySelector<HTMLButtonElement>("[data-album-prev]");
@@ -60,6 +64,7 @@ export function setupAlbumGallery() {
   let flippedIndex = -1;
   let animationFrame = 0;
   let animationGeneration = 0;
+  let preloadStarted = false;
   let travelVelocity = 0;
   let lastMotionAt = 0;
   let draggedPosition = 0;
@@ -71,6 +76,7 @@ export function setupAlbumGallery() {
   let physicalFailed = false;
   let physicalStartTimer = 0;
   let embeddedAtRest = false;
+  let pageScrolling = false;
   let opener: HTMLButtonElement | null = null;
   let previousBodyOverflow = "";
   let lastWheelAt = 0;
@@ -296,6 +302,48 @@ export function setupAlbumGallery() {
     if (next) next.disabled = destination >= discs.length - 1;
   }
 
+  /** 盘列停稳时提交已解码的封面，长滑途中继续显示原来的盘面。 */
+  function showReadyCovers() {
+    const scrollingInView = pageScrolling && embeddedVisible && !reduceMotion.matches;
+    if (scrollTravel || animationFrame || pointerStart || scrollingInView) return;
+    pendingCovers.forEach((index) => discs[index].classList.add("has-album-cover"));
+    pendingCovers.clear();
+  }
+
+  /** 从开场盘开始分批加载封面，限制同时下载和解码的图片数量。 */
+  async function preloadCovers() {
+    if (preloadStarted) return;
+    preloadStarted = true;
+    const center = embedded ? destination : 0;
+    const images = embedded ? [
+      ...discImages.slice(Math.max(0, center - 2), center + 2),
+      ...discImages.slice(0, Math.max(0, center - 2)).reverse(),
+      ...discImages.slice(center + 2),
+    ] : discImages;
+    for (let first = 0; first < images.length; first += COVER_PRELOAD_BATCH_SIZE) {
+      await Promise.all(images.slice(first, first + COVER_PRELOAD_BATCH_SIZE).map(async (image) => {
+        if (!image) return;
+        image.loading = "eager";
+        await image.decode().catch(() => undefined);
+      }));
+    }
+  }
+
+  discImages.forEach((image, index) => {
+    if (!image) return;
+    const prepare = () => {
+      void image.decode().then(() => {
+        readyCovers.add(index);
+        pendingCovers.add(index);
+        showReadyCovers();
+        discRenderer?.queueArtwork(index);
+      }).catch(() => undefined);
+    };
+    if (image.complete && image.naturalWidth) prepare();
+    else image.addEventListener("load", prepare, { once: true });
+  });
+  dialog.classList.add("is-initialized");
+
   /** 首次打开时按需装载物理盘面；加载或 WebGL 失败时原 CSS 盘仍可操作。 */
   function ensurePhysicalDiscs(): Promise<void> {
     if (discRenderer || physicalFailed) return Promise.resolve();
@@ -312,7 +360,7 @@ export function setupAlbumGallery() {
         discRenderer = physical;
         physical.settle();
         render();
-        if (embedded) physical.prepareNearbyArtwork(Math.max(0, destination - 4), destination + 4);
+        readyCovers.forEach((index) => physical.queueArtwork(index));
         dialog.classList.add("has-webgl");
       } catch (error) {
         discRenderer = null;
@@ -322,7 +370,10 @@ export function setupAlbumGallery() {
     })().catch((error) => {
       physicalFailed = true;
       console.warn("光碟物理材质不可用，已保留 CSS 盘面。", error);
-    }).finally(() => { physicalLoading = null; });
+    }).finally(() => {
+      physicalLoading = null;
+      if (embedded && !discRenderer) scheduleEmbeddedRenderer();
+    });
     return physicalLoading;
   }
 
@@ -405,6 +456,7 @@ export function setupAlbumGallery() {
     } else {
       position = target;
       travelVelocity = 0;
+      showReadyCovers();
       discRenderer?.settle();
       render();
       scheduleEmbeddedRenderer();
@@ -417,8 +469,10 @@ export function setupAlbumGallery() {
     landingYawVelocity = 0;
     introPending = false;
     destination = clamp(index, 0, discs.length - 1);
-    // 跳转到未预载的光碟时，只唤起目标与邻盘的封面请求。
-    discImages.slice(Math.max(0, destination - 1), destination + 2).forEach((image) => {
+    // 冷启动直接跳到较后的作品时，优先请求会经过的封面和目标盘两侧。
+    const first = Math.max(0, Math.floor(Math.min(position, destination)) - 2);
+    const end = Math.ceil(Math.max(position, destination)) + 2;
+    discImages.slice(first, end).forEach((image) => {
       if (image) image.loading = "eager";
     });
     flippedIndex = -1;
@@ -426,6 +480,7 @@ export function setupAlbumGallery() {
     if (reduceMotion.matches) {
       position = destination;
       flips.forEach((flip) => { flip.angle = flip.velocity = 0; });
+      showReadyCovers();
       render();
     } else startMotion();
   }
@@ -438,13 +493,9 @@ export function setupAlbumGallery() {
       await Promise.all(route.slice(first, first + 2).map((image) => image?.decode().catch(() => undefined)));
       if (!dialog?.open || opening !== animationGeneration) return;
     }
-    // 首次进入时 CSS 盘与 WebGL 盘不能在滑动途中交接，否则首张盘会看似乱转。
-    await physicalReady;
+    await Promise.all([physicalReady, entranceReady]);
     if (!dialog?.open || opening !== animationGeneration) return;
-    await discRenderer?.prepareOpeningArtwork();
-    if (!dialog?.open || opening !== animationGeneration) return;
-    await entranceReady;
-    if (!dialog?.open || opening !== animationGeneration) return;
+    showReadyCovers();
     navigate(lastIndex);
   }
 
@@ -461,7 +512,7 @@ export function setupAlbumGallery() {
 
   /** 舞台占满视口且页面和盘列都停稳后才切换渲染方式。 */
   function canStartEmbeddedRenderer() {
-    return embeddedAtRest && !scrollTravel && !animationFrame && !pointerStart;
+    return embeddedAtRest && !pageScrolling && !scrollTravel && !animationFrame && !pointerStart;
   }
 
   /** 窄屏可以先看到盘面上半部，也可以滚到舞台底部再停下。 */
@@ -470,6 +521,7 @@ export function setupAlbumGallery() {
     const bounds = dialog!.getBoundingClientRect();
     const bottom = Math.min(bounds.height, document.documentElement.clientHeight);
     embeddedAtRest = bounds.top <= ALBUM_IDLE_MARGIN && bounds.bottom >= bottom - ALBUM_IDLE_MARGIN;
+    showReadyCovers();
     scheduleEmbeddedRenderer();
   }
 
@@ -480,9 +532,10 @@ export function setupAlbumGallery() {
     physicalStartTimer = window.setTimeout(() => {
       physicalStartTimer = 0;
       if (!canStartEmbeddedRenderer()) return;
+      showReadyCovers();
       if (discRenderer) {
+        discRenderer.resumeArtworkUploads();
         if (discRenderer.settle()) render();
-        discRenderer.prepareNearbyArtwork(Math.max(0, destination - 4), destination + 4);
       } else void ensurePhysicalDiscs();
     }, 100);
   }
@@ -521,6 +574,7 @@ export function setupAlbumGallery() {
     measureStage();
     render();
     if (!embedded) stage?.focus({ preventScroll: true });
+    void preloadCovers();
     openingImages().forEach((image) => { if (image) image.loading = "eager"; });
     const physicalReady = ensurePhysicalDiscs();
     if (entranceProgress < 1) startMotion();
@@ -552,6 +606,7 @@ export function setupAlbumGallery() {
     document.body.style.overflow = previousBodyOverflow;
     if (pointerStart && stage.hasPointerCapture(pointerStart.id)) stage.releasePointerCapture(pointerStart.id);
     pointerStart = null;
+    showReadyCovers();
     hoveredIndex = -1;
     stage.classList.remove("is-dragging");
     discs.forEach((disc) => disc.classList.remove("is-hovered", "is-grabbed"));
@@ -641,6 +696,7 @@ export function setupAlbumGallery() {
   /** 拖动改变连续位置，松手后吸附最近的光碟。 */
   stage.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
+    discRenderer?.suspendArtworkUploads();
     landingYawVelocity = 0;
     if (scrollTravel) {
       destination = Math.round(position);
@@ -710,6 +766,8 @@ export function setupAlbumGallery() {
       stage.focus({ preventScroll: true });
     }
     aimDisc(event, hoveredDisc(event));
+    if (reduceMotion.matches) showReadyCovers();
+    if (!embedded) discRenderer?.resumeArtworkUploads();
     scheduleEmbeddedRenderer();
   });
   window.addEventListener("pointercancel", () => {
@@ -722,6 +780,8 @@ export function setupAlbumGallery() {
     if (didDrag && !draggedDisc) navigate(Math.round(draggedPosition));
     // 系统取消拖拽后仍让盘面平滑回正，避免停留在最后一帧侧立姿态。
     poses.forEach((pose) => { pose.targetX = pose.targetY = 0; });
+    if (reduceMotion.matches) showReadyCovers();
+    if (!embedded) discRenderer?.resumeArtworkUploads();
     startMotion();
   });
   stage.addEventListener("dragstart", (event) => event.preventDefault());
@@ -745,17 +805,7 @@ export function setupAlbumGallery() {
     if (embedded) updateEmbeddedRest();
   });
   if (embedded) {
-    /** 临近收藏时保留已加载的盘面，离开附近后才释放，短距离往返不用重建画布。 */
-    function releaseIfDistant() {
-      const rect = dialog!.getBoundingClientRect();
-      if (rect.bottom >= -ALBUM_PRELOAD_MARGIN && rect.top <= window.innerHeight + ALBUM_PRELOAD_MARGIN) return;
-      cancelAnimationFrame(animationFrame);
-      animationFrame = 0;
-      discRenderer?.dispose();
-      discRenderer = null;
-      dialog!.classList.remove("has-webgl");
-    }
-
+    let scrollSettleTimer = 0;
     /** 章节移动和光碟索引共用进度，反向时从当前盘位接续。 */
     function handleSnap(event: Event) {
       const detail = (event as CustomEvent<PreviewSnapDetail>).detail;
@@ -809,24 +859,43 @@ export function setupAlbumGallery() {
       scrollTravel = null;
       destination = detail.phase === "end" ? travel.to : Math.round(position);
       if (detail.phase === "end" || reduceMotion.matches) position = destination;
-      releaseIfDistant();
-      render();
+      showReadyCovers();
+      if (embeddedVisible) render();
       if (detail.phase === "cancel" || poses.some((pose) => pose.yawRebounding)) startMotion();
       updateEmbeddedRest();
     }
 
     document.addEventListener("pv:snap", handleSnap);
-    window.addEventListener("scroll", () => { embeddedAtRest = false; }, { passive: true });
-    window.addEventListener("scrollend", updateEmbeddedRest);
+    window.addEventListener("scroll", () => {
+      // 页面滚动时暂停上传，等最后一次滚动落定后再恢复，兼容未派发 scrollend 的浏览器。
+      if (!pageScrolling) discRenderer?.suspendArtworkUploads();
+      pageScrolling = true;
+      clearTimeout(scrollSettleTimer);
+      scrollSettleTimer = window.setTimeout(() => {
+        pageScrolling = false;
+        updateEmbeddedRest();
+      }, ALBUM_SCROLL_SETTLE_MS);
+    }, { passive: true });
+    window.addEventListener("pagehide", () => {
+      clearTimeout(scrollSettleTimer);
+      pageScrolling = false;
+    });
+    window.addEventListener("pageshow", (event) => { if (event.persisted) updateEmbeddedRest(); });
     const visibility = new IntersectionObserver(([entry]) => {
       embeddedVisible = entry.isIntersecting;
       if (embeddedVisible) {
         measureStage();
+        if (scrollTravel) discRenderer?.beginMotion(PAGE_TRAVEL_RESOLUTION);
         render();
         updateEmbeddedRest();
+        if (!scrollTravel && (Math.abs(position - destination) > .001 || poses.some((pose) => pose.yawRebounding))) startMotion();
       } else {
         embeddedAtRest = false;
-        if (!scrollTravel) releaseIfDistant();
+        // 离开视口时停绘而保留唯一一套画布与贴图，回滑无需重建材质。
+        discRenderer?.suspendArtworkUploads();
+        cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+        showReadyCovers();
       }
     }, { rootMargin: `${ALBUM_PRELOAD_MARGIN}px 0px` });
     measureStage();
@@ -835,11 +904,7 @@ export function setupAlbumGallery() {
     const homeStage = document.querySelector(".pv-hero-stage");
     const preload = new IntersectionObserver((entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return;
-      openingImages().forEach((image) => {
-        if (!image) return;
-        image.loading = "eager";
-        void image.decode().catch(() => undefined);
-      });
+      void preloadCovers();
       // 模块和封面可在前一屏加载，WebGL 上下文仍然等舞台落定再创建。
       void import("./album-disc-renderer").catch(() => undefined);
       preload.disconnect();

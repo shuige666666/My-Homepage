@@ -179,11 +179,16 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
+  visibility: hidden;
 }
+.album-gallery.has-webgl .album-gallery__webgl { visibility: visible; }
 
-/* 每张物理盘的高清纹理就绪后再替换 CSS 盘，迟到的封面不会闪成白盘。 */
+/* 每张物理盘停稳并完成纹理上传后再替换 CSS 盘。 */
 .album-gallery.has-webgl .album-gallery__disc.has-physical-artwork .album-gallery__disc-body,
 .album-gallery.has-webgl .album-gallery__disc.has-physical-artwork::before { visibility: hidden; }
+
+/* 封面未下载完成时保留一张空盘，等停稳再一次性接入真实封面。 */
+.album-gallery.is-initialized .album-gallery__disc:not(.has-album-cover) .album-gallery__disc-face--front img { opacity: 0; }
 
 .album-gallery__disc {
   position: absolute;

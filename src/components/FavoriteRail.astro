@@ -14,17 +14,18 @@ interface Props {
 const { entries, embedded = false, initialIndex = 0 } = Astro.props;
 const startIndex = embedded ? Math.max(0, Math.min(initialIndex, entries.length - 1)) : 0;
 const initialEntry = entries[startIndex];
-const albumImages: Record<number, string> = {
-  1424: "轻音少女.jpg",
-  400602: "葬送的芙莉莲.jpg",
-  78405: "悠哉日常大王.jpg",
-  183875: "你的名字。.jpg",
-  604826: "超辉夜姬！.jpg",
-  328609: "孤独摇滚！.jpg",
-  440: "校园迷糊大王.jpg",
-  514358: "小城日常.jpg",
-  8402: "吊带袜天使.jpg",
-  977: "阿滋漫画大王.jpg",
+// 三张体积最大的封面使用同分辨率 WebP，原图继续保留在 raw 目录。
+const albumImages: Partial<Record<number, string>> = {
+  1424: "raw/轻音少女.jpg",
+  400602: "optimized/400602.webp",
+  78405: "optimized/78405.webp",
+  183875: "optimized/183875.webp",
+  604826: "raw/超辉夜姬！.jpg",
+  328609: "raw/孤独摇滚！.jpg",
+  440: "raw/校园迷糊大王.jpg",
+  514358: "raw/小城日常.jpg",
+  8402: "raw/吊带袜天使.jpg",
+  977: "raw/阿滋漫画大王.jpg",
 };
 ---
 
@@ -104,7 +105,7 @@ const albumImages: Record<number, string> = {
             >
               <span class="album-gallery__disc-body">
                 <span class="album-gallery__disc-face album-gallery__disc-face--front">
-                  <img src={albumImages[entry.id] ? `/images/album/raw/${albumImages[entry.id]}` : entry.image} alt="" loading={index === startIndex ? "eager" : "lazy"} draggable="false" />
+                  <img src={albumImages[entry.id] ? `/images/album/${albumImages[entry.id]}` : entry.image} alt="" loading={index === startIndex ? "eager" : "lazy"} decoding="async" draggable="false" />
                   <span class="album-gallery__grooves"></span>
                   <span class="album-gallery__disc-hole"></span>
                 </span>
