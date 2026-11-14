@@ -47,7 +47,7 @@ export function setupPreviewSnap() {
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let frame = 0;
   let wheelAt = -Infinity;
-  let wheelUsed = false;
+  let usedWheelDirection: Direction | null = null;
   let wheelDelta = 0;
   let reviewWheelPausedUntil = 0;
   let oppositeDelta = 0;
@@ -84,8 +84,9 @@ export function setupPreviewSnap() {
       return { from: "memories", to: "reviews", direction, target: tops.reviews };
     }
 
+    // 一次上滑可能从海报区深处跨回入口，按这一段滚动的终点判断。
     const atJournalEntrance = direction === -1 && y > tops.journal
-      && y - tops.journal < window.innerHeight * .3 && y + delta <= tops.journal + tolerance;
+      && y + delta <= tops.journal + tolerance;
     const index = atJournalEntrance ? 2 : OPENING_SECTIONS.findIndex((section) => Math.abs(tops[section] - y) <= tolerance);
     const from = OPENING_SECTIONS[index];
     const to = OPENING_SECTIONS[index + direction];
@@ -163,20 +164,20 @@ export function setupPreviewSnap() {
       || !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)
       || inScrollableRecords(event.target) || document.querySelector("dialog:modal")) return;
     const now = performance.now();
-    if (now - wheelAt > GESTURE_GAP) { wheelUsed = false; wheelDelta = 0; reviewWheelPausedUntil = 0; }
+    if (now - wheelAt > GESTURE_GAP) { usedWheelDirection = null; wheelDelta = 0; reviewWheelPausedUntil = 0; }
     wheelAt = now;
     const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1);
     const direction: Direction = delta > 0 ? 1 : -1;
 
     if (active) {
       event.preventDefault();
-      wheelUsed = true;
       oppositeDelta = direction === active.direction ? 0 : oppositeDelta + Math.abs(delta);
       if (oppositeDelta >= WHEEL_THRESHOLD) reverse();
+      usedWheelDirection = active.direction;
       return;
     }
-    // 一次连续手势最多换一屏，惯性尾段也不会提前推动下一屏的轮子。
-    if (wheelUsed) { event.preventDefault(); return; }
+    // 消耗同方向惯性，换页结束后的反向手势仍能立即回滑。
+    if (usedWheelDirection === direction) { event.preventDefault(); return; }
     if (direction === -1) reviewWheelPausedUntil = 0;
     if (now < reviewWheelPausedUntil) { event.preventDefault(); return; }
     if (direction === 1 && alignReviews(delta)) {
@@ -191,7 +192,8 @@ export function setupPreviewSnap() {
     if (Math.sign(wheelDelta) !== direction) wheelDelta = 0;
     wheelDelta += delta;
     if (Math.abs(wheelDelta) >= WHEEL_THRESHOLD) {
-      wheelUsed = true;
+      usedWheelDirection = direction;
+      wheelDelta = 0;
       animateTo(next);
     }
   }, { passive: false });
