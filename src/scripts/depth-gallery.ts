@@ -98,7 +98,7 @@ export function mountDepthGallery(): void {
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   if (prefersReducedMotion.matches) {
     document.body.classList.add("depth-gallery-reduced");
-    mountStaticScroll(section);
+    mountStaticScroll(section, homepage);
     return;
   }
 
@@ -113,21 +113,22 @@ export function mountDepthGallery(): void {
         "depth-gallery-home",
       );
       document.body.classList.add("depth-gallery-fallback");
-      mountStaticScroll(section);
+      mountStaticScroll(section, homepage);
     });
   } catch (error) {
     // WebGL 不可用时保留静态入口，避免画廊阻断主页访问。
     console.warn("Depth gallery switched to the static fallback.", error);
     document.body.classList.add("depth-gallery-fallback");
-    mountStaticScroll(section);
+    mountStaticScroll(section, homepage);
   }
 }
 
 /**
  * 为减少动态效果和 WebGL 失败场景提供一屏静态封面及可逆的主页淡入。
  */
-function mountStaticScroll(section: HTMLElement): void {
+function mountStaticScroll(section: HTMLElement, homepage: HTMLElement): void {
   const stage = section.querySelector<HTMLElement>(".depth-gallery-sticky");
+  const hero = homepage.querySelector<HTMLElement>(".pv-hero-stage");
   const update = () => {
     // 以实际舞台高度计算进度，避免手机地址栏变化后 CSS 与 innerHeight 使用不同基准。
     const stageHeight = stage?.getBoundingClientRect().height ?? window.innerHeight;
@@ -135,7 +136,7 @@ function mountStaticScroll(section: HTMLElement): void {
     const progress = THREE.MathUtils.clamp(-section.getBoundingClientRect().top / distance, 0, 1);
     section.style.setProperty("--depth-progress", progress.toFixed(4));
     section.style.setProperty("--depth-handoff", progress.toFixed(4));
-    document.documentElement.style.setProperty("--homepage-reveal", smoothstep(progress).toFixed(4));
+    if (hero) hero.style.opacity = smoothstep(progress).toFixed(4);
     syncGalleryHome(section, progress > 0.92);
   };
 
@@ -145,7 +146,10 @@ function mountStaticScroll(section: HTMLElement): void {
     requestAnimationFrame(() => announceGalleryReady(section));
   });
   window.addEventListener("scroll", update, { passive: true });
-  window.addEventListener("resize", update, { passive: true });
+  // 静态样式可能在首次定位之后才改变画廊高度，尺寸变化时同步淡入进度。
+  const observer = new ResizeObserver(update);
+  observer.observe(section);
+  if (stage) observer.observe(stage);
 }
 
 /** 开场首帧已提交，可以用后台带宽预载后续章节。 */
@@ -228,6 +232,7 @@ class PostcardHandoff {
 class DepthGalleryExperience {
   private readonly section: HTMLElement;
   private readonly stage: HTMLElement;
+  private readonly hero: HTMLElement | null;
   private readonly items: GalleryItem[];
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
@@ -275,6 +280,7 @@ class DepthGalleryExperience {
   private compositionHeight = 1;
   private galleryDistance = 1;
   private galleryEnd = 0.84;
+  private handoffBackdropDrawn = false;
 
   constructor(
     section: HTMLElement,
@@ -284,6 +290,7 @@ class DepthGalleryExperience {
   ) {
     this.section = section;
     this.stage = canvas.parentElement ?? section;
+    this.hero = homepage.querySelector<HTMLElement>(".pv-hero-stage");
     this.items = items;
     this.postcard = new PostcardHandoff(homepage);
     this.renderer = new THREE.WebGLRenderer({
@@ -336,7 +343,7 @@ class DepthGalleryExperience {
     this.previousGalleryProgress = Math.min(this.renderProgress / this.galleryEnd, 1);
     this.lastFrameTime = window.performance.now();
     document.body.classList.add("depth-gallery-ready");
-    this.syncPresentationState(this.renderProgress);
+    this.syncPresentationState(this.handoffProgress());
     this.startRender();
   }
 
@@ -416,6 +423,7 @@ class DepthGalleryExperience {
     const observer = new IntersectionObserver(
       ([entry]) => {
         this.isVisible = entry?.isIntersecting ?? true;
+        this.stage.classList.toggle("is-offscreen", !this.isVisible);
         if (this.isVisible) this.startRender();
       },
       { rootMargin: "120px" },
@@ -439,18 +447,19 @@ class DepthGalleryExperience {
     this.frameId = requestAnimationFrame(this.render);
   }
 
-  /**
-   * 将 WebGL 的惯性进度同步给 DOM，保证画廊、主页淡入和导航状态始终同拍。
-   */
-  private syncPresentationState(progress: number): number {
-    const handoff = smoothstep(
-      THREE.MathUtils.clamp((progress - this.galleryEnd) / (1 - this.galleryEnd), 0, 1),
+  /** 计算第六幕交接进度，留到读取明信片位置后再写入样式。 */
+  private handoffProgress(): number {
+    return smoothstep(
+      THREE.MathUtils.clamp((this.renderProgress - this.galleryEnd) / (1 - this.galleryEnd), 0, 1),
     );
-    this.section.style.setProperty("--depth-progress", progress.toFixed(4));
+  }
+
+  /** 淡入只更新首屏自身的透明度，避免逐帧重新计算整个文档的继承样式。 */
+  private syncPresentationState(handoff: number): void {
+    this.section.style.setProperty("--depth-progress", this.renderProgress.toFixed(4));
     this.section.style.setProperty("--depth-handoff", handoff.toFixed(4));
-    document.documentElement.style.setProperty("--homepage-reveal", handoff.toFixed(4));
+    if (this.hero) this.hero.style.opacity = handoff.toFixed(4);
     syncGalleryHome(this.section, handoff === 1);
-    return handoff;
   }
 
   private readonly updatePointer = (event: PointerEvent): void => {
@@ -499,8 +508,11 @@ class DepthGalleryExperience {
     }
     this.viewportWidth = width;
     this.viewportHeight = height;
+    // 改变画布尺寸会清空上一帧，绘制新背景后才重新露出画布。
+    this.renderer.domElement.removeAttribute("data-frame-ready");
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.25 : 1.75));
     this.renderer.setSize(width, height, false);
+    this.handoffBackdropDrawn = false;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.backgroundMaterial.uniforms.uAspect.value = width / height;
@@ -546,8 +558,9 @@ class DepthGalleryExperience {
     );
     this.lastFrameTime = frameTime;
     const isSettling = Math.abs(this.scrollProgress - this.renderProgress) >= 0.00001;
-    // 快速滚出画廊后仍需完成惯性和主页交接，追上目标后才暂停离屏渲染。
-    if ((!isSettling && (!this.isVisible || this.renderProgress === 1)) || this.planes.length === 0) return;
+    // 直接打开主页或调整尺寸时也先准备一张背景，供之后的反向交接使用。
+    const homeBackdropReady = this.renderProgress === 1 && this.handoffBackdropDrawn;
+    if ((!isSettling && (!this.isVisible || homeBackdropReady)) || this.planes.length === 0) return;
 
     // 原生滚动只负责提供目标值；指数阻尼负责生成由快到慢、可逆的惯性尾巴。
     const scrollBlend = 1 - Math.exp(-SCROLL_DAMPING * deltaSeconds);
@@ -564,7 +577,7 @@ class DepthGalleryExperience {
 
     const galleryProgress = Math.min(this.renderProgress / this.galleryEnd, 1);
     const activeFloat = galleryProgress * (this.items.length - 1);
-    const handoff = this.syncPresentationState(this.renderProgress);
+    const handoff = this.handoffProgress();
 
     const progressPerSecond =
       deltaSeconds > 0 ? (galleryProgress - this.previousGalleryProgress) / deltaSeconds : 0;
@@ -584,7 +597,7 @@ class DepthGalleryExperience {
     this.camera.position.x = this.pointerCurrent.x * 0.055;
     this.camera.position.y = this.pointerCurrent.y * 0.03;
 
-    this.updatePlanes(activeFloat, handoff);
+    const drawingPostcard = this.updatePlanes(activeFloat, handoff);
     this.updateMood(activeFloat);
     this.updateTrail(galleryProgress);
     this.updateLabels(activeFloat);
@@ -592,19 +605,27 @@ class DepthGalleryExperience {
     this.backgroundMaterial.uniforms.uTime.value = window.performance.now() * 0.001;
     this.backgroundMaterial.uniforms.uVelocity.value = this.velocity;
 
-    // 主页接管后只推进交接状态，不让离屏画布与光碟画廊争用 GPU。
-    if (this.isVisible && handoff < 1) {
+    // 浮层或主页接管图片时保留同一张背景，快速回滑也能立即揭开它。
+    const drawGalleryImages = handoff < 1 && !drawingPostcard;
+    if (drawGalleryImages) this.handoffBackdropDrawn = false;
+    if (this.isVisible && !this.handoffBackdropDrawn) {
       this.renderer.autoClear = true;
       this.renderer.render(this.backgroundScene, this.backgroundCamera);
-      this.renderer.autoClear = false;
-      this.renderer.clearDepth();
-      this.renderer.render(this.scene, this.camera);
+      if (drawGalleryImages) {
+        this.renderer.autoClear = false;
+        this.renderer.clearDepth();
+        this.renderer.render(this.scene, this.camera);
+      }
+      this.handoffBackdropDrawn = !drawGalleryImages;
+      this.renderer.domElement.toggleAttribute("data-frame-ready", true);
       announceGalleryReady(this.section);
     }
+    this.syncPresentationState(handoff);
     this.frameId = requestAnimationFrame(this.render);
   };
 
-  private updatePlanes(activeFloat: number, handoff: number): void {
+  /** 更新图片姿态，返回第六幕是否已交给明信片浮层。 */
+  private updatePlanes(activeFloat: number, handoff: number): boolean {
     const isMobile = this.viewportWidth <= 760;
     const currentIndex = Math.floor(activeFloat);
     const nextIndex = Math.min(currentIndex + 1, this.planes.length - 1);
@@ -642,7 +663,7 @@ class DepthGalleryExperience {
     const last = this.planes[this.planes.length - 1];
     if (handoff <= 0 || handoff >= 1) {
       this.postcard.settle();
-      return;
+      return false;
     }
 
     // 第六幕已完全显示，按相机投影交棒给浮层，画片继续保持原来的中心和比例。
@@ -651,13 +672,12 @@ class DepthGalleryExperience {
     const pixelScale = this.viewportHeight / (
       2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * (this.camera.position.z - last.position.z)
     );
-    const drawingPostcard = this.postcard.render(handoff, {
+    return this.postcard.render(handoff, {
       x: (this.projectedCenter.x + 1) * this.viewportWidth / 2,
       y: (1 - this.projectedCenter.y) * this.viewportHeight / 2,
       width: last.scale.x * pixelScale,
       height: last.scale.y * pixelScale,
     });
-    if (drawingPostcard) last.material.opacity = 0;
   }
 
   /**
@@ -709,6 +729,9 @@ class DepthGalleryExperience {
 
   private updateTrail(progress: number): void {
     if (!this.trail) return;
+    // 第六幕完全到位后尾迹已透明，停止重建和上传几何体，回滑时再恢复。
+    this.trail.visible = progress < 1;
+    if (!this.trail.visible) return;
 
     this.updateTrailPoints(progress);
     const radius = this.viewportWidth <= 760 ? 0.0024 : 0.0028;

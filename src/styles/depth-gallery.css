@@ -36,6 +36,10 @@
   pointer-events: none;
 }
 
+.depth-gallery-sticky.is-offscreen {
+  visibility: hidden;
+}
+
 .depth-canvas,
 .depth-static-art,
 .depth-grain {
@@ -47,8 +51,12 @@
 
 .depth-canvas {
   display: block;
-  opacity: calc(1 - var(--depth-handoff));
-  transition: opacity 80ms linear;
+  visibility: hidden;
+}
+
+/* 画廊帧留在首屏下方，交接的渐变由首屏的透明度统一控制。 */
+.depth-canvas[data-frame-ready] {
+  visibility: inherit;
 }
 
 /* 交接图独立于画廊背景的透明度，用裁切适配主页明信片的比例。 */
@@ -291,7 +299,7 @@ body:is(.depth-gallery-fallback, .depth-gallery-reduced) [data-depth-home] {
   position: sticky;
   top: 0;
   background: var(--pv-paper);
-  opacity: var(--homepage-reveal, 0);
+  opacity: 0;
 }
 
 [data-depth-home].is-postcard-handoff .pv-postcard {

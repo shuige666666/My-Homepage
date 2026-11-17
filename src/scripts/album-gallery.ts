@@ -301,7 +301,10 @@ export function setupAlbumGallery() {
     });
     hitLayout = layout;
     hitViewport = viewport;
-    if (discRenderer && (presentArtwork || dialog?.classList.contains("has-webgl"))) {
+    // 观察器会在入屏前唤醒盘列逻辑，常规绘制等光碟舞台实际入屏再开始。
+    const viewportTop = metrics.top - window.scrollY;
+    const onScreen = !embedded || (viewportTop < window.innerHeight && viewportTop + stageHeight > 0);
+    if (discRenderer && (presentArtwork || (onScreen && dialog?.classList.contains("has-webgl")))) {
       const drawn = discRenderer.draw(layout, viewport, presentArtwork);
       if (presentArtwork && drawn) dialog?.classList.add("has-webgl");
     }
@@ -375,11 +378,26 @@ export function setupAlbumGallery() {
   });
   dialog.classList.add("is-initialized");
 
+  /** 画廊交棒后先给主页一段稳定的绘制时间，再启动耗时的 WebGL 预热。 */
+  function waitForHomeWarmup(): Promise<void> {
+    return new Promise((resolve) => {
+      window.setTimeout(() => {
+        if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(() => resolve());
+        else requestAnimationFrame(() => resolve());
+      }, ALBUM_SCROLL_SETTLE_MS);
+    });
+  }
+
   /** 在可用的静止帧创建物理盘，嵌入版先编译材质再开始上传。 */
   function ensurePhysicalDiscs(): Promise<void> {
     if (discRenderer || physicalFailed) return Promise.resolve();
     if (physicalLoading) return physicalLoading;
     physicalLoading = (async () => {
+      if (depthIntro && !embeddedAtRest) {
+        await waitForHomeWarmup();
+        // 等待期间用户可能继续滑动，耗时的初始化留给下一次停稳。
+        if (!canPreparePhysicalDiscs()) return;
+      }
       const [module] = await Promise.all([
         import("./album-disc-renderer"),
         embedded ? undefined : Promise.all(openingIndices().map((index) => discImages[index]?.decode().catch(() => undefined))),
