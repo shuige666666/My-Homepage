@@ -1,0 +1,292 @@
+---
+import { ArrowUpRight, ChevronLeft, ChevronRight } from "@lucide/astro";
+import type { AnimeEntry } from "@/types/bangumi";
+
+interface Props {
+  reviews: AnimeEntry[];
+  records: AnimeEntry[];
+}
+
+const { reviews, records } = Astro.props;
+
+const toSlimEntry = (entry: AnimeEntry) => ({
+  id: entry.id,
+  name: entry.name,
+  nameCn: entry.nameCn,
+  bangumiScore: entry.bangumiScore,
+  rank: entry.rank,
+  url: entry.url,
+  userScore: entry.userScore,
+  comment: entry.comment,
+  updatedAt: entry.updatedAt,
+  largePath: entry.poster?.large ?? entry.image,
+  thumbPath: entry.poster?.thumbnail ?? entry.image,
+});
+
+const payload = JSON.stringify({
+  reviews: reviews.map(toSlimEntry),
+  watchHistory: records.map(toSlimEntry),
+}).replace(/</g, "\\u003c");
+
+const firstReview = reviews[0];
+---
+
+<div class="pv-review-track pv-sc-track" id="pv-showcase-track" data-pv-showcase>
+  <span class="pv-review-anchor" id="preview-reviews" data-sc-reviews-anchor aria-hidden="true"></span>
+  <span class="pv-sc-memories-anchor" id="preview-memories" data-sc-memories-anchor aria-hidden="true"></span>
+
+  <div class="pv-sc-stage-pin" data-sc-stage-pin>
+    <div class="pv-sc-reviews-band" data-sc-reviews-band>
+      <section
+        id="section-reviews"
+        class="pv-sc-reviews-section"
+        aria-labelledby="preview-reviews-title"
+        data-pv-reviews
+        data-sc-reviews-section
+      >
+        <div class="pv-container pv-sc-shell">
+          <header class="pv-sc-top" data-sc-reviews-top>
+            <div class="pv-sc-title-row">
+              <h2 id="preview-reviews-title">评分与短评</h2>
+              <span class="pv-sc-counter" data-sc-folio-counter>
+                <strong>01</strong> / {reviews.length}
+              </span>
+            </div>
+
+            {reviews.length > 0 && (
+              <div class="pv-sc-controls">
+                <div class="pv-sc-filter-pills" data-sc-filters role="group" aria-label="筛选短评">
+                  <div class="pv-sc-filter-thumb" data-sc-filter-thumb aria-hidden="true"></div>
+                  <button class="pv-sc-filter-btn" type="button" data-filter="all" aria-pressed="true">
+                    全部 {reviews.length}
+                  </button>
+                  <button class="pv-sc-filter-btn" type="button" data-filter="love" aria-pressed="false">9–10分</button>
+                  <button class="pv-sc-filter-btn" type="button" data-filter="long" aria-pressed="false">长评</button>
+                  <button class="pv-sc-filter-btn" type="button" data-filter="strict" aria-pressed="false">≤5分</button>
+                </div>
+                <button
+                  class="pv-sc-archive-open-btn"
+                  type="button"
+                  data-sc-open-archive
+                  aria-haspopup="dialog"
+                  aria-controls="pv-sc-archive-drawer"
+                >
+                  <span>查看全部 {reviews.length}</span>
+                  <ArrowUpRight size={16} aria-hidden="true" />
+                </button>
+              </div>
+            )}
+          </header>
+
+          {firstReview ? (
+            <div class="pv-sc-folio-stage" data-sc-folio-stage>
+              <div class="pv-sc-deck-col" data-sc-deck-col>
+                <div
+                  class="pv-sc-deck-zone"
+                  data-sc-deck-zone
+                  tabindex="0"
+                  aria-label="评分作品卡片：左右键切换，空格或点击卡面翻看背面档案"
+                >
+                  <div class="pv-sc-review-plate" data-sc-review-plate aria-hidden="true"></div>
+                  <div class="pv-sc-deck-orbit" data-sc-deck-orbit></div>
+                </div>
+                <div class="pv-sc-deck-bar" data-sc-deck-bar>
+                  <button class="pv-sc-round-nav-btn" type="button" data-sc-prev aria-label="上一部作品">
+                    <ChevronLeft size={18} aria-hidden="true" />
+                  </button>
+                  <button class="pv-sc-round-nav-btn" type="button" data-sc-next aria-label="下一部作品">
+                    <ChevronRight size={18} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+
+              <article class="pv-sc-folio-copy" data-sc-folio-copy aria-live="polite">
+                <div class="pv-sc-meta-line">
+                  <time data-sc-folio-date>{firstReview.updatedAt.slice(0, 10).replace(/-/g, " / ")}</time>
+                  <span class="pv-sc-meta-sep" aria-hidden="true"></span>
+                  <span data-sc-folio-rank>
+                    {firstReview.bangumiScore ? `BGM ${firstReview.bangumiScore.toFixed(1)}${firstReview.rank ? ` · #${firstReview.rank}` : ""}` : "暂无均分"}
+                  </span>
+                </div>
+
+                <h3 class="pv-sc-folio-title" data-sc-folio-title>{firstReview.nameCn || firstReview.name}</h3>
+                <p class="pv-sc-folio-native" data-sc-folio-native>
+                  {firstReview.nameCn && firstReview.name !== firstReview.nameCn ? firstReview.name : ""}
+                </p>
+
+                <div class="pv-sc-score-band">
+                  <div class="pv-sc-score-hero">
+                    <strong data-sc-folio-score>{firstReview.userScore.toFixed(1)}</strong>
+                    <span>/ 10 我的评分</span>
+                    <svg class="pv-sc-score-brush" data-sc-score-brush viewBox="0 0 90 20" aria-hidden="true">
+                      <path d="M4 13 Q 36 7, 86 12" />
+                    </svg>
+                  </div>
+
+                  <div class="pv-sc-ruler-inline" aria-label="与 Bangumi 均分对比">
+                    <div class="pv-sc-ruler-labels">
+                      <span>Bangumi</span>
+                      <span data-sc-folio-delta>—</span>
+                    </div>
+                    <div class="pv-sc-ruler-bar">
+                      <div class="pv-sc-ruler-fill" data-sc-ruler-fill style={`width: ${firstReview.userScore * 10}%`}></div>
+                      <div class="pv-sc-ruler-bgm" data-sc-ruler-bgm title="Bangumi 全站均分"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pv-sc-prose-scroll">
+                  <div class="pv-sc-prose" data-sc-folio-prose></div>
+                </div>
+
+                <div class="pv-sc-folio-actions">
+                  <a class="pv-sc-bgm-link" data-sc-bgm-link href={firstReview.url} target="_blank" rel="noreferrer">
+                    <span>Bangumi 条目</span>
+                    <ArrowUpRight size={15} aria-hidden="true" />
+                  </a>
+                </div>
+              </article>
+            </div>
+          ) : (
+            <p class="pv-empty">暂无评分与短评。</p>
+          )}
+        </div>
+      </section>
+
+      <div class="pv-sc-journal-hold-pad" aria-hidden="true"></div>
+    </div>
+
+    <div class="pv-sc-morph-plate" data-sc-proxy-plate aria-hidden="true"></div>
+    <figure class="pv-sc-morph-card" data-sc-proxy-card aria-hidden="true">
+      <div class="pv-sc-morph-img">
+        <img data-sc-proxy-img src="" alt="" />
+      </div>
+      <figcaption class="pv-sc-morph-caption">
+        <span class="pv-sc-morph-title" data-sc-proxy-title></span>
+        <span class="pv-sc-morph-score" data-sc-proxy-score></span>
+      </figcaption>
+    </figure>
+
+    <section
+      id="section-timeline"
+      class="pv-sc-timeline-section"
+      aria-labelledby="preview-timeline-title"
+      data-sc-timeline-section
+    >
+      <div class="pv-container pv-sc-shell pv-sc-shell--timeline">
+        <header class="pv-sc-top" data-sc-timeline-top>
+          <div class="pv-sc-title-row">
+            <h2 id="preview-timeline-title">观看时间轴</h2>
+            <span class="pv-sc-counter">
+              <strong>{records.length}</strong> 部
+            </span>
+            <span class="pv-sc-sub-note">按收藏记录更新时间归档</span>
+          </div>
+
+          <div class="pv-sc-range-segmented" data-sc-range-group role="group" aria-label="时间跨度">
+            <div class="pv-sc-range-thumb" data-sc-range-thumb aria-hidden="true"></div>
+            <button class="pv-sc-range-btn" type="button" data-range="12" aria-pressed="true">近一年</button>
+            <button class="pv-sc-range-btn" type="button" data-range="24" aria-pressed="false">近两年</button>
+            <button class="pv-sc-range-btn" type="button" data-range="all" aria-pressed="false">全部记录</button>
+          </div>
+        </header>
+
+        <div class="pv-sc-timeline-stage" data-sc-timeline-stage>
+          <div
+            class="pv-sc-polaroid-stage"
+            data-sc-polaroid-stage
+            tabindex="0"
+            aria-label="月度影册：拖动切换月份，点击卡片切换置顶或前往对应短评"
+          >
+            <div class="pv-sc-polaroid-ring" data-sc-polaroid-ring aria-hidden="true"></div>
+            <div class="pv-sc-polaroid-deck" data-sc-polaroid-deck></div>
+            <div class="pv-sc-polaroid-sleeve" data-sc-polaroid-sleeve aria-hidden="true">
+              <span>ANIME ARCHIVE</span>
+              <i></i>
+              <span data-sc-sleeve-year>2026</span>
+            </div>
+          </div>
+
+          <div class="pv-sc-timeline-copy" data-sc-timeline-copy>
+            <div class="pv-sc-odometer-row">
+              <div class="pv-sc-odometer-digits" aria-hidden="true">
+                <span class="pv-sc-odo-slot" data-sc-odo-tens><span class="pv-sc-odo-digit">1</span></span>
+                <span class="pv-sc-odo-slot" data-sc-odo-ones><span class="pv-sc-odo-digit">0</span></span>
+              </div>
+              <div class="pv-sc-month-meta">
+                <div class="pv-sc-month-year">
+                  <span>月</span>
+                  <span data-sc-tl-year>2026</span>
+                </div>
+                <p class="pv-sc-month-count" data-sc-tl-count>收录 <strong>0</strong> 部动画</p>
+              </div>
+            </div>
+
+            <ul class="pv-sc-contact-list" data-sc-contact-list aria-label="当月完整观看记录"></ul>
+          </div>
+        </div>
+
+        <div class="pv-sc-ruler-instrument" data-sc-ruler-instrument>
+          <div class="pv-sc-ruler-meta">
+            <span data-sc-ruler-caption>—</span>
+          </div>
+          <div class="pv-sc-ruler-scroll" data-sc-ruler-scroll>
+            <div class="pv-sc-ruler-canvas" data-sc-ruler-canvas>
+              <svg class="pv-sc-ruler-svg" data-sc-ruler-svg preserveAspectRatio="none"></svg>
+              <div class="pv-sc-ruler-loupe-line" data-sc-loupe-line aria-hidden="true"></div>
+              <div class="pv-sc-ruler-loupe" data-sc-loupe aria-hidden="true">—</div>
+              <div class="pv-sc-ruler-cols" data-sc-ruler-cols></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div
+    class="pv-sc-archive-drawer"
+    id="pv-sc-archive-drawer"
+    data-sc-archive-drawer
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="pv-sc-drawer-title"
+  >
+    <div class="pv-sc-drawer-head">
+      <h3 id="pv-sc-drawer-title">全部评分与短评</h3>
+      <button class="pv-sc-drawer-close" type="button" data-sc-close-archive aria-label="关闭档案视图">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="pv-sc-drawer-toolbar">
+      <input
+        class="pv-sc-drawer-search"
+        data-sc-archive-search
+        type="search"
+        placeholder="搜索作品或短评..."
+        aria-label="搜索评分与短评"
+      />
+      <div class="pv-sc-drawer-filters" data-sc-archive-chips>
+        <button class="pv-sc-drawer-chip" type="button" data-tier="all" aria-pressed="true">全部</button>
+        <button class="pv-sc-drawer-chip" type="button" data-tier="9-10" aria-pressed="false">9–10分</button>
+        <button class="pv-sc-drawer-chip" type="button" data-tier="7-8" aria-pressed="false">7–8分</button>
+        <button class="pv-sc-drawer-chip" type="button" data-tier="0-6" aria-pressed="false">≤6分</button>
+        <button class="pv-sc-drawer-chip" type="button" data-tier="commented" aria-pressed="false">含短评</button>
+      </div>
+      <select class="pv-sc-drawer-sort" data-sc-archive-sort aria-label="排序方式">
+        <option value="date-desc">最新记录</option>
+        <option value="score-desc">评分从高到低</option>
+        <option value="score-asc">评分从低到高</option>
+        <option value="diff-desc">与 Bangumi 分差</option>
+      </select>
+    </div>
+    <div class="pv-sc-drawer-grid-scroll">
+      <div class="pv-sc-drawer-grid" data-sc-archive-grid></div>
+    </div>
+  </div>
+
+  <script is:inline type="application/json" data-pv-showcase-data set:html={payload} />
+</div>

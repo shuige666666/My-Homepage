@@ -173,11 +173,18 @@ export function setupPreviewJournal() {
     wave.setAttribute("d", `${path}V100H0Z`);
   }
 
-  /** 短评层有独立的停留区，淡入期间位置固定且暂不接收焦点。 */
+  let lastReveal = -1;
+  /** 短评层有独立的停留区；由监听组件同步接管交互锁与入场编排，避免和后续时间轴转场打架。 */
   function revealReviews(opacity: number) {
-    reviews!.style.setProperty("--pv-review-reveal", String(opacity));
-    reviews!.classList.toggle("is-revealed", opacity > 0);
-    reviews!.inert = opacity < 1;
+    const clamped = Math.min(1, Math.max(0, opacity));
+    if (clamped === lastReveal) return;
+    lastReveal = clamped;
+    reviews!.style.setProperty("--pv-review-reveal", clamped.toFixed(4));
+    reviews!.classList.toggle("is-revealed", clamped > 0);
+    reviews!.dataset.journalReady = clamped >= 1 ? "true" : "false";
+    reviews!.dispatchEvent(
+      new CustomEvent("pv:review-reveal", { detail: { progress: clamped } }),
+    );
   }
 
   /** 卡组以可见外轮廓居中，收束时保持不透明并按前后顺序归到末张下面。 */
@@ -397,9 +404,7 @@ export function setupPreviewJournal() {
       revealedThrough = -1;
       recoilAt = -Infinity;
       wheel!.tabIndex = 0;
-      reviews!.inert = false;
-      reviews!.classList.remove("is-revealed");
-      reviews!.style.removeProperty("--pv-review-reveal");
+      revealReviews(1);
       slots.forEach((slot, index) => {
         cards[index].entrance?.cancel();
         cards[index].entrance = null;

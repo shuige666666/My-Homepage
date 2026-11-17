@@ -294,41 +294,7 @@ body:has(.pv-page) .review-detail-comment {
   pointer-events: none;
 }
 
-/* 评分与短评独立成屏，保留一条主评、三条侧评的阅读密度。 */
-.pv-reviews {
-  display: flex;
-  flex-direction: column;
-  padding-block: clamp(32px, 5svh, 68px);
-  background: var(--pv-review-paper);
-}
-.pv-review-track {
-  position: relative;
-}
-.pv-review-anchor {
-  position: absolute;
-  inset: 0 auto auto 0;
-}
-/* 短评原地显现后，额外留出一小段滚轮行程供阅读。 */
-.pv-journal.is-animated + .pv-review-track {
-  z-index: 2;
-  pointer-events: none;
-}
-.pv-journal.is-animated + .pv-review-track::after {
-  content: "";
-  display: block;
-  height: calc(var(--pv-review-hold) + var(--pv-review-rest));
-}
-.pv-journal.is-animated + .pv-review-track .pv-review-anchor {
-  top: var(--pv-review-hold);
-}
-.pv-journal.is-animated + .pv-review-track .pv-reviews {
-  position: sticky;
-  top: 0;
-  opacity: var(--pv-review-reveal, 0);
-}
-.pv-journal.is-animated + .pv-review-track .pv-reviews:not([inert]) {
-  pointer-events: auto;
-}
+/* 下两段评分与短评及时间轴已由 preview-showcase.css 统一接管。 */
 .pv-reviews > .pv-container {
   display: flex;
   flex: 1;

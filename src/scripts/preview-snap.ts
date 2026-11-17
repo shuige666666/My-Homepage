@@ -84,10 +84,11 @@ export function setupPreviewSnap() {
     const reviewsTop = reviewAnchor!.getBoundingClientRect().top + y;
     const memoriesTop = memories!.getBoundingClientRect().top + y;
     const hasJournalAnimation = journal!.classList.contains("is-animated");
+    const showcaseSticky = reviews!.dataset.scHandoff === "sticky";
     const heroRestEnd = Math.max(hero, collectionTop - heroStage!.getBoundingClientRect().height);
-    const reviewsRestEnd = hasJournalAnimation
-      ? Math.max(reviewsTop, memoriesTop - reviews!.getBoundingClientRect().height)
-      : reviewsTop;
+    const reviewsEnd = showcaseSticky
+      ? reviewsTop
+      : Math.max(reviewsTop, memoriesTop - height);
     return {
       hero,
       heroEnd: Math.max(heroRestEnd, collectionTop - height),
@@ -97,8 +98,7 @@ export function setupPreviewSnap() {
       journalFanEnd: journalTop + (journal!.offsetHeight - journalStage!.clientHeight) * FAN_END,
       journalEnd: hasJournalAnimation ? reviewsTop : Math.max(journalTop, reviewsTop - height),
       reviews: reviewsTop,
-      reviewsRestEnd,
-      reviewsEnd: Math.max(reviewsRestEnd, memoriesTop - height),
+      reviewsEnd,
       memories: Math.min(memoriesTop, scrollHeight - height),
       hasJournalAnimation,
     };
@@ -109,14 +109,14 @@ export function setupPreviewSnap() {
     const y = window.scrollY;
     const direction: Direction = delta > 0 ? 1 : -1;
     const { hero, heroEnd, collection, collectionEnd, journal, journalEnd,
-      journalFanEnd, reviews: reviewsTop, reviewsRestEnd, reviewsEnd, memories: memoriesTop, hasJournalAnimation } = scrollLayout(y);
+      journalFanEnd, reviews: reviewsTop, reviewsEnd, memories: memoriesTop, hasJournalAnimation } = scrollLayout(y);
 
     // 画廊和海报动画可能还在追赶滚动位置，完全显现后才能消耗阅读行程。
     if (direction === 1) {
       if (heroAnchor && y >= hero - ALIGN_TOLERANCE && y < collection - ALIGN_TOLERANCE
         && !document.body.classList.contains("depth-gallery-home")) return { target: Math.max(y, hero) };
       if (hasJournalAnimation && y >= reviewsTop - ALIGN_TOLERANCE && y < memoriesTop - ALIGN_TOLERANCE
-        && reviews!.inert) return { target: Math.max(y, reviewsTop) };
+        && reviews!.dataset.journalReady === "false") return { target: Math.max(y, reviewsTop) };
     }
 
     // 起点负责保留可读行程，终点负责吸附；跨过多个章节时只处理遇到的第一个。
@@ -126,10 +126,11 @@ export function setupPreviewSnap() {
       { at: collectionEnd, snap: { from: "collection", to: "journal", direction, target: journal } },
       hasJournalAnimation ? { at: reviewsTop }
         : { at: journalEnd, snap: { from: "journal", to: "reviews", direction, target: reviewsTop } },
-      { at: reviewsRestEnd },
       { at: reviewsEnd, snap: { from: "reviews", to: "memories", direction, target: memoriesTop } },
     ] : [
+      { at: memoriesTop },
       { at: memoriesTop, snap: { from: "memories", to: "reviews", direction, target: reviewsEnd } },
+      { at: reviewsTop },
       // 回到最近看过时让液面退回已打开的海报，避免一帧越过所有卡片。
       { at: reviewsTop, snap: { from: "reviews", to: "journal", direction, target: hasJournalAnimation ? journalFanEnd : journalEnd } },
       { at: journal, snap: { from: "journal", to: "collection", direction, target: collectionEnd } },
@@ -150,10 +151,15 @@ export function setupPreviewSnap() {
     }
   }
 
-  /** 本月记录有独立的滚动区域，列表中的手势仍留给列表。 */
+  /** 本月记录与长短评区有独立的滚动区域，列表中的手势仍留给列表。 */
   function inScrollableRecords(target: EventTarget | null) {
-    const list = target instanceof Element ? target.closest(".pv-memories .memory-record-list") : null;
-    return list && list.scrollHeight > list.clientHeight;
+    if (!(target instanceof Element)) return false;
+    const list = target.closest(".pv-memories .memory-record-list, [data-sc-contact-list], .pv-sc-prose-scroll");
+    return Boolean(list && list.scrollHeight > list.clientHeight);
+  }
+
+  function isModalActive() {
+    return Boolean(document.querySelector("dialog:modal, [data-sc-archive-drawer]:not([hidden])"));
   }
 
   /** 发布与实际滚动一致的进度，供光碟等章节动画接续。 */
@@ -235,7 +241,7 @@ export function setupPreviewSnap() {
   function startTouchMomentum(speed: number) {
     const start = window.scrollY;
     const speedMagnitude = Math.abs(speed);
-    if (speedMagnitude < TOUCH_FLING_MIN_SPEED || reviewAnchor!.getBoundingClientRect().top > ALIGN_TOLERANCE || reviews!.inert) return;
+    if (speedMagnitude < TOUCH_FLING_MIN_SPEED || reviewAnchor!.getBoundingClientRect().top > ALIGN_TOLERANCE || reviews!.dataset.journalReady === "false") return;
 
     const scrollRoot = document.documentElement;
     const direction = Math.sign(speed);
@@ -266,7 +272,7 @@ export function setupPreviewSnap() {
     const mode = event.deltaMode;
     if (reducedMotion.matches || event.defaultPrevented || !event.cancelable || event.ctrlKey || event.shiftKey
       || !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)
-      || inScrollableRecords(event.target) || document.querySelector("dialog:modal")) return;
+      || inScrollableRecords(event.target) || isModalActive()) return;
     const now = performance.now();
     const delta = event.deltaY * (mode === 1 ? 16 : mode === 2 ? window.innerHeight : 1);
     // 同一手势从第一笔就统一处理，后续滚轮的原生惯性才不会直接越过边界。
@@ -315,7 +321,7 @@ export function setupPreviewSnap() {
   window.addEventListener("touchstart", (event) => {
     stopTouchMomentum();
     const finger = event.touches[0];
-    touch = event.touches.length === 1 && !inScrollableRecords(event.target) && !document.querySelector("dialog:modal")
+    touch = event.touches.length === 1 && !inScrollableRecords(event.target) && !isModalActive()
       ? { x: finger.clientX, y: finger.clientY, lastY: finger.clientY, lastAt: event.timeStamp, speed: 0, used: false } : null;
   }, { passive: true });
   window.addEventListener("touchmove", (event) => {
@@ -372,7 +378,7 @@ export function setupPreviewSnap() {
 
   window.addEventListener("keydown", (event) => {
     if (reducedMotion.matches || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey
-      || document.querySelector("dialog:modal")) return;
+      || isModalActive()) return;
     const target = event.target;
     if (inScrollableRecords(target)
       || (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select")))) return;

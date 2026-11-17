@@ -1,14 +1,13 @@
 ---
 import { ArrowUpRight } from "@lucide/astro";
 import FavoriteRail from "@/components/FavoriteRail.astro";
-import WatchTimeline from "@/components/WatchTimeline.astro";
-import ReviewDialog from "@/components/ReviewDialog.astro";
 import PreviewJournal from "@/components/preview/PreviewJournal.astro";
-import PreviewReviews from "@/components/preview/PreviewReviews.astro";
+import PreviewShowcase from "@/components/preview/PreviewShowcase.astro";
 import bangumiData from "@/data/bangumi.json";
 import { siteConfig } from "@/data/site";
 import type { BangumiPageData } from "@/types/bangumi";
 import "@/styles/preview.css";
+import "@/styles/preview-showcase.css";
 
 interface Props {
   withIntro?: boolean;
@@ -73,24 +72,15 @@ const syncDate = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-d
       </section>
 
       <PreviewJournal watched={data.recentWatched.slice(0, 8)} />
-      <div class="pv-review-track">
-        <span class="pv-review-anchor" id="preview-reviews" aria-hidden="true"></span>
-        <PreviewReviews reviews={data.recentReviews} />
-      </div>
-
-      <!-- 新信息页和旧版主页共用月度浏览组件。 -->
-      <section class="pv-memories pv-section" id="preview-memories" aria-label="观看时间轴">
-        <div class="pv-container">
-          <WatchTimeline entries={records} reviewSubjectIds={data.recentReviews.map((entry) => entry.id)} plainLabels />
-        </div>
-      </section>
+      <PreviewShowcase reviews={data.recentReviews} records={records} />
 
     </main>
 
-    <footer class="pv-footer pv-container"><strong>{data.profile.nickname}</strong><p>数据来自 <a href="https://bangumi.tv/" target="_blank" rel="noreferrer">Bangumi</a> · 更新于 {syncDate}</p><a href={`#${topId}`}>回到顶部 <ArrowUpRight size={16} /></a></footer>
+    <div class="pv-footer-band">
+      <footer class="pv-footer pv-container"><strong>{data.profile.nickname}</strong><p>数据来自 <a href="https://bangumi.tv/" target="_blank" rel="noreferrer">Bangumi</a> · 更新于 {syncDate}</p><a href={`#${topId}`}>回到顶部 <ArrowUpRight size={16} /></a></footer>
+    </div>
 
   </div>
-  <ReviewDialog reviews={data.recentReviews} />
 
 <script>
   import "@/scripts/preview";
