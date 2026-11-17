@@ -1,5 +1,5 @@
 ---
-import { ArrowUpRight, ChevronLeft, ChevronRight } from "@lucide/astro";
+import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight } from "@lucide/astro";
 import type { AnimeEntry } from "@/types/bangumi";
 
 interface Props {
@@ -61,7 +61,7 @@ const firstReview = reviews[0];
                     全部 {reviews.length}
                   </button>
                   <button class="pv-sc-filter-btn" type="button" data-filter="love" aria-pressed="false">9–10分</button>
-                  <button class="pv-sc-filter-btn" type="button" data-filter="long" aria-pressed="false">长评</button>
+                  <button class="pv-sc-filter-btn" type="button" data-filter="mid" aria-pressed="false">6–8分</button>
                   <button class="pv-sc-filter-btn" type="button" data-filter="strict" aria-pressed="false">≤5分</button>
                 </div>
                 <button
@@ -180,7 +180,6 @@ const firstReview = reviews[0];
             <span class="pv-sc-counter">
               <strong>{records.length}</strong> 部
             </span>
-            <span class="pv-sc-sub-note">按收藏记录更新时间归档</span>
           </div>
 
           <div class="pv-sc-range-segmented" data-sc-range-group role="group" aria-label="时间跨度">
@@ -276,12 +275,15 @@ const firstReview = reviews[0];
         <button class="pv-sc-drawer-chip" type="button" data-tier="0-6" aria-pressed="false">≤6分</button>
         <button class="pv-sc-drawer-chip" type="button" data-tier="commented" aria-pressed="false">含短评</button>
       </div>
-      <select class="pv-sc-drawer-sort" data-sc-archive-sort aria-label="排序方式">
-        <option value="date-desc">最新记录</option>
-        <option value="score-desc">评分从高到低</option>
-        <option value="score-asc">评分从低到高</option>
-        <option value="diff-desc">与 Bangumi 分差</option>
-      </select>
+      <div class="pv-sc-drawer-sort-wrap">
+        <select class="pv-sc-drawer-sort" data-sc-archive-sort aria-label="排序方式">
+          <option value="date-desc">最新记录</option>
+          <option value="score-desc">评分从高到低</option>
+          <option value="score-asc">评分从低到高</option>
+          <option value="diff-desc">与 Bangumi 分差</option>
+        </select>
+        <ChevronDown class="pv-sc-drawer-sort-icon" size={14} aria-hidden="true" />
+      </div>
     </div>
     <div class="pv-sc-drawer-grid-scroll">
       <div class="pv-sc-drawer-grid" data-sc-archive-grid></div>

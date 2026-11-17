@@ -23,7 +23,7 @@
   --sc-serif-num: Georgia, "Times New Roman", serif;
   --sc-sans: "Microsoft YaHei", "Noto Sans CJK SC", "PingFang SC", sans-serif;
   --sc-mono: "Cascadia Mono", "Consolas", "Courier New", monospace;
-  --pv-handoff-travel: 145svh;
+  --pv-handoff-travel: 240svh;
 
   position: relative;
   z-index: 2;
@@ -111,7 +111,7 @@
 ===================================================================== */
 .pv-sc-morph-plate {
   position: absolute;
-  z-index: 5;
+  z-index: 1;
   border-radius: 50%;
   pointer-events: none;
   opacity: 0;
@@ -244,11 +244,6 @@
   color: var(--sc-ink);
   font-weight: 400;
   font-size: 18px;
-}
-
-.pv-sc-sub-note {
-  font-size: 12px;
-  color: var(--sc-muted);
 }
 
 .pv-sc-controls {
@@ -406,6 +401,16 @@
 
 .pv-sc-ticket-card[data-offset="3"] {
   z-index: 4;
+  pointer-events: none;
+}
+
+.pv-sc-ticket-card.is-outgoing {
+  z-index: 14;
+  pointer-events: none;
+}
+
+.pv-sc-ticket-card.is-outgoing-rear {
+  z-index: 2;
   pointer-events: none;
 }
 
@@ -1525,8 +1530,10 @@
   padding: 9px 14px;
   border-radius: 999px;
   border: 1px solid #c7d4c9;
-  background: #ffffff;
+  background: var(--sc-card-cream);
+  font-family: var(--sc-sans);
   font-size: 13px;
+  color: var(--sc-ink);
 }
 
 .pv-sc-drawer-filters {
@@ -1541,6 +1548,7 @@
   border-radius: 999px;
   border: 1px solid #c9d5ca;
   background: var(--sc-card-cream);
+  font-family: var(--sc-sans);
   font-size: 12px;
   color: var(--sc-ink-soft);
 }
@@ -1551,12 +1559,36 @@
   color: #ffffff;
 }
 
+.pv-sc-drawer-sort-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
 .pv-sc-drawer-sort {
-  padding: 7px 12px;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 7px 34px 7px 14px;
   border-radius: 999px;
   border: 1px solid #c9d5ca;
-  background: #ffffff;
+  background: var(--sc-card-cream);
+  font-family: var(--sc-sans);
   font-size: 12px;
+  line-height: 1.4;
+  color: var(--sc-ink);
+  cursor: pointer;
+  transition: border-color 180ms ease;
+}
+
+.pv-sc-drawer-sort:hover {
+  border-color: var(--sc-sage-deep);
+}
+
+.pv-sc-drawer-sort-icon {
+  position: absolute;
+  right: 12px;
+  color: var(--sc-ink-soft);
+  pointer-events: none;
 }
 
 .pv-sc-drawer-grid-scroll {

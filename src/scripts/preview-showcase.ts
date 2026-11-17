@@ -307,6 +307,33 @@ export function setupPreviewShowcase() {
 
   let anchors: MorphAnchors | null = null;
   let motionRaf = 0;
+  let deckStepUntil = 0;
+  let hasInitializedMotion = false;
+  let prevRawHandoff = 0;
+  let displayHandoff = 0;
+  let lastMotionFrame = 0;
+  const decodedPosterUrls = new Set<string>();
+
+  function prewarmPoster(url: string) {
+    if (!url || decodedPosterUrls.has(url)) return;
+    decodedPosterUrls.add(url);
+    const img = new Image();
+    img.decoding = "sync";
+    img.src = url;
+    if (typeof img.decode === "function") {
+      img.decode().catch(() => {});
+    }
+  }
+
+  function prewarmAdjacentCards() {
+    const n = filteredReviews.length;
+    if (!n) return;
+    const ahead = Math.min(n, 6);
+    for (let delta = -2; delta < ahead; delta++) {
+      const idx = ((activeReviewIndex + delta) % n + n) % n;
+      prewarmPoster(filteredReviews[idx].largePath);
+    }
+  }
 
   function syncProxyImage() {
     const item = filteredReviews[activeReviewIndex];
@@ -317,7 +344,9 @@ export function setupPreviewShowcase() {
   }
 
   function applyCardTransforms(animateFlag: boolean) {
-    const cards = Array.from(deckOrbit.querySelectorAll<HTMLElement>(".pv-sc-ticket-card"));
+    const cards = Array.from(
+      deckOrbit.querySelectorAll<HTMLElement>(".pv-sc-ticket-card:not(.is-outgoing):not(.is-outgoing-rear)"),
+    );
     const dragProgress = Math.min(1, Math.abs(dragDx) / 140);
     const gather = deckGatherProgress;
     const hExpand = hoverCurr * (1 - gather) * (isCardFlipped ? 0 : 1);
@@ -375,18 +404,7 @@ export function setupPreviewShowcase() {
           ? "none"
           : "transform 460ms var(--sc-ease), opacity 360ms ease";
       card.style.opacity = String(opacity.toFixed(3));
-      if (
-        offset === 0 &&
-        !isDraggingDeck &&
-        Math.abs(x) < 0.05 &&
-        Math.abs(y) < 0.05 &&
-        Math.abs(rot) < 0.02 &&
-        Math.abs(scale - 1) < 0.001
-      ) {
-        card.style.transform = "none";
-      } else {
-        card.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) rotateZ(${rot.toFixed(2)}deg) scale(${scale.toFixed(3)})`;
-      }
+      card.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) rotateZ(${rot.toFixed(2)}deg) scale(${scale.toFixed(3)})`;
     });
   }
 
@@ -395,6 +413,7 @@ export function setupPreviewShowcase() {
     card.className = "pv-sc-ticket-card";
     if (offset === 0 && isCardFlipped) card.classList.add("is-flipped");
     card.dataset.offset = String(offset);
+    card.dataset.subjectId = String(item.id);
     const bgm = item.bangumiScore ? item.bangumiScore.toFixed(1) : "暂无";
     const diff = item.bangumiScore ? item.userScore - item.bangumiScore : null;
     const diffStr =
@@ -402,7 +421,7 @@ export function setupPreviewShowcase() {
     card.innerHTML = `
       <div class="pv-sc-ticket-flipper">
         <div class="pv-sc-ticket-face pv-sc-ticket-face--front">
-          <div class="pv-sc-poster-wrap"><img src="${escapeHtml(item.largePath)}" alt="${escapeHtml(item.nameCn || item.name)}" draggable="false" /></div>
+          <div class="pv-sc-poster-wrap"><img src="${escapeHtml(item.largePath)}" alt="${escapeHtml(item.nameCn || item.name)}" decoding="sync" draggable="false" /></div>
           <span class="pv-sc-corner-reticle" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
         </div>
         <div class="pv-sc-ticket-face pv-sc-ticket-face--back">
@@ -420,6 +439,7 @@ export function setupPreviewShowcase() {
           <div class="pv-sc-postcard-foot"><span>点击翻回封面</span><a class="pv-sc-postcard-bgm" href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">Bangumi ↗</a></div>
         </div>
       </div>`;
+    bindFrontCardInteractions(card);
     return card;
   }
 
@@ -488,19 +508,7 @@ export function setupPreviewShowcase() {
     }, 680);
   }
 
-  function stepReview(dir: number) {
-    const n = filteredReviews.length;
-    if (n <= 1) return;
-    const outgoing = deckOrbit.querySelector<HTMLElement>('.pv-sc-ticket-card[data-offset="0"]');
-    if (outgoing && !reducedMotion.matches && dir > 0) {
-      outgoing.animate(
-        [
-          { transform: outgoing.style.transform === "none" ? "translate3d(0,0,0)" : outgoing.style.transform, opacity: 1 },
-          { transform: "translate3d(-240px, -24px, 0) rotateZ(-16deg) scale(0.94)", opacity: 0 },
-        ],
-        { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "forwards" },
-      );
-    }
+  function resetDeckInteractionState() {
     if (flipEndTimer) {
       clearTimeout(flipEndTimer);
       flipEndTimer = 0;
@@ -509,7 +517,6 @@ export function setupPreviewShowcase() {
       cancelAnimationFrame(tiltRaf);
       tiltRaf = 0;
     }
-    activeReviewIndex = (activeReviewIndex + dir + n) % n;
     isCardFlipped = false;
     isCardFlipping = false;
     tiltTargetX = 0;
@@ -520,45 +527,77 @@ export function setupPreviewShowcase() {
     hoverCurr = 0;
     dragDx = 0;
     deckZone.classList.remove("is-deck-hovered");
-    window.setTimeout(() => {
-      renderDeck(true, dir);
-      renderFolioCopy(true);
-      syncProxyImage();
-    }, reducedMotion.matches || dir < 0 ? 0 : 110);
+  }
+
+  function retireOutgoingFrontCard(card: HTMLElement) {
+    const cs = getComputedStyle(card);
+    const startTransform = cs.transform && cs.transform !== "none" ? cs.transform : "translate3d(0, 0, 0)";
+    const startOpacity = Number(cs.opacity);
+    card.classList.add("is-outgoing");
+    card.dataset.offset = "-1";
+    delete card.dataset.subjectId;
+    if (typeof card.animate === "function") {
+      const anim = card.animate(
+        [
+          { transform: startTransform, opacity: Number.isFinite(startOpacity) ? startOpacity : 1 },
+          { transform: "translate3d(-240px, -24px, 0) rotateZ(-16deg) scale(0.94)", opacity: 0 },
+        ],
+        { duration: 300, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "forwards" },
+      );
+      const cleanup = () => card.remove();
+      anim.onfinish = cleanup;
+      anim.oncancel = cleanup;
+    } else {
+      card.remove();
+    }
+  }
+
+  function stepReview(dir: number) {
+    const n = filteredReviews.length;
+    if (n <= 1) return;
+    const outgoing = deckOrbit.querySelector<HTMLElement>('.pv-sc-ticket-card[data-offset="0"]:not(.is-outgoing)');
+    if (outgoing && !reducedMotion.matches && dir > 0) {
+      retireOutgoingFrontCard(outgoing);
+    }
+    resetDeckInteractionState();
+    activeReviewIndex = (activeReviewIndex + dir + n) % n;
+    deckStepUntil = reducedMotion.matches ? 0 : performance.now() + 460;
+    renderDeck(true, dir);
+    renderFolioCopy(true);
+    syncProxyImage();
+    prewarmAdjacentCards();
   }
 
   function jumpToReview(targetIdx: number) {
     if (targetIdx === activeReviewIndex) return;
-    if (flipEndTimer) {
-      clearTimeout(flipEndTimer);
-      flipEndTimer = 0;
-    }
-    if (tiltRaf) {
-      cancelAnimationFrame(tiltRaf);
-      tiltRaf = 0;
-    }
+    resetDeckInteractionState();
     const n = filteredReviews.length;
     const chosenDir = (targetIdx - activeReviewIndex + n) % n <= n / 2 ? 1 : -1;
     activeReviewIndex = targetIdx;
-    isCardFlipped = false;
-    isCardFlipping = false;
-    tiltTargetX = 0;
-    tiltTargetY = 0;
-    tiltCurrX = 0;
-    tiltCurrY = 0;
-    hoverTarget = 0;
-    hoverCurr = 0;
-    dragDx = 0;
-    deckZone.classList.remove("is-deck-hovered");
+    deckStepUntil = reducedMotion.matches ? 0 : performance.now() + 460;
     renderDeck(true, chosenDir);
     renderFolioCopy(true);
     syncProxyImage();
+    prewarmAdjacentCards();
   }
 
   function bindFrontCardInteractions(card: HTMLElement) {
+    const isFrontActive = () =>
+      card.dataset.offset === "0" &&
+      !card.classList.contains("is-outgoing") &&
+      !card.classList.contains("is-outgoing-rear");
+
     card.querySelector(".pv-sc-postcard-bgm")?.addEventListener("click", (e) => e.stopPropagation());
     card.addEventListener("pointerenter", () => {
-      if (isDraggingDeck || isCardFlipped || isCardFlipping || journalReveal < 0.995) return;
+      if (
+        !isFrontActive() ||
+        performance.now() < deckStepUntil ||
+        isDraggingDeck ||
+        isCardFlipped ||
+        isCardFlipping ||
+        journalReveal < 0.995
+      )
+        return;
       hoverTarget = 1;
       card.classList.add("is-hovered");
       deckZone.classList.add("is-deck-hovered");
@@ -570,7 +609,16 @@ export function setupPreviewShowcase() {
       }
     });
     card.addEventListener("pointermove", (e) => {
-      if (isDraggingDeck || isCardFlipped || isCardFlipping || reducedMotion.matches || journalReveal < 0.995) return;
+      if (
+        !isFrontActive() ||
+        performance.now() < deckStepUntil ||
+        isDraggingDeck ||
+        isCardFlipped ||
+        isCardFlipping ||
+        reducedMotion.matches ||
+        journalReveal < 0.995
+      )
+        return;
       hoverTarget = 1;
       card.classList.add("is-tilting", "is-hovered");
       deckZone.classList.add("is-deck-hovered");
@@ -580,7 +628,7 @@ export function setupPreviewShowcase() {
       startTiltLoop();
     });
     card.addEventListener("pointerleave", () => {
-      if (isDraggingDeck || isCardFlipping || isCardFlipped) return;
+      if (!isFrontActive() || isDraggingDeck || isCardFlipping || isCardFlipped) return;
       tiltTargetX = 0;
       tiltTargetY = 0;
       hoverTarget = 0;
@@ -594,7 +642,7 @@ export function setupPreviewShowcase() {
       }
     });
     card.addEventListener("pointerdown", (e) => {
-      if ((e.target as Element).closest("a, button") || journalReveal < 0.995) return;
+      if (!isFrontActive() || (e.target as Element).closest("a, button") || journalReveal < 0.995) return;
       const startX = e.clientX;
       const startY = e.clientY;
       let moved = false;
@@ -603,6 +651,7 @@ export function setupPreviewShowcase() {
       let vx = 0;
       card.setPointerCapture(e.pointerId);
       const onMove = (ev: PointerEvent) => {
+        if (!isFrontActive()) return;
         const dx = ev.clientX - startX;
         const dy = ev.clientY - startY;
         if (!moved && Math.hypot(dx, dy) > 7) {
@@ -626,6 +675,7 @@ export function setupPreviewShowcase() {
         card.classList.remove("is-dragging");
         revSection.classList.remove("is-travelling");
         isDraggingDeck = false;
+        if (!isFrontActive()) return;
         if (!moved) {
           toggleFrontCardFlip();
           return;
@@ -645,22 +695,80 @@ export function setupPreviewShowcase() {
 
   function renderDeck(animateFlag = true, enterDir = 0) {
     const n = filteredReviews.length;
-    deckOrbit.innerHTML = "";
-    if (!n) return;
+    const existingActive = Array.from(
+      deckOrbit.querySelectorAll<HTMLElement>(".pv-sc-ticket-card:not(.is-outgoing):not(.is-outgoing-rear)"),
+    );
+    if (!n) {
+      existingActive.forEach((el) => el.remove());
+      return;
+    }
+
+    const hadExisting = existingActive.length > 0;
+    const existingById = new Map<number, HTMLElement>();
+    existingActive.forEach((el) => {
+      const sid = Number(el.dataset.subjectId);
+      if (Number.isFinite(sid) && !existingById.has(sid)) existingById.set(sid, el);
+      else el.remove();
+    });
+
     const visibleOffsets = Math.min(4, n);
+    const targetIds = new Set<number>();
+    const slots: Array<{ idx: number; off: number; item: ShowcaseEntry }> = [];
     for (let off = visibleOffsets - 1; off >= 0; off--) {
       const idx = (activeReviewIndex + off) % n;
-      const card = createTicketCard(filteredReviews[idx], idx, off);
-      if (off === 0) bindFrontCardInteractions(card);
-      deckOrbit.appendChild(card);
+      const item = filteredReviews[idx];
+      targetIds.add(item.id);
+      slots.push({ idx, off, item });
     }
-    if (enterDir !== 0 && !reducedMotion.matches) {
-      Array.from(deckOrbit.querySelectorAll<HTMLElement>(".pv-sc-ticket-card")).forEach((card) => {
-        const off = Number(card.dataset.offset);
+
+    existingById.forEach((card, sid) => {
+      if (targetIds.has(sid)) return;
+      if (animateFlag && enterDir < 0 && !reducedMotion.matches && typeof card.animate === "function") {
+        const cs = getComputedStyle(card);
+        const startTransform = cs.transform && cs.transform !== "none" ? cs.transform : "translate3d(-76px, -20px, 0)";
+        const startOpacity = Number(cs.opacity);
+        card.classList.add("is-outgoing-rear");
+        card.dataset.offset = "-1";
+        delete card.dataset.subjectId;
+        const anim = card.animate(
+          [
+            { transform: startTransform, opacity: Number.isFinite(startOpacity) ? startOpacity : 0.74 },
+            { transform: "translate3d(-94px, -24px, 0) rotateZ(-17.5deg) scale(0.79)", opacity: 0 },
+          ],
+          { duration: 240, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "forwards" },
+        );
+        const cleanup = () => card.remove();
+        anim.onfinish = cleanup;
+        anim.oncancel = cleanup;
+      } else {
+        card.remove();
+      }
+      existingById.delete(sid);
+    });
+
+    const newlyInserted: Array<{ card: HTMLElement; off: number }> = [];
+    slots.forEach(({ idx, off, item }) => {
+      const reused = existingById.get(item.id);
+      if (reused) {
+        reused.dataset.offset = String(off);
+        reused.classList.remove("is-flipped", "is-flipping", "is-tilting", "is-hovered");
+        const serialEl = reused.querySelector<HTMLElement>(".pv-sc-postcard-serial");
+        if (serialEl) serialEl.innerHTML = `ARCHIVE NO. ${String(idx + 1).padStart(2, "0")}<br/>SUBJECT #${item.id}`;
+        return;
+      }
+      const card = createTicketCard(item, idx, off);
+      deckOrbit.appendChild(card);
+      newlyInserted.push({ card, off });
+    });
+
+    if (animateFlag && !reducedMotion.matches && (enterDir !== 0 || hadExisting)) {
+      newlyInserted.forEach(({ card, off }) => {
         const fromPose =
           off === 0 && enterDir < 0
-            ? { x: -175, y: -14, rot: -10, scale: 0.94, opacity: 0.25 }
-            : deckRestingPose(Math.min(3, off + (enterDir > 0 ? 1 : 0)));
+            ? { x: -175, y: -14, rot: -10, scale: 0.94, opacity: 0.15 }
+            : enterDir > 0 && off >= visibleOffsets - 1
+              ? { x: -94, y: -24, rot: -17.5, scale: 0.79, opacity: 0 }
+              : { ...deckRestingPose(Math.min(3, off)), opacity: 0 };
         card.style.transition = "none";
         card.style.opacity = String(fromPose.opacity);
         card.style.transform = `translate3d(${fromPose.x}px, ${fromPose.y}px, 0) rotateZ(${fromPose.rot}deg) scale(${fromPose.scale})`;
@@ -668,7 +776,7 @@ export function setupPreviewShowcase() {
       void deckOrbit.offsetWidth;
       requestAnimationFrame(() => applyCardTransforms(true));
     } else {
-      applyCardTransforms(animateFlag);
+      applyCardTransforms(false);
     }
   }
 
@@ -707,32 +815,26 @@ export function setupPreviewShowcase() {
     filterButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.filter === filterKey)));
     positionThumb(filtersContainer, filterThumb, filterButtons.find((b) => b.dataset.filter === filterKey));
     if (filterKey === "love") filteredReviews = reviews.filter((r) => r.userScore >= 9);
-    else if (filterKey === "long") filteredReviews = reviews.filter((r) => (r.comment || "").trim().length >= 60);
+    else if (filterKey === "mid") filteredReviews = reviews.filter((r) => r.userScore > 5 && r.userScore < 9);
     else if (filterKey === "strict") filteredReviews = reviews.filter((r) => r.userScore <= 5);
     else filteredReviews = reviews.slice();
 
-    if (flipEndTimer) {
-      clearTimeout(flipEndTimer);
-      flipEndTimer = 0;
-    }
-    if (tiltRaf) {
-      cancelAnimationFrame(tiltRaf);
-      tiltRaf = 0;
-    }
+    resetDeckInteractionState();
     activeReviewIndex = 0;
-    isCardFlipped = false;
-    isCardFlipping = false;
-    tiltTargetX = 0;
-    tiltTargetY = 0;
-    tiltCurrX = 0;
-    tiltCurrY = 0;
-    hoverTarget = 0;
-    hoverCurr = 0;
-    dragDx = 0;
-    deckZone.classList.remove("is-deck-hovered");
     renderDeck(true, 0);
     renderFolioCopy(false);
     syncProxyImage();
+    prewarmAdjacentCards();
+  }
+
+  function scrollToReviewsSection() {
+    const snapEv = new CustomEvent<{ to: "reviews" }>("pv:snap-to", {
+      detail: { to: "reviews" },
+      cancelable: true,
+    });
+    if (!document.dispatchEvent(snapEv)) return;
+    const targetY = Math.round(window.scrollY + reviewAnchor.getBoundingClientRect().top);
+    window.scrollTo({ top: targetY, behavior: reducedMotion.matches ? "auto" : "smooth" });
   }
 
   function renderArchiveGrid() {
@@ -771,8 +873,7 @@ export function setupPreviewShowcase() {
         const targetIdx = filteredReviews.findIndex((r) => r.id === item.id);
         if (targetIdx >= 0) jumpToReview(targetIdx);
         closeArchiveDrawer();
-        const targetY = Math.round(window.scrollY + reviewAnchor.getBoundingClientRect().top);
-        window.scrollTo({ top: targetY, behavior: reducedMotion.matches ? "auto" : "smooth" });
+        scrollToReviewsSection();
       });
       archiveGrid.appendChild(btn);
     });
@@ -802,8 +903,7 @@ export function setupPreviewShowcase() {
     applyReviewFilter("all");
     const idx = filteredReviews.findIndex((r) => r.id === subjectId);
     if (idx >= 0) jumpToReview(idx);
-    const targetY = Math.round(window.scrollY + reviewAnchor.getBoundingClientRect().top);
-    window.scrollTo({ top: targetY, behavior: reducedMotion.matches ? "auto" : "smooth" });
+    scrollToReviewsSection();
     return true;
   }
 
@@ -921,6 +1021,7 @@ export function setupPreviewShowcase() {
         const btn = li.querySelector("button")!;
         btn.addEventListener("pointerenter", () => {
           hoveredAnimeId = entry.id;
+          if (rev) prewarmPoster(rev.largePath);
           applyPolaroidPositions(true);
         });
         btn.addEventListener("pointerleave", () => {
@@ -1083,7 +1184,10 @@ export function setupPreviewShowcase() {
       return;
     }
     const pinRect = stagePin.getBoundingClientRect();
+    const prevPlateTransform = reviewPlate.style.transform;
+    if (prevPlateTransform) reviewPlate.style.transform = "";
     const pA = reviewPlate.getBoundingClientRect();
+    if (prevPlateTransform) reviewPlate.style.transform = prevPlateTransform;
     const pB = polaroidRing.getBoundingClientRect();
     const cA = deckOrbit.getBoundingClientRect();
 
@@ -1150,7 +1254,7 @@ export function setupPreviewShowcase() {
     applyCardTransforms(false);
   }
 
-  function updateMotion() {
+  function updateMotion(now = performance.now()) {
     motionRaf = 0;
     const isDesktop = desktopHandoffQuery.matches && !reducedMotion.matches;
     revSection.dataset.scHandoff = isDesktop ? "sticky" : "static";
@@ -1160,6 +1264,9 @@ export function setupPreviewShowcase() {
     stagePin.classList.toggle("is-backdrop-ready", backdropReady);
 
     if (!isDesktop) {
+      hasInitializedMotion = false;
+      lastMotionFrame = 0;
+      displayHandoff = 0;
       stagePin.style.removeProperty("--morph-bg");
       deckOrbit.style.opacity = "";
       proxyPlate.style.opacity = "0";
@@ -1190,7 +1297,24 @@ export function setupPreviewShowcase() {
     const rTop = reviewAnchor.getBoundingClientRect().top;
     const mTop = memoriesAnchor.getBoundingClientRect().top;
     const travel = Math.max(1, mTop - rTop);
-    const p = clamp01(-rTop / travel);
+    const targetP = clamp01(-rTop / travel);
+    const jumped = !hasInitializedMotion || Math.abs(targetP - prevRawHandoff) > 0.28;
+    hasInitializedMotion = true;
+    prevRawHandoff = targetP;
+    if (jumped) {
+      displayHandoff = targetP;
+    } else {
+      const elapsed = lastMotionFrame ? Math.min(32, Math.max(1, now - lastMotionFrame)) : 16;
+      displayHandoff += (targetP - displayHandoff) * (1 - Math.exp(-elapsed / 82));
+    }
+    if (Math.abs(targetP - displayHandoff) < 0.0004) {
+      displayHandoff = targetP;
+      lastMotionFrame = 0;
+    } else {
+      lastMotionFrame = now;
+      scheduleMotion();
+    }
+    const p = displayHandoff;
     handoffProgress = p;
 
     if (p <= 0.002) {
@@ -1213,29 +1337,35 @@ export function setupPreviewShowcase() {
     entryFanProgress = 1;
     applyEntryMotion(1);
 
-    stagePin.style.setProperty("--morph-bg", clamp01((p - 0.12) / 0.56).toFixed(4));
+    stagePin.style.setProperty("--morph-bg", clamp01((p - 0.16) / 0.54).toFixed(4));
 
-    const clearP = easeOutCubic(clamp01(p / 0.36));
+    const clearP = easeOutCubic(clamp01(p / 0.34));
     reviewsTop.style.transform = `translateY(${(-clearP * 26).toFixed(1)}px)`;
     reviewsTop.style.opacity = String((1 - clearP).toFixed(3));
     folioCopy.style.transform = `translateY(${(-clearP * 34).toFixed(1)}px)`;
     folioCopy.style.opacity = String((1 - clearP).toFixed(3));
     deckBar.style.opacity = String(Math.max(0, 1 - clearP * 1.4).toFixed(3));
     revSection.inert = p > 0.05;
-
-    const nextGather = clamp01(p / 0.22);
-    if (Math.abs(nextGather - deckGatherProgress) > 0.005 || nextGather === 0 || nextGather === 1) {
-      deckGatherProgress = nextGather;
-      applyCardTransforms(false);
+    if (p > 0.01 && hoverTarget > 0) {
+      hoverTarget = 0;
+      hoverCurr = 0;
+      deckZone.classList.remove("is-deck-hovered");
+      deckOrbit.querySelector('.pv-sc-ticket-card[data-offset="0"]')?.classList.remove("is-hovered");
     }
 
+    // Beat 1 (0 -> 0.22): Symmetric sine tuck/untuck so reverse arrival slows gently into rest instead of rushing the last frames
+    const rawGather = clamp01(p / 0.22);
+    deckGatherProgress = 0.5 - 0.5 * Math.cos(rawGather * Math.PI);
+    applyCardTransforms(false);
+
     if (!anchors) measureMorphAnchors();
-    const morphT = easeInOutCubic(clamp01((p - 0.1) / 0.58));
-    const proxyActive = p > 0.015 && p < 0.8 && Boolean(anchors);
+    // Beat 2 (0.22 -> 0.72): Proxy plate & front card smoothly arc between Reviews and Timeline
+    const morphT = easeInOutCubic(clamp01((p - 0.22) / 0.5));
+    const proxyActive = p > 0.22 && p < 0.8 && Boolean(anchors);
 
     if (proxyActive && anchors) {
       reviewPlate.style.opacity = "0";
-      deckOrbit.style.opacity = p < 0.07 ? String(1 - (p - 0.015) / 0.055) : "0";
+      deckOrbit.style.opacity = "0";
       polaroidRing.style.opacity = "0";
 
       const arcSin = Math.sin(morphT * Math.PI);
@@ -1273,8 +1403,8 @@ export function setupPreviewShowcase() {
     } else {
       proxyPlate.style.opacity = "0";
       proxyCard.style.opacity = "0";
-      reviewPlate.style.opacity = p <= 0.015 ? "1" : "0";
-      deckOrbit.style.opacity = p <= 0.015 ? "1" : "0";
+      reviewPlate.style.opacity = p <= 0.22 ? "1" : "0";
+      deckOrbit.style.opacity = p <= 0.22 ? "1" : "0";
       polaroidRing.style.opacity = p >= 0.8 ? "1" : "0";
     }
 
@@ -1436,8 +1566,9 @@ export function setupPreviewShowcase() {
     }
   });
 
-  window.addEventListener("scroll", scheduleMotion, { passive: true });
+  window.addEventListener("scroll", () => scheduleMotion(), { passive: true });
   const handleLayoutChange = () => {
+    hasInitializedMotion = false;
     positionThumb(filtersContainer, filterThumb, filterButtons.find((b) => b.getAttribute("aria-pressed") === "true"));
     positionThumb(rangeGroup, rangeThumb, rangeButtons.find((b) => b.getAttribute("aria-pressed") === "true"));
     renderRuler();

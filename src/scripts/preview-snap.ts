@@ -23,6 +23,8 @@ interface SnapRoute {
 const WHEEL_THRESHOLD = 36;
 const HERO_EXIT_WHEEL_THRESHOLD = 6;
 const HERO_EXIT_DURATION = 760;
+const SHOWCASE_MORPH_FORWARD_DURATION = 1950;
+const SHOWCASE_MORPH_REVERSE_DURATION = 1800;
 const GESTURE_GAP = 135;
 const ALIGN_TOLERANCE = 1.5;
 // 触摸位移放大 15%，余滑按松手速度衰减，最多滑过视口的 28%。
@@ -49,6 +51,11 @@ function pageEase(time: number) {
     else high = t;
   }
   return cubic((low + high) / 2, 0, 1);
+}
+
+/** 短评与时间轴之间的空间接力使用对称正弦缓入缓出，让三段形变有足够呼吸感。 */
+function morphEase(time: number) {
+  return 0.5 - 0.5 * Math.cos(Math.PI * time);
 }
 
 /** 在相邻整屏之间换页，长章节内部保持连续滚动。 */
@@ -101,6 +108,7 @@ export function setupPreviewSnap() {
       reviewsEnd,
       memories: Math.min(memoriesTop, scrollHeight - height),
       hasJournalAnimation,
+      showcaseSticky,
     };
   }
 
@@ -109,7 +117,7 @@ export function setupPreviewSnap() {
     const y = window.scrollY;
     const direction: Direction = delta > 0 ? 1 : -1;
     const { hero, heroEnd, collection, collectionEnd, journal, journalEnd,
-      journalFanEnd, reviews: reviewsTop, reviewsEnd, memories: memoriesTop, hasJournalAnimation } = scrollLayout(y);
+      journalFanEnd, reviews: reviewsTop, reviewsEnd, memories: memoriesTop, hasJournalAnimation, showcaseSticky } = scrollLayout(y);
 
     // 画廊和海报动画可能还在追赶滚动位置，完全显现后才能消耗阅读行程。
     if (direction === 1) {
@@ -126,10 +134,12 @@ export function setupPreviewSnap() {
       { at: collectionEnd, snap: { from: "collection", to: "journal", direction, target: journal } },
       hasJournalAnimation ? { at: reviewsTop }
         : { at: journalEnd, snap: { from: "journal", to: "reviews", direction, target: reviewsTop } },
-      { at: reviewsEnd, snap: { from: "reviews", to: "memories", direction, target: memoriesTop } },
+      showcaseSticky ? { at: memoriesTop }
+        : { at: reviewsEnd, snap: { from: "reviews", to: "memories", direction, target: memoriesTop } },
     ] : [
       { at: memoriesTop },
-      { at: memoriesTop, snap: { from: "memories", to: "reviews", direction, target: reviewsEnd } },
+      showcaseSticky ? { at: memoriesTop }
+        : { at: memoriesTop, snap: { from: "memories", to: "reviews", direction, target: reviewsEnd } },
       { at: reviewsTop },
       // 回到最近看过时让液面退回已打开的海报，避免一帧越过所有卡片。
       { at: reviewsTop, snap: { from: "reviews", to: "journal", direction, target: hasJournalAnimation ? journalFanEnd : journalEnd } },
@@ -191,8 +201,18 @@ export function setupPreviewSnap() {
     const distance = next.target - start;
     const reversing = returnTo !== undefined;
     const heroExit = next.from === "hero" && next.to === "collection";
+    const showcaseMorph =
+      (next.from === "reviews" && next.to === "memories") ||
+      (next.from === "memories" && next.to === "reviews");
+    const morphBaseDuration = next.to === "memories"
+      ? SHOWCASE_MORPH_FORWARD_DURATION
+      : SHOWCASE_MORPH_REVERSE_DURATION;
     const duration = heroExit ? HERO_EXIT_DURATION
-      : reversing ? Math.max(360, Math.min(1000, 1000 * Math.sqrt(Math.abs(distance) / window.innerHeight))) : 1000;
+      : showcaseMorph
+        ? reversing
+          ? Math.max(480, Math.min(morphBaseDuration, Math.round(morphBaseDuration * Math.abs(distance) / Math.max(1, Math.abs(returnTo - next.target)))))
+          : morphBaseDuration
+        : reversing ? Math.max(360, Math.min(1000, 1000 * Math.sqrt(Math.abs(distance) / window.innerHeight))) : 1000;
     const startedAt = performance.now();
     active = { ...next, origin: returnTo ?? start, progress: 0, writtenY: start, reversing };
     oppositeDelta = 0;
@@ -201,8 +221,12 @@ export function setupPreviewSnap() {
     function tick(now: number) {
       if (!active) return;
       const time = Math.min(1, Math.max(0, (now - startedAt) / duration));
-      // 首屏离场立即给位移反馈，尾段逐渐减速；盘列仍使用同一份进度。
-      active.progress = heroExit ? 1 - (1 - time) ** 2.4 : time === 1 ? 1 : pageEase(time);
+      // 首屏离场立即给位移反馈，短评与时间轴接力采用对称正弦缓动以保证中段 arc 流畅从容。
+      active.progress = heroExit
+        ? 1 - (1 - time) ** 2.4
+        : showcaseMorph
+          ? (time === 1 ? 1 : morphEase(time))
+          : time === 1 ? 1 : pageEase(time);
       window.scrollTo({ top: start + distance * active.progress, behavior: "instant" });
       active.writtenY = window.scrollY;
       announce(time === 1 ? "end" : "progress");
@@ -294,8 +318,11 @@ export function setupPreviewSnap() {
       consumedWheel = { direction: active.direction, until: now + GESTURE_GAP };
       return;
     }
-    // 消耗同方向惯性，换页结束后的反向手势仍能立即回滑。
-    if (consumedWheel) return;
+    // 消耗同方向惯性，换页结束后的反向手势仍能立即回滑；连续未停顿的余波继续刷新抑制窗，避免惯性冲破章节边界。
+    if (consumedWheel) {
+      consumedWheel.until = now + GESTURE_GAP;
+      return;
+    }
     const next = scrollAction(delta);
     if (!next) {
       wheelDelta = 0;
@@ -404,6 +431,19 @@ export function setupPreviewSnap() {
   window.addEventListener("scroll", () => {
     if (active && Math.abs(window.scrollY - active.writtenY) > 4) cancel();
   }, { passive: true });
+  document.addEventListener("pv:snap-to", (event) => {
+    const detail = (event as CustomEvent<{ to?: Section }>).detail;
+    if (!detail?.to || reducedMotion.matches || !event.cancelable) return;
+    if (detail.to === "reviews") {
+      const y = window.scrollY;
+      const { reviews: reviewsTop } = scrollLayout(y);
+      if (reviews!.dataset.scHandoff === "sticky" && y > reviewsTop + ALIGN_TOLERANCE) {
+        event.preventDefault();
+        stopTouchMomentum();
+        animateTo({ from: "memories", to: "reviews", direction: -1, target: reviewsTop });
+      }
+    }
+  });
   /** 视口或导航改变时同时放下换页与触摸余滑。 */
   function cancelScrollMotion() {
     cancel();
