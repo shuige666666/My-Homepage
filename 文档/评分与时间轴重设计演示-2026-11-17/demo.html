@@ -1,0 +1,1586 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>我的动漫偏好 · 评分与短评 / 观看时间轴</title>
+  <style>
+    :root {
+      --paper: #f8faf7;
+      --paper-review: #f2f3ed;
+      --paper-timeline: #eaf0eb;
+      --card-cream: #fffefa;
+      --postcard-back: #f8f6ee;
+      --mist: #dff1f4;
+      --blue: #8fbcd6;
+      --sage: #799889;
+      --sage-soft: #93bca3;
+      --sage-deep: #4f6f63;
+      --yellow: #fff471;
+      --yellow-soft: #f5efcc;
+      --ink: #253e49;
+      --ink-soft: #566e73;
+      --muted: #6b7d7e;
+      --line: #d7e0d8;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --spring: cubic-bezier(0.2, 0.85, 0.25, 1.06);
+      --serif-display: "STSong", "华文宋体", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", Georgia, serif;
+      --serif-body: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", Georgia, serif;
+      --serif-num: Georgia, "Times New Roman", serif;
+      --sans: "Microsoft YaHei", "Noto Sans CJK SC", "PingFang SC", sans-serif;
+      --mono: "Cascadia Mono", "Consolas", "Courier New", monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; background: var(--paper-review); }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper-review);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: clip;
+    }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    img { display: block; max-width: 100%; }
+    [hidden] { display: none !important; }
+    :is(a, button, input, select, [tabindex]):focus-visible {
+      outline: 2px solid #4e776c;
+      outline-offset: 3px;
+    }
+
+    .demo-bar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(242, 243, 237, 0.92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+    .demo-bar-inner {
+      width: min(1400px, calc(100% - clamp(32px, 6vw, 120px)));
+      margin-inline: auto;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .demo-brand { font-family: var(--serif-display); font-size: 18px; font-weight: 400; letter-spacing: 0.03em; color: var(--ink); }
+    .demo-nav { display: flex; align-items: center; gap: 24px; }
+    .demo-nav a { position: relative; padding-block: 6px; font-size: 13px; color: var(--muted); transition: color 220ms ease; }
+    .demo-nav a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--ink); transform: scaleX(0); transform-origin: left; transition: transform 320ms var(--ease); }
+    .demo-nav a:hover, .demo-nav a.is-current { color: var(--ink); }
+    .demo-nav a.is-current::after { transform: scaleX(1); }
+
+    .section-shell { width: min(1400px, calc(100% - clamp(32px, 6vw, 120px))); margin-inline: auto; }
+
+    /* =====================================================================
+       UNIFIED STICKY HANDOFF STAGE — PLAN C (CONTINUOUS SPATIAL MORPH)
+    ===================================================================== */
+    .reviews-track {
+      position: relative;
+      z-index: 1;
+      height: calc(100svh - 56px + 135svh);
+    }
+    .stage-pin {
+      position: sticky;
+      top: 56px;
+      height: calc(100svh - 56px);
+      overflow: clip;
+      background: color-mix(in srgb, var(--paper-timeline) calc(var(--morph-bg, 0) * 100%), var(--paper-review));
+    }
+
+    /* Continuous Morph Proxy Plate & Card (Dafne / DepthGallery inspired!) */
+    .morph-proxy-plate {
+      position: absolute;
+      z-index: 5;
+      border-radius: 50%;
+      pointer-events: none;
+      opacity: 0;
+      transform-origin: center center;
+      border: 1px solid #dce3d8;
+      background: #e9ede5;
+      will-change: transform, opacity;
+    }
+    .morph-proxy-card {
+      position: absolute;
+      z-index: 7;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--card-cream);
+      border: 1px solid rgba(90, 118, 112, 0.16);
+      border-radius: 10px;
+      padding: 10px;
+      box-shadow: 0 24px 48px -18px rgba(34, 54, 61, 0.28), 0 4px 12px rgba(34, 54, 61, 0.08);
+      pointer-events: none;
+      opacity: 0;
+      transform-origin: center center;
+      will-change: transform, opacity;
+    }
+    .morph-proxy-card-img {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      border-radius: 5px;
+      overflow: hidden;
+      background: #e1e8de;
+    }
+    .morph-proxy-card-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .morph-proxy-caption {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      height: var(--cap-h, 0px);
+      padding: 0 2px;
+      overflow: hidden;
+      font-size: 12px;
+      color: var(--ink-soft);
+      opacity: var(--cap-op, 0);
+    }
+    .morph-proxy-caption-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 500;
+      color: var(--ink);
+    }
+    .morph-proxy-caption-score {
+      flex: 0 0 auto;
+      font-family: var(--serif-num);
+      color: #6b5e2d;
+    }
+
+    /* =====================================================================
+       SECTION 01: 评分与短评
+    ===================================================================== */
+    .reviews-section {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      height: 100%;
+      padding-block: clamp(28px, 4.5svh, 54px);
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: clip;
+    }
+    .reviews-section > .section-shell { position: relative; z-index: 1; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+    .section-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: clamp(22px, 3.8svh, 48px); }
+    .section-title-row { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+    .section-title-row h2 { margin: 0; font: 400 clamp(30px, 2.8vw, 40px)/1.18 var(--serif-display); letter-spacing: 0.02em; }
+    .folio-counter { font: 400 15px/1 var(--serif-num); color: var(--muted); letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
+    .folio-counter strong { color: var(--ink); font-weight: 400; font-size: 18px; }
+    .section-sub-note { font-size: 12px; color: var(--muted); }
+
+    .reviews-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .filter-pills { position: relative; display: inline-flex; align-items: center; padding: 4px; border-radius: 999px; background: #e6eae2; border: 1px solid #d5ddd2; gap: 2px; }
+    .filter-thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; border-radius: 999px; background: var(--card-cream); box-shadow: 0 2px 6px rgba(37, 62, 73, 0.07); transition: transform 360ms var(--ease), width 360ms var(--ease); pointer-events: none; }
+    .filter-btn { position: relative; z-index: 1; border: 0; background: transparent; padding: 7px 14px; border-radius: 999px; font-size: 13px; color: var(--ink-soft); white-space: nowrap; transition: color 200ms ease; }
+    .filter-btn[aria-pressed="true"] { color: var(--ink); font-weight: 500; }
+    .archive-open-btn { display: inline-flex; align-items: center; gap: 8px; border: 0; border-bottom: 1px solid #9caf9f; padding: 0 0 6px; background: transparent; font-size: 13px; color: var(--ink); transition: color 200ms ease, border-color 200ms ease; }
+    .archive-open-btn:hover { color: var(--sage-deep); border-color: var(--sage-deep); }
+    .archive-open-btn svg { transition: transform 220ms var(--ease); }
+    .archive-open-btn:hover svg { transform: translate(2px, -2px); }
+
+    .folio-stage { display: grid; grid-template-columns: minmax(300px, 0.92fr) minmax(0, 1.12fr); gap: clamp(32px, 5vw, 96px); align-items: center; flex: 1; min-height: 0; }
+    .deck-col { display: flex; flex-direction: column; align-items: center; }
+    .deck-zone { position: relative; width: 100%; display: grid; place-items: center; min-height: clamp(360px, 48svh, 490px); user-select: none; -webkit-user-select: none; touch-action: pan-y; }
+    .review-plate {
+      position: absolute;
+      width: clamp(310px, 31vw, 440px);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: #e9ede5;
+      border: 1px solid #dce3d8;
+      transform: translateX(-22px);
+      pointer-events: none;
+      transition: transform 380ms var(--ease), border-color 280ms ease;
+    }
+    .deck-zone.is-deck-hovered .review-plate {
+      transform: translateX(-22px) scale(1.022);
+      border-color: #b7c8ba;
+    }
+    .deck-orbit { position: relative; width: clamp(232px, 23.5vw, 330px); aspect-ratio: 3 / 4.25; }
+    .ticket-card { position: absolute; inset: 0; border-radius: 10px; }
+    .ticket-card[data-offset="0"] { z-index: 10; cursor: grab; perspective: 1400px; }
+    .ticket-card[data-offset="0"].is-flipped { cursor: pointer; }
+    .ticket-card[data-offset="0"].is-dragging { cursor: grabbing; }
+    .ticket-card[data-offset="1"] { z-index: 8; pointer-events: none; }
+    .ticket-card[data-offset="2"] { z-index: 6; pointer-events: none; }
+    .ticket-card[data-offset="3"] { z-index: 4; pointer-events: none; }
+
+    .ticket-flipper { position: relative; width: 100%; height: 100%; transition: transform 660ms var(--spring); }
+    .ticket-card.is-tilting .ticket-flipper, .ticket-card.is-flipped .ticket-flipper, .ticket-card.is-flipping .ticket-flipper { transform-style: preserve-3d; }
+    .ticket-card.is-tilting .ticket-flipper { transform: rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)); transition: none; }
+    .ticket-card.is-flipped .ticket-flipper { transform: translateZ(24px) rotateY(180deg); transition: transform 660ms var(--spring); }
+
+    .ticket-face { position: absolute; inset: 0; border-radius: 10px; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden; }
+    .ticket-face--front { background: var(--card-cream); padding: 10px; border: 1px solid rgba(90, 118, 112, 0.16); box-shadow: 0 22px 44px -18px rgba(34, 54, 61, 0.25), 0 4px 10px rgba(34, 54, 61, 0.06); transition: border-color 240ms ease, box-shadow 320ms var(--ease); }
+    .ticket-card[data-offset="0"]:not(.is-flipped).is-hovered .ticket-face--front,
+    .ticket-card[data-offset="0"]:not(.is-flipped):focus-visible .ticket-face--front,
+    .ticket-card[data-offset="0"].is-dragging .ticket-face--front {
+      border-color: rgba(79, 111, 99, 0.56);
+      box-shadow: 0 30px 56px -18px rgba(34, 54, 61, 0.34), 0 6px 14px rgba(34, 54, 61, 0.09);
+    }
+    .ticket-corner-reticle {
+      position: absolute;
+      inset: 3px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 220ms ease;
+    }
+    .ticket-corner-reticle i {
+      position: absolute;
+      width: 11px;
+      height: 11px;
+      border-color: var(--sage-deep);
+      border-style: solid;
+      border-width: 0;
+      transition: transform 320ms var(--ease);
+    }
+    .ticket-corner-reticle i:nth-child(1) { top: 0; left: 0; border-top-width: 1.5px; border-left-width: 1.5px; border-top-left-radius: 3px; transform: translate(-2px, -2px); }
+    .ticket-corner-reticle i:nth-child(2) { top: 0; right: 0; border-top-width: 1.5px; border-right-width: 1.5px; border-top-right-radius: 3px; transform: translate(2px, -2px); }
+    .ticket-corner-reticle i:nth-child(3) { bottom: 0; left: 0; border-bottom-width: 1.5px; border-left-width: 1.5px; border-bottom-left-radius: 3px; transform: translate(-2px, 2px); }
+    .ticket-corner-reticle i:nth-child(4) { bottom: 0; right: 0; border-bottom-width: 1.5px; border-right-width: 1.5px; border-bottom-right-radius: 3px; transform: translate(2px, 2px); }
+    .ticket-card[data-offset="0"]:not(.is-flipped).is-hovered .ticket-corner-reticle,
+    .ticket-card[data-offset="0"]:not(.is-flipped):focus-visible .ticket-corner-reticle,
+    .ticket-card[data-offset="0"].is-dragging .ticket-corner-reticle {
+      opacity: 0.9;
+    }
+    .ticket-card[data-offset="0"]:not(.is-flipped).is-hovered .ticket-corner-reticle i,
+    .ticket-card[data-offset="0"]:not(.is-flipped):focus-visible .ticket-corner-reticle i,
+    .ticket-card[data-offset="0"].is-dragging .ticket-corner-reticle i {
+      transform: translate(0, 0);
+    }
+    .ticket-poster-wrap { position: relative; width: 100%; height: 100%; border-radius: 5px; overflow: hidden; background: #e1e8de; }
+    .ticket-poster-wrap img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+    .ticket-face--back { transform: rotateY(180deg); background: var(--postcard-back); color: var(--ink); padding: 24px 22px; border: 1px solid #cbd6cc; box-shadow: 0 24px 46px -18px rgba(34, 54, 61, 0.28), inset 0 0 0 6px var(--postcard-back), inset 0 0 0 7px #dfe6dd; display: flex; flex-direction: column; justify-content: space-between; }
+    .postcard-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid #d7e0d6; }
+    .postcard-serial { font: 12px/1.5 var(--mono); color: var(--muted); letter-spacing: 0.08em; }
+    .postcard-stamp { width: 52px; height: 60px; border: 1px solid #b9c8bb; background: #f2f4ec; display: grid; place-items: center; text-align: center; font: 400 18px/1 var(--serif-num); color: var(--sage-deep); }
+    .postcard-stamp span { display: block; font: 12px/1 var(--mono); color: var(--muted); margin-top: 2px; }
+    .postcard-titles { padding-block: 10px; }
+    .postcard-titles h4 { margin: 0 0 6px; font: 500 19px/1.38 var(--serif-body); color: var(--ink); }
+    .postcard-titles p { margin: 0; font: italic 13px/1.4 var(--serif-num); color: var(--muted); }
+    .postcard-specs { margin: 0; display: grid; gap: 9px; padding-block: 14px; border-top: 1px solid #d7e0d6; border-bottom: 1px solid #d7e0d6; font-size: 13px; }
+    .postcard-specs div { display: flex; justify-content: space-between; align-items: baseline; }
+    .postcard-specs dt { color: var(--muted); font-size: 12px; }
+    .postcard-specs dd { margin: 0; font-family: var(--serif-num); color: var(--ink); }
+    .postcard-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; font-size: 12px; color: var(--muted); }
+    .postcard-bgm-link { display: inline-flex; align-items: center; gap: 5px; color: var(--sage-deep); border-bottom: 1px solid #a9beb0; padding-bottom: 2px; }
+    .postcard-bgm-link:hover { color: var(--ink); border-color: var(--ink); }
+
+    .deck-bar { margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 18px; }
+    .round-nav-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #8ea296; background: transparent; display: grid; place-items: center; color: var(--ink); transition: background 200ms ease, color 200ms ease, transform 200ms var(--ease); }
+    .round-nav-btn:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); transform: scale(1.06); }
+
+    .folio-copy { min-width: 0; transition: opacity 220ms ease, transform 300ms var(--ease); }
+    .reviews-section.is-travelling .folio-copy { opacity: 0.34; transform: translateY(-5px); }
+    .folio-meta-line { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+    .folio-meta-sep { width: 18px; height: 1px; background: #b5c3b8; }
+    .folio-title { margin: 0; font: 500 clamp(26px, 2.4vw, 38px)/1.3 var(--serif-body); letter-spacing: -0.015em; text-wrap: balance; }
+    .folio-native { margin: 8px 0 0; font: italic 15px/1.45 var(--serif-num); color: var(--muted); }
+    .folio-score-band { margin-top: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+    .score-hero { position: relative; display: inline-flex; align-items: baseline; gap: 10px; }
+    .score-hero strong { position: relative; z-index: 1; font: 400 clamp(44px, 4vw, 60px)/0.95 var(--serif-num); font-variant-numeric: tabular-nums; color: var(--ink); }
+    .score-hero span { font-size: 13px; color: var(--muted); }
+    .score-brush { position: absolute; left: -4px; bottom: -2px; width: 82px; height: 18px; z-index: 0; pointer-events: none; }
+    .score-brush path { fill: none; stroke: var(--yellow); stroke-width: 11; stroke-linecap: round; stroke-dasharray: 120; stroke-dashoffset: 0; }
+    .score-brush.is-drawing path { animation: brush-draw 520ms var(--ease) both; }
+    @keyframes brush-draw { from { stroke-dashoffset: 120; } to { stroke-dashoffset: 0; } }
+
+    .score-ruler-inline { flex: 1; min-width: 190px; max-width: 260px; display: grid; gap: 7px; }
+    .score-ruler-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+    .score-ruler-bar { position: relative; height: 6px; border-radius: 999px; background: #e1e8e0; }
+    .score-ruler-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--sage); transition: width 460ms var(--ease); }
+    .score-ruler-bgm { position: absolute; top: -3px; bottom: -3px; width: 3px; border-radius: 2px; background: var(--blue); transform: translateX(-50%); transition: left 460ms var(--ease); }
+
+    .folio-prose { margin-top: 22px; max-height: clamp(200px, 31svh, 330px); overflow-y: auto; padding-right: 10px; scrollbar-width: thin; scrollbar-color: #b7c6ba transparent; }
+    .folio-prose p { margin: 0 0 13px; font-size: clamp(15px, 1.05vw, 17px); line-height: 1.92; color: #2f4852; max-width: 40em; }
+    .folio-prose p:last-child { margin-bottom: 0; }
+    .ep-marker { display: inline-block; margin-right: 8px; padding: 1px 7px; border-radius: 4px; background: #e5ece5; color: var(--sage-deep); font-family: var(--mono); font-size: 12px; }
+    .folio-empty-stamp { display: inline-block; padding: 10px 0; color: var(--muted); font-size: 14px; }
+    .folio-actions { margin-top: 20px; display: flex; align-items: center; gap: 24px; }
+    .text-action-link { display: inline-flex; align-items: center; gap: 7px; border: 0; border-bottom: 1px solid #96ab9b; padding: 0 0 5px; background: transparent; font-size: 13px; color: var(--ink); transition: color 200ms ease, border-color 200ms ease; }
+    .text-action-link:hover { color: var(--sage-deep); border-color: var(--sage-deep); }
+    .folio-copy.is-entering :is(.folio-meta-line, .folio-title, .folio-native, .folio-score-band, .folio-prose) { animation: folio-rise 400ms var(--ease) backwards; }
+    .folio-copy.is-entering .folio-title { animation-delay: 35ms; }
+    .folio-copy.is-entering .folio-score-band { animation-delay: 70ms; }
+    .folio-copy.is-entering .folio-prose { animation-delay: 105ms; }
+    @keyframes folio-rise { from { opacity: 0; translate: 0 10px; } to { opacity: 1; translate: 0 0; } }
+
+    /* =====================================================================
+       SECTION 02: 观看时间轴
+    ===================================================================== */
+    .timeline-anchor { position: relative; display: block; height: 0; scroll-margin-top: 56px; }
+    .timeline-section {
+      position: absolute;
+      inset: 0;
+      z-index: 8;
+      height: 100%;
+      scroll-margin-top: 56px;
+      padding-block: clamp(28px, 4.5svh, 54px) clamp(28px, 4.5svh, 50px);
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: clip;
+    }
+    .range-segmented { position: relative; display: inline-flex; padding: 4px; border-radius: 999px; background: #dde7df; border: 1px solid #c9d6cb; gap: 2px; }
+    .range-thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; border-radius: 999px; background: var(--paper); box-shadow: 0 2px 6px rgba(37, 62, 73, 0.07); transition: transform 360ms var(--ease), width 360ms var(--ease); pointer-events: none; }
+    .range-btn { position: relative; z-index: 1; border: 0; background: transparent; padding: 7px 14px; border-radius: 999px; font-size: 13px; color: var(--ink-soft); white-space: nowrap; }
+    .range-btn[aria-pressed="true"] { color: var(--ink); font-weight: 500; }
+
+    .timeline-stage { display: grid; grid-template-columns: minmax(290px, 0.96fr) minmax(0, 1.04fr); gap: clamp(28px, 4.5vw, 84px); align-items: center; flex: 1; padding-block: 8px; }
+    .polaroid-stage { position: relative; height: clamp(340px, 45svh, 460px); display: grid; place-items: center; user-select: none; -webkit-user-select: none; touch-action: pan-y; cursor: grab; }
+    .polaroid-stage.is-scrubbing { cursor: grabbing; }
+    .polaroid-backdrop-ring { position: absolute; width: clamp(260px, 33svh, 400px); aspect-ratio: 1; border-radius: 50%; border: 1px solid #d3e0d3; background: #dde8dc; pointer-events: none; }
+    .polaroid-deck { position: relative; width: 100%; height: 100%; z-index: 2; }
+    .polaroid-card { position: absolute; left: 50%; top: 43%; width: clamp(152px, 20svh, 226px); margin: 0; padding: 8px 8px 0; background: var(--card-cream); border: 1px solid rgba(90, 122, 118, 0.16); border-radius: 5px; box-shadow: 0 18px 34px -16px rgba(34, 57, 63, 0.34), 0 3px 8px rgba(34, 57, 63, 0.08); transform-origin: 50% 72%; cursor: pointer; transition: box-shadow 260ms ease, border-color 260ms ease; }
+    .polaroid-card-img { aspect-ratio: 0.72; overflow: hidden; background: var(--mist); border-radius: 2px; }
+    .polaroid-card-img img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+    .polaroid-card figcaption { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 2px 10px; font-size: 12px; color: var(--ink-soft); }
+    .polaroid-card-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--ink); }
+    .polaroid-card-score { flex: 0 0 auto; font-family: var(--serif-num); color: #6b5e2d; }
+    .polaroid-card.is-synced-hover, .polaroid-card:hover { border-color: var(--sage-deep); box-shadow: 0 26px 46px -14px rgba(30, 52, 58, 0.42), 0 0 0 2px rgba(121, 152, 137, 0.25); }
+    .polaroid-sleeve { position: absolute; z-index: 8; bottom: clamp(2px, 1svh, 12px); left: 50%; transform: translateX(-50%) rotate(-1.5deg); width: clamp(230px, 26vw, 310px); height: 36px; padding: 0 14px; display: flex; align-items: center; gap: 10px; border-radius: 4px 4px 8px 8px; border: 1px solid rgba(143, 168, 158, 0.34); background: rgba(248, 250, 247, 0.94); box-shadow: 0 6px 14px rgba(42, 65, 59, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9); font: 12px/1 var(--mono); color: var(--ink-soft); pointer-events: none; }
+    .polaroid-sleeve i { flex: 1; height: 1px; background: rgba(121, 152, 137, 0.4); }
+    .polaroid-empty-card { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%) rotate(-3deg); width: clamp(185px, 23svh, 250px); aspect-ratio: 0.75; border-radius: 6px; border: 1px dashed #a9bcb0; background: var(--card-cream); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 20px; color: var(--muted); box-shadow: 0 16px 32px -18px rgba(42, 66, 61, 0.2); }
+    .polaroid-empty-card strong { font: 500 16px/1.4 var(--serif-body); color: var(--ink); }
+    .polaroid-empty-card span { font-size: 12px; line-height: 1.6; }
+
+    .timeline-copy { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+    .month-odometer-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+    .odometer-digits { display: inline-flex; align-items: center; font: 400 clamp(72px, 10.5svh, 122px)/1.12 var(--serif-num); color: var(--sage-deep); letter-spacing: -0.05em; }
+    .odo-slot { position: relative; display: inline-block; height: 1.18em; overflow: hidden; padding-inline: 2px; }
+    .odo-digit { display: block; line-height: 1.12; }
+    .month-meta-stack { display: grid; gap: 8px; }
+    .month-year-line { display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--ink); }
+    .month-count-line { margin: 0; font-size: 16px; color: var(--ink-soft); }
+    .month-count-line strong { font: 400 24px/1 var(--serif-num); color: var(--ink); margin-inline: 3px; }
+
+    .contact-sheet-list { margin: 0; padding: 4px 0 0; list-style: none; max-height: clamp(210px, 31svh, 320px); overflow-y: auto; border-top: 1px solid #cfdcd1; scrollbar-width: thin; scrollbar-color: #a8bcae transparent; }
+    .contact-sheet-item { border-bottom: 1px solid #d5e1d7; }
+    .contact-sheet-btn { width: 100%; border: 0; background: transparent; padding: 10px 8px; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto auto; align-items: center; gap: 14px; text-align: left; border-radius: 8px; transition: background 180ms ease, transform 220ms var(--ease); }
+    .contact-sheet-btn:hover, .contact-sheet-btn.is-synced-hover { background: rgba(255, 255, 255, 0.72); transform: translateX(4px); }
+    .contact-sheet-btn img { width: 40px; height: 54px; object-fit: cover; border-radius: 4px; background: #dce6de; }
+    .contact-sheet-text { min-width: 0; display: grid; gap: 4px; }
+    .contact-sheet-text strong { font: 500 15px/1.35 var(--serif-body); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .contact-sheet-text span { font-size: 12px; color: var(--muted); }
+    .contact-sheet-score { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; background: var(--yellow-soft); color: #675824; font-size: 12px; font-family: var(--serif-num); }
+    .contact-sheet-score.is-none { background: #e2ebe4; color: var(--muted); }
+    .contact-sheet-action { font-size: 12px; color: var(--sage-deep); white-space: nowrap; }
+
+    .ruler-instrument { position: relative; margin-top: clamp(14px, 2.2svh, 24px); padding-top: 12px; border-top: 1px solid #cbd9ce; }
+    .ruler-top-meta { display: flex; justify-content: flex-end; font: 12px/1 var(--mono); color: var(--muted); margin-bottom: 4px; }
+    .ruler-scroll { position: relative; overflow-x: auto; overflow-y: visible; padding-top: 32px; padding-bottom: 6px; scrollbar-width: thin; scrollbar-color: #aac0b1 transparent; }
+    .ruler-canvas { position: relative; height: 146px; min-width: 100%; user-select: none; -webkit-user-select: none; touch-action: pan-y; cursor: ew-resize; }
+    .ruler-svg { position: absolute; inset: 0 0 34px 0; width: 100%; height: 112px; overflow: visible; pointer-events: none; }
+    .ruler-grid { stroke: rgba(114, 146, 134, 0.16); stroke-dasharray: 2 5; stroke-width: 1; }
+    .ruler-area { fill: rgba(143, 188, 214, 0.14); }
+    .ruler-curve { fill: none; stroke: #6f9cb6; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+    .ruler-year-divider { stroke: rgba(93, 122, 114, 0.28); stroke-dasharray: 3 4; stroke-width: 1; }
+    .ruler-year-tag { fill: #557268; font-size: 12px; font-family: var(--mono); }
+    .ruler-cols { position: absolute; inset: 0; display: grid; align-items: end; }
+    .ruler-col { position: relative; height: 100%; border: 0; background: transparent; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; cursor: pointer; }
+    .ruler-dot { position: absolute; left: 50%; width: 9px; height: 9px; border-radius: 50%; background: #89b2c5; border: 2px solid #f7faf7; box-shadow: 0 1px 4px rgba(37, 62, 73, 0.18); transform: translateX(-50%) translateY(var(--mag-y, 0px)) scale(var(--mag-scale, 1)); pointer-events: none; transition: background 180ms ease, border-color 180ms ease, transform 75ms linear; }
+    .ruler-dot.is-zero { background: #f5f9f6; border: 1.8px solid #96b3a6; }
+    .ruler-col[aria-pressed="true"] .ruler-dot { width: 11px; height: 11px; background: var(--yellow); border: 2.5px solid var(--sage-deep); }
+    .ruler-col-label { height: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 0 8px; border-radius: 999px; font-size: 12px; color: var(--muted); transform: translateY(var(--label-y, 0px)); transition: background 180ms ease, color 180ms ease; white-space: nowrap; }
+    .ruler-col[aria-pressed="true"] .ruler-col-label { background: var(--yellow-soft); color: #3f5d52; font-weight: 600; }
+    .ruler-loupe { position: absolute; top: -28px; left: 0; transform: translateX(-50%); padding: 4px 11px; border-radius: 999px; background: var(--ink); color: #f8faf7; font-size: 12px; white-space: nowrap; pointer-events: none; opacity: 0; box-shadow: 0 6px 14px rgba(37, 62, 73, 0.18); transition: opacity 180ms ease; z-index: 8; }
+    .ruler-loupe.is-visible { opacity: 1; }
+    .ruler-loupe-line { position: absolute; top: 0; bottom: 32px; left: 0; width: 1px; background: rgba(37, 62, 73, 0.34); pointer-events: none; opacity: 0; transition: opacity 180ms ease; }
+    .ruler-loupe-line.is-visible { opacity: 1; }
+
+    /* Archive Drawer */
+    .archive-drawer { position: fixed; inset: 0; z-index: 70; background: rgba(242, 243, 237, 0.98); display: flex; flex-direction: column; animation: drawer-curtain 380ms var(--ease) both; }
+    @keyframes drawer-curtain { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+    .archive-drawer-head { width: min(1360px, calc(100% - 40px)); margin-inline: auto; padding: 20px 0 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .archive-drawer-head h3 { margin: 0; font: 400 26px/1.2 var(--serif-display); }
+    .archive-close-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #bcc9be; background: var(--card-cream); display: grid; place-items: center; }
+    .archive-toolbar { width: min(1360px, calc(100% - 40px)); margin: 14px auto 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .archive-search { flex: 1; min-width: 220px; max-width: 340px; padding: 9px 14px; border-radius: 999px; border: 1px solid #c7d4c9; background: #ffffff; font-size: 13px; }
+    .archive-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .archive-chip { padding: 6px 13px; border-radius: 999px; border: 1px solid #c9d5ca; background: var(--card-cream); font-size: 12px; color: var(--ink-soft); }
+    .archive-chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #ffffff; }
+    .archive-sort { padding: 7px 12px; border-radius: 999px; border: 1px solid #c9d5ca; background: #ffffff; font-size: 12px; }
+    .archive-grid-scroll { flex: 1; overflow-y: auto; padding: 20px 0 48px; }
+    .archive-grid { width: min(1360px, calc(100% - 40px)); margin-inline: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
+    .archive-ticket { border: 1px solid #d5dfd7; border-radius: 10px; background: var(--card-cream); padding: 14px; display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 14px; text-align: left; transform: rotate(var(--tilt, 0deg)); box-shadow: 0 10px 24px -16px rgba(37, 62, 73, 0.22); transition: transform 260ms var(--ease), box-shadow 260ms var(--ease), border-color 200ms ease; }
+    .archive-ticket:hover { transform: rotate(0deg) translateY(-5px); border-color: var(--sage-deep); box-shadow: 0 20px 32px -16px rgba(37, 62, 73, 0.3); }
+    .archive-ticket img { width: 74px; height: 104px; object-fit: cover; border-radius: 5px; background: #dfe7e1; }
+    .archive-ticket-body { min-width: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; }
+    .archive-ticket-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }
+    .archive-ticket-score { padding: 2px 8px; border-radius: 999px; background: var(--yellow-soft); color: #5d531d; font-family: var(--serif-num); }
+    .archive-ticket-body h4 { margin: 0; font: 500 15px/1.35 var(--serif-body); color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .archive-ticket-excerpt { margin: 0; font-size: 12px; line-height: 1.55; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+    @media (max-width: 960px), (max-height: 679px) {
+      .reviews-track { height: auto; }
+      .stage-pin { position: relative; top: auto; height: auto; overflow: visible; background: var(--paper-review); }
+      .reviews-section { position: relative; inset: auto; height: auto; min-height: calc(100svh - 56px); }
+      .morph-proxy-plate, .morph-proxy-card { display: none; }
+      .timeline-section { position: relative; inset: auto; height: auto; min-height: calc(100svh - 56px); background: var(--paper-timeline); opacity: 1 !important; pointer-events: auto !important; }
+      .folio-stage { grid-template-columns: 1fr; gap: 28px; }
+      .deck-zone { min-height: 360px; }
+      .deck-orbit { width: clamp(200px, 52vw, 270px); }
+      .timeline-stage { grid-template-columns: 1fr; gap: 22px; }
+      .polaroid-stage { height: 332px; }
+      .polaroid-card { top: 41%; }
+    }
+    @media (max-width: 600px) {
+      .demo-bar-inner { height: 52px; }
+      .demo-brand { font-size: 16px; }
+      .demo-nav { gap: 16px; }
+      .filter-pills { width: 100%; overflow-x: auto; }
+      .contact-sheet-btn { grid-template-columns: 38px minmax(0, 1fr) auto; }
+      .contact-sheet-action { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .reviews-track { height: auto; }
+      .stage-pin { position: relative; top: auto; height: auto; overflow: visible; background: var(--paper-review); }
+      .reviews-section { position: relative; inset: auto; height: auto; }
+      .morph-proxy-plate, .morph-proxy-card { display: none; }
+      .timeline-section { position: relative; inset: auto; height: auto; background: var(--paper-timeline); opacity: 1 !important; pointer-events: auto !important; }
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="demo-bar">
+    <div class="demo-bar-inner">
+      <strong class="demo-brand">我的动漫偏好</strong>
+      <nav class="demo-nav" aria-label="章节导航">
+        <a href="#section-reviews" id="nav-reviews" class="is-current">评分与短评</a>
+        <a href="#timeline-settled" id="nav-timeline">观看时间轴</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="reviews-track" id="reviews-track">
+      <div class="stage-pin" id="stage-pin">
+        <section id="section-reviews" class="reviews-section" aria-labelledby="reviews-heading">
+          <div class="section-shell">
+            <header class="section-top" id="reviews-top">
+              <div class="section-title-row">
+                <h2 id="reviews-heading">评分与短评</h2>
+                <span class="folio-counter" id="folio-counter"><strong>01</strong> / 79</span>
+              </div>
+
+              <div class="reviews-controls">
+                <div class="filter-pills" id="review-filters" role="group" aria-label="筛选短评">
+                  <div class="filter-thumb" id="review-filter-thumb" aria-hidden="true"></div>
+                  <button class="filter-btn" type="button" data-filter="all" aria-pressed="true">全部 79</button>
+                  <button class="filter-btn" type="button" data-filter="love" aria-pressed="false">9–10分</button>
+                  <button class="filter-btn" type="button" data-filter="long" aria-pressed="false">长评</button>
+                  <button class="filter-btn" type="button" data-filter="strict" aria-pressed="false">≤5分</button>
+                </div>
+                <button class="archive-open-btn" type="button" id="open-archive-btn">
+                  <span>查看全部 79</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+                </button>
+              </div>
+            </header>
+
+            <div class="folio-stage" id="folio-stage">
+              <div class="deck-col" id="deck-col">
+                <div class="deck-zone" id="deck-zone" tabindex="0" aria-label="评分作品卡片：左右键切换，空格翻面，拖动切卡">
+                  <div class="review-plate" id="review-plate" aria-hidden="true"></div>
+                  <div class="deck-orbit" id="deck-orbit"></div>
+                </div>
+                <div class="deck-bar" id="deck-bar">
+                  <button class="round-nav-btn" type="button" id="review-prev-btn" aria-label="上一部作品">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                  </button>
+                  <button class="round-nav-btn" type="button" id="review-next-btn" aria-label="下一部作品">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <article class="folio-copy" id="folio-copy" aria-live="polite">
+                <div class="folio-meta-line">
+                  <time id="folio-date">2026 / 11 / 13</time>
+                  <span class="folio-meta-sep" aria-hidden="true"></span>
+                  <span id="folio-rank-info">BGM 8.0</span>
+                </div>
+
+                <h3 class="folio-title" id="folio-title">加载中...</h3>
+                <p class="folio-native" id="folio-native"></p>
+
+                <div class="folio-score-band">
+                  <div class="score-hero">
+                    <strong id="folio-score">8.0</strong>
+                    <span>/ 10 我的评分</span>
+                    <svg class="score-brush" id="score-brush" viewBox="0 0 90 20" aria-hidden="true">
+                      <path d="M4 13 Q 36 7, 86 12" />
+                    </svg>
+                  </div>
+                  <div class="score-ruler-inline" aria-label="我的评分与 Bangumi 均分对比">
+                    <div class="score-ruler-labels">
+                      <span>Bangumi</span>
+                      <span id="folio-delta-text">8.0</span>
+                    </div>
+                    <div class="score-ruler-bar">
+                      <div class="score-ruler-fill" id="folio-ruler-fill" style="width: 80%"></div>
+                      <div class="score-ruler-bgm" id="folio-ruler-bgm" style="left: 80%"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="folio-prose" id="folio-prose"></div>
+
+                <div class="folio-actions">
+                  <a class="text-action-link" id="folio-bgm-link" href="https://bangumi.tv" target="_blank" rel="noreferrer">
+                    <span>Bangumi 条目</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+                  </a>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <!-- Plan C Continuous Spatial Morph Proxy Layer -->
+        <div class="morph-proxy-plate" id="morph-proxy-plate" aria-hidden="true"></div>
+        <figure class="morph-proxy-card" id="morph-proxy-card" aria-hidden="true">
+          <div class="morph-proxy-card-img">
+            <img id="morph-proxy-img" src="" alt="" />
+          </div>
+          <figcaption class="morph-proxy-caption" id="morph-proxy-caption">
+            <span class="morph-proxy-caption-title" id="morph-proxy-title"></span>
+            <span class="morph-proxy-caption-score" id="morph-proxy-score"></span>
+          </figcaption>
+        </figure>
+
+        <!-- Section 02: 观看时间轴 -->
+        <span class="timeline-anchor" id="timeline-settled" aria-hidden="true"></span>
+        <section id="section-timeline" class="timeline-section" aria-labelledby="timeline-heading">
+          <div class="section-shell" style="display:flex;flex-direction:column;flex:1;justify-content:space-between;">
+            <header class="section-top" id="timeline-top">
+              <div class="section-title-row">
+                <h2 id="timeline-heading">观看时间轴</h2>
+                <span class="folio-counter"><strong>77</strong> 部</span>
+                <span class="section-sub-note">按收藏记录更新时间归档</span>
+              </div>
+
+              <div class="range-segmented" id="tl-range-group" role="group" aria-label="时间跨度">
+                <div class="range-thumb" id="tl-range-thumb" aria-hidden="true"></div>
+                <button class="range-btn" type="button" data-range="12" aria-pressed="true">近一年</button>
+                <button class="range-btn" type="button" data-range="24" aria-pressed="false">近两年</button>
+                <button class="range-btn" type="button" data-range="all" aria-pressed="false">全部记录</button>
+              </div>
+            </header>
+
+            <div class="timeline-stage" id="timeline-stage">
+              <div class="polaroid-stage" id="polaroid-stage" tabindex="0" aria-label="月度影册：拖动切换月份，点击卡片切换置顶或前往对应短评">
+                <div class="polaroid-backdrop-ring" id="polaroid-ring" aria-hidden="true"></div>
+                <div class="polaroid-deck" id="polaroid-deck"></div>
+                <div class="polaroid-sleeve" id="polaroid-sleeve" aria-hidden="true">
+                  <span>ANIME ARCHIVE</span>
+                  <i></i>
+                  <span id="sleeve-year">2026</span>
+                </div>
+              </div>
+
+              <div class="timeline-copy" id="timeline-copy">
+                <div class="month-odometer-row">
+                  <div class="odometer-digits" id="odometer-digits" aria-live="polite">
+                    <span class="odo-slot" id="odo-tens"><span class="odo-digit">1</span></span>
+                    <span class="odo-slot" id="odo-ones"><span class="odo-digit">0</span></span>
+                  </div>
+                  <div class="month-meta-stack">
+                    <div class="month-year-line">
+                      <span>月</span>
+                      <span id="tl-year-label">2026</span>
+                    </div>
+                    <p class="month-count-line" id="tl-count-line">收录 <strong>2</strong> 部动画</p>
+                  </div>
+                </div>
+
+                <ul class="contact-sheet-list" id="contact-sheet-list"></ul>
+              </div>
+            </div>
+
+            <div class="ruler-instrument" id="ruler-instrument">
+              <div class="ruler-top-meta">
+                <span id="ruler-range-caption">2025.12 — 2026.11</span>
+              </div>
+              <div class="ruler-scroll" id="ruler-scroll">
+                <div class="ruler-canvas" id="ruler-canvas">
+                  <svg class="ruler-svg" id="ruler-svg" preserveAspectRatio="none"></svg>
+                  <div class="ruler-loupe-line" id="ruler-loupe-line" aria-hidden="true"></div>
+                  <div class="ruler-loupe" id="ruler-loupe" aria-hidden="true">2026.10 · 2部</div>
+                  <div class="ruler-cols" id="ruler-cols"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <div class="archive-drawer" id="archive-drawer" hidden role="dialog" aria-modal="true" aria-labelledby="archive-drawer-title">
+    <div class="archive-drawer-head">
+      <h3 id="archive-drawer-title">全部评分与短评</h3>
+      <button class="archive-close-btn" type="button" id="close-archive-btn" aria-label="关闭档案视图">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <div class="archive-toolbar">
+      <input class="archive-search" id="archive-search" type="search" placeholder="搜索作品或短评..." aria-label="搜索评分与短评" />
+      <div class="archive-filters" id="archive-tier-chips">
+        <button class="archive-chip" type="button" data-tier="all" aria-pressed="true">全部</button>
+        <button class="archive-chip" type="button" data-tier="9-10" aria-pressed="false">9–10分</button>
+        <button class="archive-chip" type="button" data-tier="7-8" aria-pressed="false">7–8分</button>
+        <button class="archive-chip" type="button" data-tier="0-6" aria-pressed="false">≤6分</button>
+        <button class="archive-chip" type="button" data-tier="commented" aria-pressed="false">含短评</button>
+      </div>
+      <select class="archive-sort" id="archive-sort" aria-label="排序方式">
+        <option value="date-desc">最新记录</option>
+        <option value="score-desc">评分从高到低</option>
+        <option value="score-asc">评分从低到高</option>
+        <option value="diff-desc">与 Bangumi 分差</option>
+      </select>
+    </div>
+    <div class="archive-grid-scroll">
+      <div class="archive-grid" id="archive-grid"></div>
+    </div>
+  </div>
+
+  <script>
+    const DEMO_DATA = {"reviews":[{"id":545917,"name":"これ描いて死ね","nameCn":"画完这个再去死","bangumiScore":8,"rank":212,"url":"https://bangumi.tv/subject/545917","userScore":8,"comment":"ep.1 一集就让我喜欢上了呀！//","updatedAt":"2026-11-13T22:35:36+08:00","largePath":"../../public/images/bangumi/2d7ed42d14f08694.webp","thumbPath":"../../public/images/bangumi/2d7ed42d14f08694-thumb.webp"},{"id":554779,"name":"生徒会にも穴はある！","nameCn":"学生会也有洞！","bangumiScore":7.7,"rank":525,"url":"https://bangumi.tv/subject/554779","userScore":9,"comment":"神作画","updatedAt":"2026-11-03T23:02:33+08:00","largePath":"../../public/images/bangumi/b19f3d812db1ce6e.webp","thumbPath":"../../public/images/bangumi/b19f3d812db1ce6e-thumb.webp"},{"id":545008,"name":"ふつつかな悪女ではございますが ～雛宮蝶鼠とりかえ伝～","nameCn":"恶女不才，请多关照 ～雏宫蝶鼠换身传～","bangumiScore":7,"rank":2658,"url":"https://bangumi.tv/subject/545008","userScore":4,"comment":"ep.1 感觉第一集太典了吧……笑点也不好笑，不过好像评价还行？算了接着看下去好了 // \r\nep.2 坏了现在有点想继续看下去了 // \r\nep.3 还是觉得用力过猛，尬成啥了…… ok 啊我最讨厌的圣母桥段也是来了。 // \r\nep.5 没办法看下去了。实在是过于小家子气，像是在看过家家一样。\r\n一集要提到一百次恶女和一百次舞女老妈。\r\n就算是想做爽文类型的话，那也没有这么拖沓的爽文吧？","updatedAt":"2026-10-24T02:35:38+08:00","largePath":"../../public/images/bangumi/5972a65f90a71907.webp","thumbPath":"../../public/images/bangumi/5972a65f90a71907-thumb.webp"},{"id":255209,"name":"二十世紀電氣目録-ユーレカ・エヴリカ-","nameCn":"二十世纪电气目录","bangumiScore":4.7,"rank":10205,"url":"https://bangumi.tv/subject/255209","userScore":3,"comment":"看前两集的时候觉得还行来着……现在的感觉是，这是彻彻底底的浪费作画资源，同时也浪费了我的时间和期待。\r\n这个和一拳超人三就完全是两个极端，这一部则是最顶级的作画，配上最屎的剧情、人物塑造和编排。简直就是在乱搞。我都开始怀疑是不是原作的问题了。不过就算原作烂，动漫那能做到这种地步也是有着极致的水平了，开始播之前还有一大波宣发，我去了，就这样被骗进来。\r\n假如说追别的动漫我可能是每周看完都感叹“为什么这么短啊！”……看这个就是每周都忍不住想要骂一次。看到第十一集真的有一拳把屏幕砸烂的冲动。\r\n你他妈非要搞那个b男同剧情干啥啊？？男同女同牛头人纯爱，我去了给你集印花来了是吧。\r\n不是，真的是烂出水平烂出风采了啊。\r\n我还有好多好多想骂的，可惜篇幅太短这里写不下。","updatedAt":"2026-10-05T00:29:54+08:00","largePath":"../../public/images/bangumi/65c1cfaee3199230.webp","thumbPath":"../../public/images/bangumi/65c1cfaee3199230-thumb.webp"},{"id":977,"name":"あずまんが大王 THE ANIMATION","nameCn":"笑园漫画大王","bangumiScore":7.9,"rank":354,"url":"https://bangumi.tv/subject/977","userScore":9,"comment":"","updatedAt":"2026-09-25T22:16:09+08:00","largePath":"../../public/images/bangumi/7f72925beb1d12e0.webp","thumbPath":"../../public/images/bangumi/7f72925beb1d12e0-thumb.webp"},{"id":552533,"name":"天幕のジャードゥーガル","nameCn":"穹庐下的魔女","bangumiScore":7.9,"rank":276,"url":"https://bangumi.tv/subject/552533","userScore":7,"comment":"直到最后几集我才意识到这个魔女指的不是女主，而且包含女主所在的她们——女主更像是一个旁观者或者牵线人的角色。但是最开始的暗示和指向不是一直都指的是女主吗，旨在展示出女主的聪慧。这导致后面女主犯蠢会让我觉得和前面塑造的人物有些冲突，令我非常难受啊（其实就是女主突然变蠢了让我很不爽）。\r\n这部的氛围和一些演出真的做得超好，但是确实是有些过于拖沓了吧？最开始的几集真的超级沉浸和令人动容，后面就渐渐的让我感觉有些乏味了。","updatedAt":"2026-09-19T02:21:15+08:00","largePath":"../../public/images/bangumi/b38cd18e969b1b18.webp","thumbPath":"../../public/images/bangumi/b38cd18e969b1b18-thumb.webp"},{"id":69214,"name":"私がモテないのはどう考えてもお前らが悪い!","nameCn":"我不受欢迎，怎么想都是你们的错！","bangumiScore":6.9,"rank":2945,"url":"https://bangumi.tv/subject/69214","userScore":9,"comment":"从各种意义上说都非常的难绷啊  //  \r\n我草我不行了，这是人类能想出来的剧情吗 //  \r\n在这条路上也是登峰造极了，这大概也算是某种意义上的神作吧……其实我都想给十分来着（雾）。不过我是真的非常喜欢这部，看的笑得不行了都，当然也尬得不行。从来没有这样的动漫，看某一集看到一半真的顶不住需要停下来缓一会，等做好心理准备了之后才能鼓起勇气点开播放键接着看的。看完却感觉意犹未尽，有点想去找漫画看了。真的很希望智子最后能走出阴霾，交到更多的好朋友。","updatedAt":"2026-08-20T15:24:05+08:00","largePath":"../../public/images/bangumi/39935a35f2fb3cda.webp","thumbPath":"../../public/images/bangumi/39935a35f2fb3cda-thumb.webp"},{"id":511207,"name":"前橋ウィッチーズ","nameCn":"前桥魔女","bangumiScore":7.2,"rank":1888,"url":"https://bangumi.tv/subject/511207","userScore":7,"comment":"还不错？确实有我挺喜欢的部分，也有感动的部分，但是整体上对这部确实称不上很喜欢。舞台音乐表演很多，但是感觉歌都有点太公式了（当然我也知道动漫想整出很多首出彩的歌是很难的），这部分确实不太喜欢。结尾处我也不是特别懂，没办法共情荣子和她摧毁这里的动机，导致最后感觉也一般般。不过很多地方做的还是有些有趣的，然后对于每个角色的诠释也很到位。对了还有，很多伏笔也做得很巧妙，每一个也都回收得很好。","updatedAt":"2026-07-11T02:48:35+08:00","largePath":"../../public/images/bangumi/603eecf23b06a9ef.webp","thumbPath":"../../public/images/bangumi/603eecf23b06a9ef-thumb.webp"},{"id":137722,"name":"僕だけがいない街","nameCn":"只有我不存在的城市","bangumiScore":7.6,"rank":671,"url":"https://bangumi.tv/subject/137722","userScore":5,"comment":"有太多逻辑说不通的地方了，或者说有太多地方我有疑点了，导致有点难共情进去。而且这部的节奏也有问题吧？后两个人感觉差不多就是一笔带过。结尾也莫名其妙，光最后一集那些说不通的地方都太多了，要我列出来的话这里都塞不下。不开玩笑的说，我看的途中写出来的吐槽的量都可以写一个很长的长评了。一开始我还夸“电影感”来着，没想到就一路走低了。不喜欢这部，op和ed好听加0.5分。","updatedAt":"2026-07-07T13:53:53+08:00","largePath":"../../public/images/bangumi/38be97e00480df80.webp","thumbPath":"../../public/images/bangumi/38be97e00480df80-thumb.webp"},{"id":513208,"name":"霧尾ファンクラブ","nameCn":"雾尾粉丝后援会","bangumiScore":6.9,"rank":2886,"url":"https://bangumi.tv/subject/513208","userScore":7,"comment":"假如只看前十集的话，我肯定会给8分。一开始看得时候真的很喜欢这部，看得根本停不下来。在这样的作画资源下能把动漫做得这么有趣，天哪。好久没有看番笑得这么开心了，在某一集好像笑得眼泪都出来了。但是到最后两话这个男主的塑造和他的所作所为我实在是无法理解，前面还稍微能共情一下到了这里就出戏得不得了。我在想假如完完全全的隐藏掉男主会不会是一个更好的选择呢？我感觉我真的是这个世界上最想给这部番打高分的人啊，前面带给我的快乐是实实在在的，但是到了最后……          ps：三好同学对于我来说也是非常的耀眼啊。","updatedAt":"2026-06-19T03:29:54+08:00","largePath":"../../public/images/bangumi/53b6149115e42786.webp","thumbPath":"../../public/images/bangumi/53b6149115e42786-thumb.webp"},{"id":390555,"name":"New PANTY & STOCKING with GARTERBELT","nameCn":"新 吊带袜天使","bangumiScore":7.5,"rank":944,"url":"https://bangumi.tv/subject/390555","userScore":7,"comment":"虽然说看完第一季后瞄了眼这一季的评论，一开始就是没抱着多少期待来看的，不过依旧是有一些惊喜的，也有在我心目中称得上是神回的 part 。但是确实，感觉惊喜变得少了一些，没有那么的无下限无节操，也没有特别多令人叹为观止的创意，感觉无聊的地方变得多了很多。有好多集有3 part，就切得有点太散太碎了让人更没有点开的欲望，果然我还是比较喜欢有剧情连贯的部分么。neta的大部分都看不懂，不过偶尔蹦出来个看懂了的依旧会捧腹大笑。总体来说这季的质量确实依旧是挺高的，刚看完第一季的我看到这一季的画质直接被爽到了，美美截了好多美图。由于刚看完最后两集不得不提一嘴，虽然说这两集有点俗套吧但我就吃这套[狗头]，果然还是比较喜欢有剧情的部分么，但是最后的结局实在是称不上喜欢。果然第一季的那个结尾是无法超越的么，那依旧是我心目中最帅最炸裂的结尾。","updatedAt":"2026-06-08T15:27:07+08:00","largePath":"../../public/images/bangumi/ed58ab2aff1c0bd2.webp","thumbPath":"../../public/images/bangumi/ed58ab2aff1c0bd2-thumb.webp"},{"id":609183,"name":"茉莉花ちゃんの好感度はぶっ壊れている","nameCn":"茉莉花酱的好感度正在崩坏","bangumiScore":4.5,"rank":10259,"url":"https://bangumi.tv/subject/609183","userScore":4,"comment":"","updatedAt":"2026-06-01T00:22:01+08:00","largePath":"../../public/images/bangumi/0237168ecc4e159e.webp","thumbPath":"../../public/images/bangumi/0237168ecc4e159e-thumb.webp"},{"id":525565,"name":"正反対な君と僕","nameCn":"相反的你和我","bangumiScore":7.7,"rank":570,"url":"https://bangumi.tv/subject/525565","userScore":6,"comment":"不知为何，看了三集之后感觉有些无聊，遂弃。可能是我的问题吧。害，人生","updatedAt":"2026-05-31T23:49:48+08:00","largePath":"../../public/images/bangumi/fa6ff4ff0d197680.webp","thumbPath":"../../public/images/bangumi/fa6ff4ff0d197680-thumb.webp"},{"id":8402,"name":"Panty & Stocking with Garterbelt","nameCn":"吊带袜天使","bangumiScore":8,"rank":261,"url":"https://bangumi.tv/subject/8402","userScore":9,"comment":"让我大开眼界了，每一秒都在意料之外，看得时候嘴经常张开得合不上。真的是令人叹为观止啊！看的时候看着看突然就爱上这一部了。整整13集真的无可挑剔啊，音乐也是真的好听。之前便听闻很多人吹捧其为神作，如今以身入局，发现名副其实啊。\r\n虽然说从头到尾都充斥着无节操无底线的气氛，但是总是会有那么几个瞬间能够将我打动。\r\n敬最伟大的创意与想象力！","updatedAt":"2026-05-25T21:45:29+08:00","largePath":"../../public/images/bangumi/cb9ca7224e073296.webp","thumbPath":"../../public/images/bangumi/cb9ca7224e073296-thumb.webp"},{"id":517057,"name":"【推しの子】 第3期","nameCn":"【我推的孩子】 第三季","bangumiScore":7.2,"rank":1745,"url":"https://bangumi.tv/subject/517057","userScore":8,"comment":"这个制作太吊了吧，身为作画党感觉看得真的很爽。\r\n但是……感觉已经不是制作能不能救的问题了，原作是不是有点发狂了啊[捂脸]。\r\n不过要说好不好看的话，确实依旧非常好看啊。\r\n靠超想看后面的，下一季什么时候出啊。","updatedAt":"2026-04-23T13:57:36+08:00","largePath":"../../public/images/bangumi/32233038754efe00.webp","thumbPath":"../../public/images/bangumi/32233038754efe00-thumb.webp"},{"id":443428,"name":"【推しの子】 第2期","nameCn":"【我推的孩子】 第二季","bangumiScore":7.2,"rank":1873,"url":"https://bangumi.tv/subject/443428","userScore":9,"comment":"感觉后面他父亲的死以及阿库亚的突然释怀有点突兀了也有点怪怪的，以及最后那位白发女士的出现让这部片突然变得玄幻起来（虽然最后那幕也有说她应该也是转生者……）\r\n但是！\r\n瑕不掩瑜啊！\r\n前面一大半真的看得我热血沸腾。特别是第十七集舞台剧开始出演的时候。如此淋漓尽致的演出啊！而且感觉中间穿插的人物回忆也很自然， 把每个角色都刻画得很好。\r\n没想到动漫能这么直观的表现出“演技”的差异，看的时候确实是让人心潮澎湃啊！\r\n反正我觉得真的是非常好看。\r\n而且更不用说中间各种风格化的东西以及极致的作画，经费真的是在“燃烧”啊！简直太帅了吧！\r\n有一说一看的时候弄得我都非常想去看一个这种舞台剧了。\r\n在我心目中，这就是一部非常叼的作品。     \r\n//     二刷维持原判……当然，最后那部分的评价也维持原判。","updatedAt":"2026-04-18T00:49:17+08:00","largePath":"../../public/images/bangumi/0090d7dee450c05a.webp","thumbPath":"../../public/images/bangumi/0090d7dee450c05a-thumb.webp"},{"id":386809,"name":"【推しの子】","nameCn":"【我推的孩子】","bangumiScore":7.4,"rank":1279,"url":"https://bangumi.tv/subject/386809","userScore":8,"comment":"打算看第三季来着，发现前面全忘了，遂再看一次  //  过了这么久再看一遍这个第一集，还是觉得做得真的非常非常好啊  //  虽然很多人说高开低走，但是我觉得后面也非常好看啊，而且保持了一贯的高水准制作。咱就别盯着内复仇不放了呗，先“抛开复仇不谈”（。感觉第二次看反而好像比第一次还更喜欢了是怎么一回事[狗头]    //  这个第七集结尾印象里第一次看的时候就被震惊到了,这一幕印象很深啊  //  害，真挺好看吧。","updatedAt":"2026-04-15T19:44:19+08:00","largePath":"../../public/images/bangumi/787b979dc55ef44a.webp","thumbPath":"../../public/images/bangumi/787b979dc55ef44a-thumb.webp"},{"id":515759,"name":"葬送のフリーレン 第2期","nameCn":"葬送的芙莉莲 第二季","bangumiScore":7.5,"rank":1007,"url":"https://bangumi.tv/subject/515759","userScore":7,"comment":"在看完第一季时没忍住写了个长评，如今看完这一季却不知道该说些什么了。感觉有点像是过渡回？（我没看过原作乱猜的）\r\n要说不失望那肯定是假的，但也算是勉强称得上没有辱没葬送的芙莉莲这个称号。\r\n可能算是一部还算不错的动漫。但在我心目中，尚未及格。","updatedAt":"2026-04-04T23:36:17+08:00","largePath":"../../public/images/bangumi/ec6a3036aa584525.webp","thumbPath":"../../public/images/bangumi/ec6a3036aa584525-thumb.webp"},{"id":514353,"name":"小林さんちのメイドラゴン さみしがりやの竜","nameCn":"小林家的龙女仆 怕寂寞的龙","bangumiScore":6.6,"rank":4784,"url":"https://bangumi.tv/subject/514353","userScore":8,"comment":"我还是蛮喜欢的。\r\n啊，这光……啊，这眼眸……啊，这水……\r\n欢迎回来，大家","updatedAt":"2026-03-31T02:50:21+08:00","largePath":"../../public/images/bangumi/79e105caf800babd.webp","thumbPath":"../../public/images/bangumi/79e105caf800babd-thumb.webp"},{"id":529966,"name":"らんま1/2 第2期","nameCn":"乱马1/2 第二季","bangumiScore":7.2,"rank":1643,"url":"https://bangumi.tv/subject/529966","userScore":6,"comment":"//  看到第三集和第四集，没啥看下去的欲望了，感觉推进有点无聊。感觉还是第一季好看点  //  重启了，其实还是挺乐的  //  之前有邻兵和我说他第一季看了几集没看了，因为情感处理的有点那啥。那时我感觉第一季还好啊。现在第二季发现还真有这个问题，而且更严重了一点，连我都感觉到了。就有种打着纯爱幌子，但是又很不“纯”的感觉。 //  不过有一说一这部番的op是我最喜欢的op之一，水曜日nb //  有些地方拖沓到了难以容忍的地步  //  ep.23 ???  //  有点难评，反正我不喜欢这一季。看在作画和op的份上给六分","updatedAt":"2026-03-17T16:58:39+08:00","largePath":"../../public/images/bangumi/121e05463247f726.webp","thumbPath":"../../public/images/bangumi/121e05463247f726-thumb.webp"},{"id":627556,"name":"呼唤少女特别篇 想做的事到底是什么","nameCn":"","bangumiScore":6.7,"rank":4317,"url":"https://bangumi.tv/subject/627556","userScore":6,"comment":"噢还有这个的嘞，几天前鉴赏了一下。\r\n怎么说呢，画风还行？其它的我也不知道怎么评价了，再接再厉吧。\r\n感觉有种很刻意的想卖老广情怀的感觉……\r\n然后关于“百”的部分有点用力过猛了，媚宅的部分也是，感觉有点模仿老动漫的感觉，亦或者导演心目中的“日本动漫”。\r\n里面还有两个有些古怪的分镜（一个是花好像，一个是走廊背景，有点忘了）。\r\n我感觉真的想要写出这边学校的这种日常，其实也有挺多挺特别的东西可以写的啊。说到这我又想起高中时期的一些欢乐的日常了。\r\n不过也许能勾起人们心中的回忆这也是一个优点吧。\r\n说是不知道怎么评价，但是还是没忍住写了这么多，可能因为原先真的挺期待的吧。毕竟第一次能在家附近圣地巡礼。\r\n希望正片能更加优秀一点。","updatedAt":"2026-03-04T22:51:56+08:00","largePath":"../../public/images/bangumi/e3e4b105bfc0b74e.webp","thumbPath":"../../public/images/bangumi/e3e4b105bfc0b74e-thumb.webp"},{"id":565802,"name":"かぐや様は告らせたい 大人への階段","nameCn":"辉夜大小姐想让我告白 通往大人的阶梯","bangumiScore":8.3,"rank":102,"url":"https://bangumi.tv/subject/565802","userScore":9,"comment":"这是我开始看动漫后追的第二部番，从初三到大四，没想到已经过去这么久了。感谢辉夜制作组由始至终的优秀制作，至此也是给了一个完美的尾声（虽然好像还有个完结篇？（雾））。没想到过了这么久我看着这部依旧会像追第一季时那样捧腹大笑，依旧会被这份青涩真挚的感情所打动。在此谨以九分送上我最诚挚的敬意。","updatedAt":"2026-02-24T01:33:46+08:00","largePath":"../../public/images/bangumi/0fe613b0d45ee9c9.webp","thumbPath":"../../public/images/bangumi/0fe613b0d45ee9c9-thumb.webp"},{"id":425211,"name":"かぐや様は告らせたい-ファーストキッスは終わらない-","nameCn":"辉夜大小姐想让我告白-初吻不会结束-","bangumiScore":8,"rank":269,"url":"https://bangumi.tv/subject/425211","userScore":8,"comment":"好像当年看过一遍了，但是如今再看依旧是看得非常的开心，也再次被这个系列的制作折服。好像回到了初心悸动的那个夏天","updatedAt":"2026-02-22T19:21:01+08:00","largePath":"../../public/images/bangumi/a8691b97cf315fa6.webp","thumbPath":"../../public/images/bangumi/a8691b97cf315fa6-thumb.webp"},{"id":604826,"name":"超かぐや姫！","nameCn":"超辉夜姬！","bangumiScore":8,"rank":204,"url":"https://bangumi.tv/subject/604826","userScore":10,"comment":"这是一场无与伦比的视觉盛宴，感谢这部作品的出现，让我的双眼刚刚经受了无比绚烂的洗礼。虽然我的理性很想打九分，但是管它那么多的，我真的超级喜欢这部啊！在我心目中这就是能称之为神作的作品。","updatedAt":"2026-02-08T02:29:37+08:00","largePath":"../../public/images/bangumi/4e553e2f2b77032b.webp","thumbPath":"../../public/images/bangumi/4e553e2f2b77032b-thumb.webp"},{"id":199392,"name":"血界戦線 & BEYOND","nameCn":"血界战线 & BEYOND","bangumiScore":7.5,"rank":844,"url":"https://bangumi.tv/subject/199392","userScore":9,"comment":"这季很好看诶，故事讲的比第一季好很多。当缺点被补足了之后就是非常优秀的动漫了啊。非常喜欢这季！","updatedAt":"2026-01-14T16:03:25+08:00","largePath":"../../public/images/bangumi/1669add5164fcbde.webp","thumbPath":"../../public/images/bangumi/1669add5164fcbde-thumb.webp"},{"id":285757,"name":"ワンパンマン 第3期","nameCn":"一拳超人 第三季","bangumiScore":4.5,"rank":10290,"url":"https://bangumi.tv/subject/285757","userScore":3,"comment":"从第一集一直追到最后一集，吃了一个季度的石，我都开始怀疑我是m了。就算是穷也可以做的有趣做的好看，有很多动漫可以拿来举例，但是这一步就是纯纯的大构式。作画史，配乐史，音效史，节奏史……更不用说有些分镜了，虽然我没看过漫画原作但我都能看出来完全就是在抄袭原作的画面（而且和漫画一样一动不动），直接就差把漫画贴在脑门上了。整部动漫没有一个优点，完完全全就是靠着原作的故事来吸引人，我要不是因为想看接下来的故事才不会主动来受虐。啊当然原作故事的这一优点在拖沓的节奏下也基本上化为虚无，哈哈，最后一集真给我看乐了。懒得再喷下去了，我真希望这第三季从没出来过、或者希望我对前两季以前没有那么喜欢、亦或者看完第三季第一集我就去开始看了了原作，这样我也不用来赤这坨大大的变了。看动漫以来最不愉快的追番体验。","updatedAt":"2026-01-03T00:52:21+08:00","largePath":"../../public/images/bangumi/54f0be8a96000e95.webp","thumbPath":"../../public/images/bangumi/54f0be8a96000e95-thumb.webp"},{"id":470660,"name":"劇場版 チェンソーマン レゼ篇","nameCn":"剧场版 链锯人 蕾塞篇","bangumiScore":8.3,"rank":78,"url":"https://bangumi.tv/subject/470660","userScore":7,"comment":"非常优秀的作画，很多分镜也是美得不得了，还真的做到了非常的具有“电影感”。氛围感的烘托也很不错，节奏也可以，确实是值得去电影院看的一部作品。但是剧情上总感觉有些许的问题，逻辑上有些地方也不是很自洽，整体上给我有一种吹过头了的感觉。啊我还有一丢丢战力学上的疑惑……只能说确实谈不上喜欢","updatedAt":"2025-12-29T17:49:25+08:00","largePath":"../../public/images/bangumi/d4290cc420b8b874.webp","thumbPath":"../../public/images/bangumi/d4290cc420b8b874-thumb.webp"},{"id":508958,"name":"ワンダンス","nameCn":"绝妙舞步","bangumiScore":6.1,"rank":7271,"url":"https://bangumi.tv/subject/508958","userScore":8,"comment":"我真觉得挺好看的啊，不论是节奏还是配乐都很合我的胃口。3D的部分其实也还差强人意吧，除了前两集有点抽象外，做的也是越来越好了，到了第六集的舞蹈部分就真的让我感觉还挺帅的。第八集的斗舞更不用说了，看得爽飞了，也很好的把poping、house、waacking等的特色和技术展现了出来。\r\n而且这部番真的有很认真的在诠释舞蹈啊，像是音乐和舞蹈的关系，就很自然的激起了对舞蹈的兴趣，让我去情不自禁的搜索相关的知识和舞蹈视频去看。 \r\n真挺喜欢这部","updatedAt":"2025-12-26T14:35:09+08:00","largePath":"../../public/images/bangumi/c834b2838ceea3d2.webp","thumbPath":"../../public/images/bangumi/c834b2838ceea3d2-thumb.webp"},{"id":105075,"name":"血界戦線","nameCn":"血界战线","bangumiScore":7.4,"rank":1099,"url":"https://bangumi.tv/subject/105075","userScore":7,"comment":"很优秀的作品，无论是从音乐还是作画上来说都是无可挑剔的，很多搞笑的地方也做得非常有意思。\r\n但是不知为何就是没那么吸引我，也没有对这部作品产生那种喜爱之情。可能是叙事的问题？我也不懂。\r\n//ep.12 这下明白了，这主线到底在乱七八糟的讲些什么啊，前因后果和事件之间的逻辑完全都给人看的一团雾水，更别说还有那么多不明所以的谜语对话。\r\n看到最后我脑袋里带了几百个问题想问，结果导致那一段情感的抒发完全带入不进去。\r\n但是最后一集的这个极具电影感的分镜、作画和配乐又一度让我惊叹不已，害。","updatedAt":"2025-12-21T02:58:50+08:00","largePath":"../../public/images/bangumi/28cbaf96fd745b38.webp","thumbPath":"../../public/images/bangumi/28cbaf96fd745b38-thumb.webp"},{"id":419613,"name":"Zootopia 2","nameCn":"疯狂动物城2","bangumiScore":6.8,"rank":3785,"url":"https://bangumi.tv/subject/419613","userScore":6,"comment":"六七分差不多了，不过我更倾向于六。\r\n剧情实在是太公式了，迪士尼写剧本的人就是这么敷衍的？没想到“看得都能让我猜到接下来要干啥”的电影还真的出现了。\r\n分全是打给制作和一些小巧思的","updatedAt":"2025-12-14T21:29:46+08:00","largePath":"../../public/images/bangumi/f8da0e0de6b0d42a.webp","thumbPath":"../../public/images/bangumi/f8da0e0de6b0d42a-thumb.webp"},{"id":214272,"name":"ようこそ実力至上主義の教室へ","nameCn":"欢迎来到实力至上主义的教室","bangumiScore":6.2,"rank":7215,"url":"https://bangumi.tv/subject/214272","userScore":5,"comment":"有点拖沓，有点老套，有点无聊，逻辑也有点那啥。\r\nop还挺好听","updatedAt":"2025-11-23T13:04:31+08:00","largePath":"../../public/images/bangumi/16c5cf7fa768eba4.webp","thumbPath":"../../public/images/bangumi/16c5cf7fa768eba4-thumb.webp"},{"id":545328,"name":"銀河特急 ミルキー☆サブウェイ","nameCn":"银河特急 银河☆地铁","bangumiScore":7.5,"rank":826,"url":"https://bangumi.tv/subject/545328","userScore":8,"comment":"超可爱，超好看啊！不过就是有点太短了","updatedAt":"2025-10-25T23:50:24+08:00","largePath":"../../public/images/bangumi/4b478c9d5103683a.webp","thumbPath":"../../public/images/bangumi/4b478c9d5103683a-thumb.webp"},{"id":528438,"name":"フードコートで、また明日。","nameCn":"明天，美食广场见。","bangumiScore":7.5,"rank":986,"url":"https://bangumi.tv/subject/528438","userScore":9,"comment":"最日常的日常，用最简单的场景最少的人物构筑出了最美好的图画","updatedAt":"2025-10-16T15:04:03+08:00","largePath":"../../public/images/bangumi/b197afdfe51c19f4.webp","thumbPath":"../../public/images/bangumi/b197afdfe51c19f4-thumb.webp"},{"id":1879,"name":"スクールランブル 三学期","nameCn":"校园迷糊大王 三学期","bangumiScore":7.2,"rank":1714,"url":"https://bangumi.tv/subject/1879","userScore":7,"comment":"今天我终于把漫画补完了，很抱歉我得给第三学期的动画一个不高的分数了。后面这段漫画其实超级无敌精彩的啊，你短短两集根本就讲不了多少东西也确实漏了太多东西了啊喂！！！","updatedAt":"2025-10-10T21:11:13+08:00","largePath":"../../public/images/bangumi/6610907b5ce7e14c.webp","thumbPath":"../../public/images/bangumi/6610907b5ce7e14c-thumb.webp"},{"id":467930,"name":"青春ブタ野郎はサンタクロースの夢を見ない","nameCn":"青春猪头少年不会梦到圣诞服女郎","bangumiScore":6.9,"rank":3305,"url":"https://bangumi.tv/subject/467930","userScore":5,"comment":"第二集看到一半实在是看不下去了，感觉有点无聊到令人发指了。制作也穷，讲的话还不明所以的。这好歹是我的入宅作的第二季啊，情怀肯定是非常有的，但是真看不下去了。就让青猪如同青春一样消逝在风里吧，唉","updatedAt":"2025-10-05T13:32:02+08:00","largePath":"../../public/images/bangumi/f8d96f5cf920ec9d.webp","thumbPath":"../../public/images/bangumi/f8d96f5cf920ec9d-thumb.webp"},{"id":514358,"name":"CITY THE ANIMATION","nameCn":"小城日常","bangumiScore":7.5,"rank":856,"url":"https://bangumi.tv/subject/514358","userScore":10,"comment":"太太太太喜欢这部了！！\r\n到ep5以及后面对这部的喜爱之情达到顶峰。\r\n精妙绝伦的作画，天马行空的创意和想象力。\r\n有趣的地方我也觉得非常有趣，时不时就会让我会心一笑亦或者咧着嘴傻笑。\r\n不论是节奏还是其它地方都太合我的胃口了。\r\n它没有刻意的去凸显到底谁才是主角，而是尽心尽力去刻画每一个角色的故事。在这个小镇中，每个人都有各自有趣的故事和奇妙的境遇。而且每个故事又是那么的暖心与美好，是那种最真挚的友谊以及人与人之间的碰撞。每个人都是那么的可爱。看到ep6结尾时我都差点哭出来了。\r\n要我来说的话，我真的觉得不比日常差。\r\n真的太喜欢这部动画了！\r\n//ep11和12依旧是有着很有趣的演绎方式，不过也许是我期待值太高了？觉得好像有点低于预期啊。\r\n//京阿尼用它自己的方式给予了这部作品一个与众不同且有趣至极的结尾，希望未来我们还能在某个夏天再见吧！","updatedAt":"2025-09-29T13:18:57+08:00","largePath":"../../public/images/bangumi/cbc4c9e030df1083.webp","thumbPath":"../../public/images/bangumi/cbc4c9e030df1083-thumb.webp"},{"id":12426,"name":"映画けいおん！","nameCn":"轻音少女 剧场版","bangumiScore":8.4,"rank":62,"url":"https://bangumi.tv/subject/12426","userScore":10,"comment":"","updatedAt":"2025-09-28T00:46:05+08:00","largePath":"../../public/images/bangumi/9aab20b96708f9e3.webp","thumbPath":"../../public/images/bangumi/9aab20b96708f9e3-thumb.webp"},{"id":3774,"name":"けいおん！！","nameCn":"轻音少女 第二季","bangumiScore":8.4,"rank":55,"url":"https://bangumi.tv/subject/3774","userScore":10,"comment":"","updatedAt":"2025-09-28T00:45:45+08:00","largePath":"../../public/images/bangumi/2e53fd967f652620.webp","thumbPath":"../../public/images/bangumi/2e53fd967f652620-thumb.webp"},{"id":1424,"name":"けいおん！","nameCn":"轻音少女","bangumiScore":8.3,"rank":101,"url":"https://bangumi.tv/subject/1424","userScore":10,"comment":"补标。\r\n2022年时看的。最喜欢的动漫","updatedAt":"2025-09-28T00:45:22+08:00","largePath":"../../public/images/bangumi/7fba612f2e8f4b55.webp","thumbPath":"../../public/images/bangumi/7fba612f2e8f4b55-thumb.webp"},{"id":529431,"name":"ダンダダン 第2期","nameCn":"胆大党 第二季","bangumiScore":7.3,"rank":1444,"url":"https://bangumi.tv/subject/529431","userScore":8,"comment":"和上一季一样非常精彩啊。作画依旧是那么的不同凡响，还有各种有趣的分镜，我觉得画得非常有意思啊！圣母的地方确实会让人看的有点小难受以及不理解，扣一点分吧。不过瑕不掩瑜，反正我是看得爽飞了。\r\n但是你为什么又断在这种地方啊喂！！！！科学猴你tm，我命令你十月份就把下一季端出来啊！！","updatedAt":"2025-09-20T19:35:57+08:00","largePath":"../../public/images/bangumi/75c0e458f4accb4d.webp","thumbPath":"../../public/images/bangumi/75c0e458f4accb4d-thumb.webp"},{"id":426983,"name":"Scott Pilgrim Takes Off","nameCn":"歪小子斯科特","bangumiScore":7.2,"rank":1814,"url":"https://bangumi.tv/subject/426983","userScore":7,"comment":"作画挺有意思的，讲故事的方法也很有趣。剧情一开始觉得一般，但是后面也突然有趣了起来。不赖","updatedAt":"2025-09-02T16:41:19+08:00","largePath":"../../public/images/bangumi/e5d94c2033e0068b.webp","thumbPath":"../../public/images/bangumi/e5d94c2033e0068b-thumb.webp"},{"id":501958,"name":"劇場版 鬼滅の刃 無限城編 第一章 猗窩座再来","nameCn":"剧场版 鬼灭之刃 无限城篇 第一章 猗窝座再袭","bangumiScore":7.4,"rank":1183,"url":"https://bangumi.tv/subject/501958","userScore":8,"comment":"我原本以为我对打斗类型的画面无感的，直到看了这部。\r\n伟大的作画。\r\n感觉是我看过几乎最牛逼的打斗作画，开局就给我看高潮了。每一个战斗的部分都会令人屏住呼吸目不转睛的观赏、感受。\r\n音乐也是极好的。\r\n但是，很多地方的演绎我就不喜欢了，前半段那一大堆的“死前走马灯”我是真没绷住。每次走马灯我不知道该干些啥就摸起旁边的可乐喝一口。\r\n不过最后那段讲猗窝座的，可能由于篇幅够长吧，感觉观感还可以。啊不过炭治郎说的每一句大道理我都绷不住。\r\n加分制，作画超模了给八分吧，在电影院看的真的是太爽了。看前半段时还想着剧情给负分的，后面也勉勉强强还行了，算了给了。\r\n这绝对是最适合去电影院看的那种动漫。我觉得说是最适合的那一个也不为过。\r\n动漫史上最伟大的打斗！（哈哈这么说会不会太过激了）","updatedAt":"2025-08-22T21:05:43+08:00","largePath":"../../public/images/bangumi/487e9f43b18c0cb6.webp","thumbPath":"../../public/images/bangumi/487e9f43b18c0cb6-thumb.webp"},{"id":495562,"name":"デッドデッドデーモンズデデデデデストラクション","nameCn":"DDDD 恶魔的破坏","bangumiScore":7.6,"rank":731,"url":"https://bangumi.tv/subject/495562","userScore":9,"comment":"兼具深度与有趣，精彩绝伦的作画搭配上精彩绝伦的故事，超乎想象的发展还带有我最爱的日常元素。现在刚看完，还停留在刚刚的震撼之中，不知道怎么接着写观后感了。看到后面我一度以为可能高开然后结尾就一般，但是结尾依旧出乎我的意料，我真的很喜欢这个结尾。\r\n美中不足的可能确实是有一些东西没讲清楚，例如说末世后的各种情况，不过瑕不掩瑜，毕竟由于篇幅问题就应该只能讲这么多了，到最后两三集我还想着这能讲完我吃（）呢。\r\n总而言之，非常非常喜欢这部作品。","updatedAt":"2025-07-06T00:02:56+08:00","largePath":"../../public/images/bangumi/21c6053f3898d3a7.webp","thumbPath":"../../public/images/bangumi/21c6053f3898d3a7-thumb.webp"},{"id":509986,"name":"アポカリプスホテル","nameCn":"末日后酒店","bangumiScore":8.2,"rank":146,"url":"https://bangumi.tv/subject/509986","userScore":9,"comment":"毋庸置疑，是一部非常优秀的原创动画啊！\r\n但是就是我感觉个人来说，没有特别喜欢这部。\r\n然后我思考了一下原因，突然发现这部并没有特意的把角色画得非常有魅力，在人物性格的塑造上也没有去刻意迎合大众市场，去设计那种如今比较大势所趋的角色。反而好像是有点一反常态的。\r\n所以说这部其实就证明了，单纯的用很好的制作把故事讲好，也是能成为一部非常优秀的作品的。\r\n然后隔壁的gquxxxx好像就和这部完全相反了（捂脸）。不过有一说一如果删掉最后一集我还是更喜欢高达一点(    。","updatedAt":"2025-06-27T13:33:39+08:00","largePath":"../../public/images/bangumi/38fca61dd471ef0e.webp","thumbPath":"../../public/images/bangumi/38fca61dd471ef0e-thumb.webp"},{"id":526816,"name":"機動戦士Gundam GQuuuuuuX","nameCn":"机动战士高达 GQuuuuuuX","bangumiScore":6.1,"rank":7537,"url":"https://bangumi.tv/subject/526816","userScore":7,"comment":"看前面的时候感觉都还挺喜欢的，毕竟作画真的很吊啊，然后也蛮有意思的，直到最后一集……\r\n就算只是最后一集，看前半部分的时候还想着虽然剧情有些仓促很乱很怪，但是无敌炸裂的作画又弥补了这一点。看到后半集实在是绷不住了，这勾八到底是什么东西啊wdf(；￣д￣)。\r\n啊不过最后一回那一段的作画确实算是我看的最叼的几段作画之一了。\r\n（删掉第12集我肯定能给至少八分）（（（","updatedAt":"2025-06-26T13:53:41+08:00","largePath":"../../public/images/bangumi/5c46a3b51382d7e1.webp","thumbPath":"../../public/images/bangumi/5c46a3b51382d7e1-thumb.webp"},{"id":489820,"name":"らんま1/2","nameCn":"乱马1/2","bangumiScore":7.5,"rank":997,"url":"https://bangumi.tv/subject/489820","userScore":8,"comment":"看了第一集就被吸引了，很有趣的题材、演绎得也很有趣，画得也很好啊！人物也都很可爱啊！哎呦我都想去看看老版了。","updatedAt":"2025-06-14T23:15:19+08:00","largePath":"../../public/images/bangumi/741268c148747dda.webp","thumbPath":"../../public/images/bangumi/741268c148747dda-thumb.webp"},{"id":237,"name":"GHOST IN THE SHELL / 攻殻機動隊","nameCn":"攻壳机动队","bangumiScore":8.8,"rank":9,"url":"https://bangumi.tv/subject/237","userScore":7,"comment":"没有想象中该有的炸裂作画。你要非说这个在那个时代这个制作已经无敌好了的话，那我觉得FLCL可以吊打这个。剧情也稍显拖沓无聊了。最后一段蛮精彩的，不过也仅限最后一段了。\r\n你可以说我没看懂啊没脑子不配看什么的，但是我就是get不到。","updatedAt":"2025-06-07T20:50:56+08:00","largePath":"../../public/images/bangumi/7ac2672b260e86bf.webp","thumbPath":"../../public/images/bangumi/7ac2672b260e86bf-thumb.webp"},{"id":1878,"name":"スクールランブル 二学期","nameCn":"校园迷糊大王 二学期","bangumiScore":7.8,"rank":439,"url":"https://bangumi.tv/subject/1878","userScore":9,"comment":"确实还是像第一季一样会偶尔看得胃疼，甚至更频繁了……不过依旧是非常非常有趣的一部动漫。\r\n偶尔会笑得肚子疼、眼泪都笑出来，又偶尔会非常的感动，萦绕着淡淡的忧伤。\r\n这一季最后两集的演绎方式真是神了，看到最后一集前半段时都快看哭了……但是！牛魔的后面又开始胃疼起来，又nm的重置了。不是！！！给我气得。\r\n但现在回过头想想，所有人都以为到最后了总该解开误会了吧，结果又出人意料的回到原点。这永远无法料到的剧情也许正是校园迷糊大王的精彩之处吧。\r\n唉，就这样吧，有笑有泪又胃疼，对于这部番我内心的情感是非常复杂的。它将最真实的青春用另类的方式演绎了出来，每个角色都塑造得栩栩如生。也许每个人都能在里面看到过去自己的影子吧。\r\n这是一部无与伦比的校园日常群像番，我相信它会永远在我心目中留下不可磨灭的印象。","updatedAt":"2025-05-20T16:11:52+08:00","largePath":"../../public/images/bangumi/74732b02510e9fa9.webp","thumbPath":"../../public/images/bangumi/74732b02510e9fa9-thumb.webp"},{"id":526817,"name":"機動戦士Gundam GQuuuuuuX -Beginning-","nameCn":"机动战士高达 跨时之战","bangumiScore":6.7,"rank":3874,"url":"https://bangumi.tv/subject/526817","userScore":7,"comment":"之前任何一部高达都没看过，这次由于和同学出来实在没啥电影看了就选了这部。\r\n前半部分还是有点观看门槛的，设定也介绍了一些，但是会导致有些我们这种非高达迷看得有点昏昏欲睡。\r\n后半段我是很喜欢的，无论是画风、作画的精美度还是音乐亦或者节奏，个人都感觉远超前半部分。有种“突然坐直身子来看”的感觉。当然，仅是以一个路人的角度。\r\n不过总体来说还是蛮喜欢的，身为一个“预告片”确实勾起了我看正片的欲望，这下不得不浅追一追高达了（","updatedAt":"2025-04-06T01:12:39+08:00","largePath":"../../public/images/bangumi/481149f439fd2ed9.webp","thumbPath":"../../public/images/bangumi/481149f439fd2ed9-thumb.webp"},{"id":1877,"name":"スクールランブル 一学期補習","nameCn":"校园迷糊大王 一学期补习","bangumiScore":7.6,"rank":747,"url":"https://bangumi.tv/subject/1877","userScore":9,"comment":"这两集的观感很棒啊！在这部番里没有一个人是配角，每个人都是活生生的。而且也很有趣啊！","updatedAt":"2025-04-02T22:39:16+08:00","largePath":"../../public/images/bangumi/4cc0282a8b81852a.webp","thumbPath":"../../public/images/bangumi/4cc0282a8b81852a-thumb.webp"},{"id":440,"name":"スクールランブル","nameCn":"校园迷糊大王","bangumiScore":8,"rank":250,"url":"https://bangumi.tv/subject/440","userScore":9,"comment":"永远都会有意想不到的地方，永远都会带来惊喜啊！\r\n常常会忍不住捧腹大笑，笑得不能自已。\r\n虽然有时候确实看得有一点胃疼，不过也许正是因为有着这些误会以及曲折，才是青春最真实的样貌吧。","updatedAt":"2025-04-02T21:13:51+08:00","largePath":"../../public/images/bangumi/2880112d27219ada.webp","thumbPath":"../../public/images/bangumi/2880112d27219ada-thumb.webp"},{"id":518519,"name":"ONE PIECE FAN LETTER","nameCn":"航海王：粉丝来信","bangumiScore":8.6,"rank":37,"url":"https://bangumi.tv/subject/518519","userScore":9,"comment":"为什么这么短只有一集啊！！！！极其高的内容密度，但是又演绎得非常流畅清晰。无可挑剔的一集。让我这个只在很多年前看过一点点海贼的人都非常感动啊","updatedAt":"2025-03-09T23:16:54+08:00","largePath":"../../public/images/bangumi/02579207d0846673.webp","thumbPath":"../../public/images/bangumi/02579207d0846673-thumb.webp"},{"id":282433,"name":"映像研には手を出すな！","nameCn":"别对映像研出手！","bangumiScore":8.1,"rank":195,"url":"https://bangumi.tv/subject/282433","userScore":9,"comment":"精妙绝伦的想象力，天马行空的演绎方式。而且里面有超多有趣的地方，例如说水崎燕的跑步姿势，这些都超级灵动好玩啊。\r\n而且确实是学到了很多东西。这部片里讲解的地方也不会显得枯燥。那些设计图也是设计慢慢，让人忍不住暂停下来慢慢欣赏啊。\r\n里面将动画展现得淋漓尽致，让人忍不住惊呼“这才是动画的魅力啊！！”\r\n真的是很帅很好看的一部动漫啊！","updatedAt":"2025-02-21T00:15:58+08:00","largePath":"../../public/images/bangumi/71fbab30fbfe3167.webp","thumbPath":"../../public/images/bangumi/71fbab30fbfe3167-thumb.webp"},{"id":363242,"name":"古見さんは、コミュ症です。2期","nameCn":"古见同学有交流障碍症 第二季","bangumiScore":7.3,"rank":1526,"url":"https://bangumi.tv/subject/363242","userScore":8,"comment":"这季糖分超标了啊！！！！！\r\n而且超有趣的！","updatedAt":"2025-01-22T17:15:58+08:00","largePath":"../../public/images/bangumi/f9e0f42013686cb8.webp","thumbPath":"../../public/images/bangumi/f9e0f42013686cb8-thumb.webp"},{"id":335225,"name":"古見さんは、コミュ症です。","nameCn":"古见同学有交流障碍症","bangumiScore":7,"rank":2667,"url":"https://bangumi.tv/subject/335225","userScore":8,"comment":"蛮有趣的(◕ᴗ◕✿)","updatedAt":"2025-01-15T15:10:23+08:00","largePath":"../../public/images/bangumi/0bd465c1060e909d.webp","thumbPath":"../../public/images/bangumi/0bd465c1060e909d-thumb.webp"},{"id":93545,"name":"甘城ブリリアントパーク","nameCn":"甘城光辉游乐园","bangumiScore":7,"rank":2644,"url":"https://bangumi.tv/subject/93545","userScore":8,"comment":"真的很喜欢这部动漫啊！非常的有趣搞笑，有些时候真的零帧起手根本绷不住啊哈哈哈。画的人物也都超美的呀！而且实际上里面有很多细节，真的都超级有趣的。那三小只是有种反差感，但确实是塑造得很好，有些时候特别逗啊。最后真的很感动。确实是从各种地方来说都能算得上很优秀的一部动漫，因为称其“媚宅”而给低分实在是忍受不了啊啊啊！！","updatedAt":"2024-12-29T14:07:46+08:00","largePath":"../../public/images/bangumi/c6ece1b552c6a321.webp","thumbPath":"../../public/images/bangumi/c6ece1b552c6a321-thumb.webp"},{"id":467461,"name":"ダンダダン","nameCn":"胆大党","bangumiScore":7.5,"rank":990,"url":"https://bangumi.tv/subject/467461","userScore":9,"comment":"超级牛逼的作画，每周都在第一时间看，然而每次都能带给我新的惊喜与震撼。剧情和节奏也都超棒的，看得爽爆了。","updatedAt":"2024-12-28T14:23:12+08:00","largePath":"../../public/images/bangumi/05bd873c03888c33.webp","thumbPath":"../../public/images/bangumi/05bd873c03888c33-thumb.webp"},{"id":770,"name":"天元突破グレンラガン","nameCn":"天元突破 红莲螺岩","bangumiScore":8.5,"rank":40,"url":"https://bangumi.tv/subject/770","userScore":8,"comment":"在看这部之前我曾经以为自己已经对热血漫免疫了。\r\n没想到真的能让我再热血沸腾一次啊！！！","updatedAt":"2024-12-05T14:52:56+08:00","largePath":"../../public/images/bangumi/5ff67db3e9203d43.webp","thumbPath":"../../public/images/bangumi/5ff67db3e9203d43-thumb.webp"},{"id":82572,"name":"ノラガミ","nameCn":"野良神","bangumiScore":7.1,"rank":2116,"url":"https://bangumi.tv/subject/82572","userScore":4,"comment":"看到中间和赤了石一样难受。\r\n先是女主那让人迷糊的圣母操作。ok女主圣母就算了，到后面男主也亚撒西。真的看的人血压高。\r\n一开始我想着赶紧把雪音斩了得了，看到第九集我觉得这三个人还是一个都别活好一点（暴论）","updatedAt":"2024-11-19T23:17:53+08:00","largePath":"../../public/images/bangumi/58bd27426aa445f7.webp","thumbPath":"../../public/images/bangumi/58bd27426aa445f7-thumb.webp"},{"id":480441,"name":"ルックバック","nameCn":"蓦然回首","bangumiScore":7.8,"rank":363,"url":"https://bangumi.tv/subject/480441","userScore":7,"comment":"最喜欢的那段就是藤野跑回家的那一幕。\r\n但是总体来看我感觉原作的篇幅确实有点不够做成剧场版了，有些地方会显得确实有点小水","updatedAt":"2024-10-30T16:02:29+08:00","largePath":"../../public/images/bangumi/ffca357b6618a9b8.webp","thumbPath":"../../public/images/bangumi/ffca357b6618a9b8-thumb.webp"},{"id":464376,"name":"負けヒロインが多すぎる！","nameCn":"败犬女主太多了！","bangumiScore":8,"rank":266,"url":"https://bangumi.tv/subject/464376","userScore":8,"comment":"这个制作真的太好了，画的太美了啊。给予了我一季度超好的追番体验。\r\n也是蛮喜欢这部的，剧情上也很有趣。\r\n好青春啊！！","updatedAt":"2024-10-06T11:42:59+08:00","largePath":"../../public/images/bangumi/bf7e320400b9f7a6.webp","thumbPath":"../../public/images/bangumi/bf7e320400b9f7a6-thumb.webp"},{"id":424883,"name":"時々ボソッとロシア語でデレる隣のアーリャさん","nameCn":"不时轻声地以俄语遮羞的邻座艾莉同学","bangumiScore":5.5,"rank":9430,"url":"https://bangumi.tv/subject/424883","userScore":6,"comment":"作画加1.5颗星，剧情硬伤太太太严重了","updatedAt":"2024-10-03T00:37:26+08:00","largePath":"../../public/images/bangumi/f6fbe8d7be301241.webp","thumbPath":"../../public/images/bangumi/f6fbe8d7be301241-thumb.webp"},{"id":80548,"name":"ディーふらぐ!","nameCn":"属性同好会","bangumiScore":6.9,"rank":2982,"url":"https://bangumi.tv/subject/80548","userScore":8,"comment":"蛮有趣也蛮搞笑的，挺喜欢这部番的，感觉是那种未来可以再看一次的动漫！\r\n芦花也很可爱，高尾也很可爱，大家都很可爱啊\r\n可惜有关恋爱的这部分讲太少了，最后也没讲清楚呀","updatedAt":"2024-09-24T22:24:23+08:00","largePath":"../../public/images/bangumi/bfb608a7cc74d7db.webp","thumbPath":"../../public/images/bangumi/bfb608a7cc74d7db-thumb.webp"},{"id":342667,"name":"この素晴らしい世界に祝福を！3","nameCn":"为美好的世界献上祝福！第三季","bangumiScore":7.7,"rank":583,"url":"https://bangumi.tv/subject/342667","userScore":8,"comment":"最喜欢的一季！刚刚看完的，是真的很有趣很好看啊！有些地方画的也是很灵动和可爱。终于是几乎丢掉了那个颜艺的“老传统”，看的很是舒服啊！\r\n也更加的温馨，感觉日常感又更强了。这四个人之间的羁绊也牢牢的将他们捆在了一起，更加的温暖也更加的日常，好像真的发生在另外一个异世界的故事一样。大家为了共同的目标而努力，有钱了就开摆，但是躺又躺不平总是会遇到一些突发的事件。我也很喜欢爱丽丝啊，太可爱了。\r\n最后抢婚的那一幕真的看的很感动。\r\n而前面对于邪恶领主的一切在最后也有了交代，也全部都很合理。这部也是把所有的铺垫都好好的交代完了。\r\n反正真的很喜欢这种温馨日常的动漫，对于四个人的特点和性格也描绘的更加生动，让我也是真真正正的喜欢上了这四个角色，真真正正的喜欢上了《为美好的世界献上祝福！》。\r\n什么时候出第四季啊！","updatedAt":"2024-08-23T23:09:52+08:00","largePath":"../../public/images/bangumi/28fc717522f68a29.webp","thumbPath":"../../public/images/bangumi/28fc717522f68a29-thumb.webp"},{"id":385209,"name":"この素晴らしい世界に爆焔を！","nameCn":"为美好的世界献上爆焰！","bangumiScore":7,"rank":2509,"url":"https://bangumi.tv/subject/385209","userScore":8,"comment":"虽然没了和真这几个确实感觉少了点什么，但是依旧是蛮有趣的，为什么会比前两部低这么多。\r\n打个八分抬一手。\r\n这部在人物的性格和想法刻画上就更细致了，让我好好的重新认识了一下惠惠和芸芸。前面对这俩还没啥感觉的，现在看了爆焰后倒是很喜欢了呀。\r\n还有，小米超可爱！！！！","updatedAt":"2024-08-23T22:28:58+08:00","largePath":"../../public/images/bangumi/6c044482eeeada44.webp","thumbPath":"../../public/images/bangumi/6c044482eeeada44-thumb.webp"},{"id":220631,"name":"映画 この素晴らしい世界に祝福を！紅伝説","nameCn":"电影 为美好的世界献上祝福！红传说","bangumiScore":7.7,"rank":627,"url":"https://bangumi.tv/subject/220631","userScore":7,"comment":"感觉相比前两季更有趣好看了！\r\n我给7.5，在我看来这个剧场版终于是值得它原本的评分了。\r\n这部剧场版是确确实实把整部搞笑有意思的点都完全展现了出来，真的能让人会心一笑。\r\n也终于有值得回拉的镜头了。","updatedAt":"2024-08-15T01:04:13+08:00","largePath":"../../public/images/bangumi/b886ca11d6386174.webp","thumbPath":"../../public/images/bangumi/b886ca11d6386174-thumb.webp"},{"id":174043,"name":"この素晴らしい世界に祝福を！2","nameCn":"为美好的世界献上祝福！ 第二季","bangumiScore":7.7,"rank":531,"url":"https://bangumi.tv/subject/174043","userScore":6,"comment":"感觉比第一季有趣一些，剧情上也精彩一点。\r\n但是emmmm也离它的评分该有的水平有点远吧","updatedAt":"2024-08-15T01:01:30+08:00","largePath":"../../public/images/bangumi/f05c1bfb6d14a10a.webp","thumbPath":"../../public/images/bangumi/f05c1bfb6d14a10a-thumb.webp"},{"id":135275,"name":"この素晴らしい世界に祝福を！","nameCn":"为美好的世界献上祝福！","bangumiScore":7.7,"rank":542,"url":"https://bangumi.tv/subject/135275","userScore":4,"comment":"怎么说呢，感觉有点get不到啊。\r\n首先这个作画就不用说了，经常脸会崩掉。一开始看的时候我还以为是00年左右的作品。\r\n然后笑点也感觉不搞笑啊，也是get不到。感觉有点尴尬也有点无聊。\r\n不过人设确实很新颖啦，但是人物关系和塑造方面也有点怪吧。看了下原作风评很好，是不是动漫删改太多了啊。","updatedAt":"2024-08-12T21:41:56+08:00","largePath":"../../public/images/bangumi/f235bd2ecc6c60f1.webp","thumbPath":"../../public/images/bangumi/f235bd2ecc6c60f1-thumb.webp"},{"id":343176,"name":"のんのんびより のんすとっぷ OAD","nameCn":"悠哉日常大王 Nonstop OAD","bangumiScore":7.9,"rank":365,"url":"https://bangumi.tv/subject/343176","userScore":9,"comment":"如果说第12集像是一个最美好的结尾，那么这个OAD就是一个对所有人的交代，一个对于未来的延展。\r\n他们的生活还在我们看不到的地方一直继续下去……","updatedAt":"2024-08-12T01:17:35+08:00","largePath":"../../public/images/bangumi/7b89d880a85e44a9.webp","thumbPath":"../../public/images/bangumi/7b89d880a85e44a9-thumb.webp"},{"id":100449,"name":"月刊少女野崎くん","nameCn":"月刊少女野崎君","bangumiScore":7.8,"rank":426,"url":"https://bangumi.tv/subject/100449","userScore":9,"comment":"超级超级好看啊！\r\n这部片真的非常有趣，每个人的性格都塑造的很鲜明，每个人都很可爱啊！\r\n最开始看的时候还觉得这画风会不会有点老了，但是越看越喜欢，女主佐仓也是越看越可爱，真的超级喜欢她呀！\r\n虽然没说是恋爱番，但是这部有关这部分的内容是如同涓涓细流一般的，是从生活中的点点滴滴体现出来的。也正是这种像是日常生活中的每个细节，才能让人感受到那种真正的美好与感动。当然这些地方也超级甜超级可爱啊！\r\n每一对我也都超喜欢的。\r\n如果这种感情不是恋爱那什么才叫恋爱呢？！","updatedAt":"2024-08-05T22:48:24+08:00","largePath":"../../public/images/bangumi/11b021042cb1ad24.webp","thumbPath":"../../public/images/bangumi/11b021042cb1ad24-thumb.webp"},{"id":282684,"name":"のんのんびより のんすとっぷ","nameCn":"悠哉日常大王 Nonstop","bangumiScore":8.2,"rank":133,"url":"https://bangumi.tv/subject/282684","userScore":10,"comment":"这一场悠哉美好的乡村的梦也终究是结束了啊……\r\n——致世界上最美好的动漫《悠哉日常大王》","updatedAt":"2024-07-29T15:08:10+08:00","largePath":"../../public/images/bangumi/0189d549949d72da.webp","thumbPath":"../../public/images/bangumi/0189d549949d72da-thumb.webp"},{"id":444403,"name":"変人のサラダボウル","nameCn":"怪人的沙拉碗","bangumiScore":7.1,"rank":2233,"url":"https://bangumi.tv/subject/444403","userScore":6,"comment":"哈哈哈确实蛮有趣的。虽然前面就已经显露了一些端倪，但是后面实在是太穷了啊喂！！！","updatedAt":"2024-07-18T20:31:00+08:00","largePath":"../../public/images/bangumi/0a820520e81a70bf.webp","thumbPath":"../../public/images/bangumi/0a820520e81a70bf-thumb.webp"},{"id":395378,"name":"ダンジョン飯","nameCn":"迷宫饭","bangumiScore":7.9,"rank":355,"url":"https://bangumi.tv/subject/395378","userScore":8,"comment":"很优秀的作品啊，兼顾了有趣与精彩的剧情。\r\n一开始感觉还好，后面确实很好看，根本停不下来啊！\r\n很期待下一部了","updatedAt":"2024-07-16T14:41:08+08:00","largePath":"../../public/images/bangumi/1cdcc891e45c8ab0.webp","thumbPath":"../../public/images/bangumi/1cdcc891e45c8ab0-thumb.webp"},{"id":101442,"name":"のんのんびより  りぴーと","nameCn":"悠哉日常大王 Repeat","bangumiScore":8.1,"rank":206,"url":"https://bangumi.tv/subject/101442","userScore":10,"comment":"不用多说什么了吧，这可是悠哉日常大王第二季啊！\r\n依旧超水准的制作，超级舒服的节奏把控，那对日常暖心的诠释。\r\n这依旧是一部超级超级优秀的作品啊！\r\n非常多的创意，非常多意想不到的有趣与暖心。\r\n最后一集的ed响起时，真的差点潸然泪下\r\n必须满分啊！！！","updatedAt":"2024-07-06T23:21:28+08:00","largePath":"../../public/images/bangumi/59027fc0755ae8be.webp","thumbPath":"../../public/images/bangumi/59027fc0755ae8be-thumb.webp"},{"id":215618,"name":"劇場版 のんのんびより ばけーしょん","nameCn":"剧场版 悠哉日常大王 Vacation","bangumiScore":8,"rank":234,"url":"https://bangumi.tv/subject/215618","userScore":10,"comment":"我想，这就是真正的日常啊……像是几个最好的朋友一起出游一样打打闹闹，在旅途中遇到了新认识的好朋友，一起留下来一些永不磨灭的记忆。\r\n吹着那轻柔的海风，望着闪闪发光的星空，捧起一捧闪着荧光的海水……\r\n也是那不舍的离别，那是在车背后的挥手，是一瓶带着星星沙的玻璃瓶……\r\n是世界上最温柔的“我回来了”","updatedAt":"2024-06-15T00:14:39+08:00","largePath":"../../public/images/bangumi/e7fd86edb134360e.webp","thumbPath":"../../public/images/bangumi/e7fd86edb134360e-thumb.webp"},{"id":78405,"name":"のんのんびより","nameCn":"悠哉日常大王","bangumiScore":8,"rank":228,"url":"https://bangumi.tv/subject/78405","userScore":10,"comment":"虽然没有刻意的抒情，但是就是非常的感动，莫名的眼眶湿润了。\r\n真的很喜欢这部动漫，我看得很慢，但是它每一次都能带给我无数的美好，让我度过一个无比美好的夜晚…\r\n谢谢你，悠哉日常大王","updatedAt":"2024-06-15T00:09:33+08:00","largePath":"../../public/images/bangumi/ffb7b5abba887547.webp","thumbPath":"../../public/images/bangumi/ffb7b5abba887547-thumb.webp"},{"id":357961,"name":"スキップとローファー","nameCn":"跃动青春","bangumiScore":7.7,"rank":521,"url":"https://bangumi.tv/subject/357961","userScore":9,"comment":"","updatedAt":"2024-04-23T12:00:34+08:00","largePath":"../../public/images/bangumi/38dcc74ceb06002d.webp","thumbPath":"../../public/images/bangumi/38dcc74ceb06002d-thumb.webp"},{"id":400602,"name":"葬送のフリーレン","nameCn":"葬送的芙莉莲","bangumiScore":8.5,"rank":43,"url":"https://bangumi.tv/subject/400602","userScore":10,"comment":"","updatedAt":"2024-03-24T02:22:31+08:00","largePath":"../../public/images/bangumi/32e3183a127fee6f.webp","thumbPath":"../../public/images/bangumi/32e3183a127fee6f-thumb.webp"},{"id":217021,"name":"PLUTO","nameCn":"冥王","bangumiScore":7.2,"rank":1908,"url":"https://bangumi.tv/subject/217021","userScore":7,"comment":"","updatedAt":"2024-03-23T18:32:14+08:00","largePath":"../../public/images/bangumi/41d9a3baf1ab9b54.webp","thumbPath":"../../public/images/bangumi/41d9a3baf1ab9b54-thumb.webp"}],"watchHistory":[{"id":545008,"name":"ふつつかな悪女ではございますが ～雛宮蝶鼠とりかえ伝～","nameCn":"恶女不才，请多关照 ～雏宫蝶鼠换身传～","bangumiScore":7,"rank":2658,"url":"https://bangumi.tv/subject/545008","userScore":4,"comment":"ep.1 感觉第一集太典了吧……笑点也不好笑，不过好像评价还行？算了接着看下去好了 // \r\nep.2 坏了现在有点想继续看下去了 // \r\nep.3 还是觉得用力过猛，尬成啥了…… ok 啊我最讨厌的圣母桥段也是来了。 // \r\nep.5 没办法看下去了。实在是过于小家子气，像是在看过家家一样。\r\n一集要提到一百次恶女和一百次舞女老妈。\r\n就算是想做爽文类型的话，那也没有这么拖沓的爽文吧？","updatedAt":"2026-10-24T02:35:38+08:00","largePath":"../../public/images/bangumi/5972a65f90a71907.webp","thumbPath":"../../public/images/bangumi/5972a65f90a71907-thumb.webp"},{"id":255209,"name":"二十世紀電氣目録-ユーレカ・エヴリカ-","nameCn":"二十世纪电气目录","bangumiScore":4.7,"rank":10205,"url":"https://bangumi.tv/subject/255209","userScore":3,"comment":"看前两集的时候觉得还行来着……现在的感觉是，这是彻彻底底的浪费作画资源，同时也浪费了我的时间和期待。\r\n这个和一拳超人三就完全是两个极端，这一部则是最顶级的作画，配上最屎的剧情、人物塑造和编排。简直就是在乱搞。我都开始怀疑是不是原作的问题了。不过就算原作烂，动漫那能做到这种地步也是有着极致的水平了，开始播之前还有一大波宣发，我去了，就这样被骗进来。\r\n假如说追别的动漫我可能是每周看完都感叹“为什么这么短啊！”……看这个就是每周都忍不住想要骂一次。看到第十一集真的有一拳把屏幕砸烂的冲动。\r\n你他妈非要搞那个b男同剧情干啥啊？？男同女同牛头人纯爱，我去了给你集印花来了是吧。\r\n不是，真的是烂出水平烂出风采了啊。\r\n我还有好多好多想骂的，可惜篇幅太短这里写不下。","updatedAt":"2026-10-05T00:29:54+08:00","largePath":"../../public/images/bangumi/65c1cfaee3199230.webp","thumbPath":"../../public/images/bangumi/65c1cfaee3199230-thumb.webp"},{"id":552533,"name":"天幕のジャードゥーガル","nameCn":"穹庐下的魔女","bangumiScore":7.9,"rank":276,"url":"https://bangumi.tv/subject/552533","userScore":7,"comment":"直到最后几集我才意识到这个魔女指的不是女主，而且包含女主所在的她们——女主更像是一个旁观者或者牵线人的角色。但是最开始的暗示和指向不是一直都指的是女主吗，旨在展示出女主的聪慧。这导致后面女主犯蠢会让我觉得和前面塑造的人物有些冲突，令我非常难受啊（其实就是女主突然变蠢了让我很不爽）。\r\n这部的氛围和一些演出真的做得超好，但是确实是有些过于拖沓了吧？最开始的几集真的超级沉浸和令人动容，后面就渐渐的让我感觉有些乏味了。","updatedAt":"2026-09-19T02:21:15+08:00","largePath":"../../public/images/bangumi/b38cd18e969b1b18.webp","thumbPath":"../../public/images/bangumi/b38cd18e969b1b18-thumb.webp"},{"id":69214,"name":"私がモテないのはどう考えてもお前らが悪い!","nameCn":"我不受欢迎，怎么想都是你们的错！","bangumiScore":6.9,"rank":2945,"url":"https://bangumi.tv/subject/69214","userScore":9,"comment":"从各种意义上说都非常的难绷啊  //  \r\n我草我不行了，这是人类能想出来的剧情吗 //  \r\n在这条路上也是登峰造极了，这大概也算是某种意义上的神作吧……其实我都想给十分来着（雾）。不过我是真的非常喜欢这部，看的笑得不行了都，当然也尬得不行。从来没有这样的动漫，看某一集看到一半真的顶不住需要停下来缓一会，等做好心理准备了之后才能鼓起勇气点开播放键接着看的。看完却感觉意犹未尽，有点想去找漫画看了。真的很希望智子最后能走出阴霾，交到更多的好朋友。","updatedAt":"2026-08-20T15:24:05+08:00","largePath":"../../public/images/bangumi/39935a35f2fb3cda.webp","thumbPath":"../../public/images/bangumi/39935a35f2fb3cda-thumb.webp"},{"id":511207,"name":"前橋ウィッチーズ","nameCn":"前桥魔女","bangumiScore":7.2,"rank":1888,"url":"https://bangumi.tv/subject/511207","userScore":7,"comment":"还不错？确实有我挺喜欢的部分，也有感动的部分，但是整体上对这部确实称不上很喜欢。舞台音乐表演很多，但是感觉歌都有点太公式了（当然我也知道动漫想整出很多首出彩的歌是很难的），这部分确实不太喜欢。结尾处我也不是特别懂，没办法共情荣子和她摧毁这里的动机，导致最后感觉也一般般。不过很多地方做的还是有些有趣的，然后对于每个角色的诠释也很到位。对了还有，很多伏笔也做得很巧妙，每一个也都回收得很好。","updatedAt":"2026-07-11T02:48:35+08:00","largePath":"../../public/images/bangumi/603eecf23b06a9ef.webp","thumbPath":"../../public/images/bangumi/603eecf23b06a9ef-thumb.webp"},{"id":137722,"name":"僕だけがいない街","nameCn":"只有我不存在的城市","bangumiScore":7.6,"rank":671,"url":"https://bangumi.tv/subject/137722","userScore":5,"comment":"有太多逻辑说不通的地方了，或者说有太多地方我有疑点了，导致有点难共情进去。而且这部的节奏也有问题吧？后两个人感觉差不多就是一笔带过。结尾也莫名其妙，光最后一集那些说不通的地方都太多了，要我列出来的话这里都塞不下。不开玩笑的说，我看的途中写出来的吐槽的量都可以写一个很长的长评了。一开始我还夸“电影感”来着，没想到就一路走低了。不喜欢这部，op和ed好听加0.5分。","updatedAt":"2026-07-07T13:53:53+08:00","largePath":"../../public/images/bangumi/38be97e00480df80.webp","thumbPath":"../../public/images/bangumi/38be97e00480df80-thumb.webp"},{"id":513208,"name":"霧尾ファンクラブ","nameCn":"雾尾粉丝后援会","bangumiScore":6.9,"rank":2886,"url":"https://bangumi.tv/subject/513208","userScore":7,"comment":"假如只看前十集的话，我肯定会给8分。一开始看得时候真的很喜欢这部，看得根本停不下来。在这样的作画资源下能把动漫做得这么有趣，天哪。好久没有看番笑得这么开心了，在某一集好像笑得眼泪都出来了。但是到最后两话这个男主的塑造和他的所作所为我实在是无法理解，前面还稍微能共情一下到了这里就出戏得不得了。我在想假如完完全全的隐藏掉男主会不会是一个更好的选择呢？我感觉我真的是这个世界上最想给这部番打高分的人啊，前面带给我的快乐是实实在在的，但是到了最后……          ps：三好同学对于我来说也是非常的耀眼啊。","updatedAt":"2026-06-19T03:29:54+08:00","largePath":"../../public/images/bangumi/53b6149115e42786.webp","thumbPath":"../../public/images/bangumi/53b6149115e42786-thumb.webp"},{"id":390555,"name":"New PANTY & STOCKING with GARTERBELT","nameCn":"新 吊带袜天使","bangumiScore":7.5,"rank":944,"url":"https://bangumi.tv/subject/390555","userScore":7,"comment":"虽然说看完第一季后瞄了眼这一季的评论，一开始就是没抱着多少期待来看的，不过依旧是有一些惊喜的，也有在我心目中称得上是神回的 part 。但是确实，感觉惊喜变得少了一些，没有那么的无下限无节操，也没有特别多令人叹为观止的创意，感觉无聊的地方变得多了很多。有好多集有3 part，就切得有点太散太碎了让人更没有点开的欲望，果然我还是比较喜欢有剧情连贯的部分么。neta的大部分都看不懂，不过偶尔蹦出来个看懂了的依旧会捧腹大笑。总体来说这季的质量确实依旧是挺高的，刚看完第一季的我看到这一季的画质直接被爽到了，美美截了好多美图。由于刚看完最后两集不得不提一嘴，虽然说这两集有点俗套吧但我就吃这套[狗头]，果然还是比较喜欢有剧情的部分么，但是最后的结局实在是称不上喜欢。果然第一季的那个结尾是无法超越的么，那依旧是我心目中最帅最炸裂的结尾。","updatedAt":"2026-06-08T15:27:07+08:00","largePath":"../../public/images/bangumi/ed58ab2aff1c0bd2.webp","thumbPath":"../../public/images/bangumi/ed58ab2aff1c0bd2-thumb.webp"},{"id":609183,"name":"茉莉花ちゃんの好感度はぶっ壊れている","nameCn":"茉莉花酱的好感度正在崩坏","bangumiScore":4.5,"rank":10259,"url":"https://bangumi.tv/subject/609183","userScore":4,"comment":"","updatedAt":"2026-06-01T00:22:01+08:00","largePath":"../../public/images/bangumi/0237168ecc4e159e.webp","thumbPath":"../../public/images/bangumi/0237168ecc4e159e-thumb.webp"},{"id":525565,"name":"正反対な君と僕","nameCn":"相反的你和我","bangumiScore":7.7,"rank":570,"url":"https://bangumi.tv/subject/525565","userScore":6,"comment":"不知为何，看了三集之后感觉有些无聊，遂弃。可能是我的问题吧。害，人生","updatedAt":"2026-05-31T23:49:48+08:00","largePath":"../../public/images/bangumi/fa6ff4ff0d197680.webp","thumbPath":"../../public/images/bangumi/fa6ff4ff0d197680-thumb.webp"},{"id":8402,"name":"Panty & Stocking with Garterbelt","nameCn":"吊带袜天使","bangumiScore":8,"rank":261,"url":"https://bangumi.tv/subject/8402","userScore":9,"comment":"让我大开眼界了，每一秒都在意料之外，看得时候嘴经常张开得合不上。真的是令人叹为观止啊！看的时候看着看突然就爱上这一部了。整整13集真的无可挑剔啊，音乐也是真的好听。之前便听闻很多人吹捧其为神作，如今以身入局，发现名副其实啊。\r\n虽然说从头到尾都充斥着无节操无底线的气氛，但是总是会有那么几个瞬间能够将我打动。\r\n敬最伟大的创意与想象力！","updatedAt":"2026-05-25T21:45:29+08:00","largePath":"../../public/images/bangumi/cb9ca7224e073296.webp","thumbPath":"../../public/images/bangumi/cb9ca7224e073296-thumb.webp"},{"id":517057,"name":"【推しの子】 第3期","nameCn":"【我推的孩子】 第三季","bangumiScore":7.2,"rank":1745,"url":"https://bangumi.tv/subject/517057","userScore":8,"comment":"这个制作太吊了吧，身为作画党感觉看得真的很爽。\r\n但是……感觉已经不是制作能不能救的问题了，原作是不是有点发狂了啊[捂脸]。\r\n不过要说好不好看的话，确实依旧非常好看啊。\r\n靠超想看后面的，下一季什么时候出啊。","updatedAt":"2026-04-23T13:57:36+08:00","largePath":"../../public/images/bangumi/32233038754efe00.webp","thumbPath":"../../public/images/bangumi/32233038754efe00-thumb.webp"},{"id":443428,"name":"【推しの子】 第2期","nameCn":"【我推的孩子】 第二季","bangumiScore":7.2,"rank":1873,"url":"https://bangumi.tv/subject/443428","userScore":9,"comment":"感觉后面他父亲的死以及阿库亚的突然释怀有点突兀了也有点怪怪的，以及最后那位白发女士的出现让这部片突然变得玄幻起来（虽然最后那幕也有说她应该也是转生者……）\r\n但是！\r\n瑕不掩瑜啊！\r\n前面一大半真的看得我热血沸腾。特别是第十七集舞台剧开始出演的时候。如此淋漓尽致的演出啊！而且感觉中间穿插的人物回忆也很自然， 把每个角色都刻画得很好。\r\n没想到动漫能这么直观的表现出“演技”的差异，看的时候确实是让人心潮澎湃啊！\r\n反正我觉得真的是非常好看。\r\n而且更不用说中间各种风格化的东西以及极致的作画，经费真的是在“燃烧”啊！简直太帅了吧！\r\n有一说一看的时候弄得我都非常想去看一个这种舞台剧了。\r\n在我心目中，这就是一部非常叼的作品。     \r\n//     二刷维持原判……当然，最后那部分的评价也维持原判。","updatedAt":"2026-04-18T00:49:17+08:00","largePath":"../../public/images/bangumi/0090d7dee450c05a.webp","thumbPath":"../../public/images/bangumi/0090d7dee450c05a-thumb.webp"},{"id":386809,"name":"【推しの子】","nameCn":"【我推的孩子】","bangumiScore":7.4,"rank":1279,"url":"https://bangumi.tv/subject/386809","userScore":8,"comment":"打算看第三季来着，发现前面全忘了，遂再看一次  //  过了这么久再看一遍这个第一集，还是觉得做得真的非常非常好啊  //  虽然很多人说高开低走，但是我觉得后面也非常好看啊，而且保持了一贯的高水准制作。咱就别盯着内复仇不放了呗，先“抛开复仇不谈”（。感觉第二次看反而好像比第一次还更喜欢了是怎么一回事[狗头]    //  这个第七集结尾印象里第一次看的时候就被震惊到了,这一幕印象很深啊  //  害，真挺好看吧。","updatedAt":"2026-04-15T19:44:19+08:00","largePath":"../../public/images/bangumi/787b979dc55ef44a.webp","thumbPath":"../../public/images/bangumi/787b979dc55ef44a-thumb.webp"},{"id":515759,"name":"葬送のフリーレン 第2期","nameCn":"葬送的芙莉莲 第二季","bangumiScore":7.5,"rank":1007,"url":"https://bangumi.tv/subject/515759","userScore":7,"comment":"在看完第一季时没忍住写了个长评，如今看完这一季却不知道该说些什么了。感觉有点像是过渡回？（我没看过原作乱猜的）\r\n要说不失望那肯定是假的，但也算是勉强称得上没有辱没葬送的芙莉莲这个称号。\r\n可能算是一部还算不错的动漫。但在我心目中，尚未及格。","updatedAt":"2026-04-04T23:36:17+08:00","largePath":"../../public/images/bangumi/ec6a3036aa584525.webp","thumbPath":"../../public/images/bangumi/ec6a3036aa584525-thumb.webp"},{"id":514353,"name":"小林さんちのメイドラゴン さみしがりやの竜","nameCn":"小林家的龙女仆 怕寂寞的龙","bangumiScore":6.6,"rank":4784,"url":"https://bangumi.tv/subject/514353","userScore":8,"comment":"我还是蛮喜欢的。\r\n啊，这光……啊，这眼眸……啊，这水……\r\n欢迎回来，大家","updatedAt":"2026-03-31T02:50:21+08:00","largePath":"../../public/images/bangumi/79e105caf800babd.webp","thumbPath":"../../public/images/bangumi/79e105caf800babd-thumb.webp"},{"id":529966,"name":"らんま1/2 第2期","nameCn":"乱马1/2 第二季","bangumiScore":7.2,"rank":1643,"url":"https://bangumi.tv/subject/529966","userScore":6,"comment":"//  看到第三集和第四集，没啥看下去的欲望了，感觉推进有点无聊。感觉还是第一季好看点  //  重启了，其实还是挺乐的  //  之前有邻兵和我说他第一季看了几集没看了，因为情感处理的有点那啥。那时我感觉第一季还好啊。现在第二季发现还真有这个问题，而且更严重了一点，连我都感觉到了。就有种打着纯爱幌子，但是又很不“纯”的感觉。 //  不过有一说一这部番的op是我最喜欢的op之一，水曜日nb //  有些地方拖沓到了难以容忍的地步  //  ep.23 ???  //  有点难评，反正我不喜欢这一季。看在作画和op的份上给六分","updatedAt":"2026-03-17T16:58:39+08:00","largePath":"../../public/images/bangumi/121e05463247f726.webp","thumbPath":"../../public/images/bangumi/121e05463247f726-thumb.webp"},{"id":627556,"name":"呼唤少女特别篇 想做的事到底是什么","nameCn":"","bangumiScore":6.7,"rank":4317,"url":"https://bangumi.tv/subject/627556","userScore":6,"comment":"噢还有这个的嘞，几天前鉴赏了一下。\r\n怎么说呢，画风还行？其它的我也不知道怎么评价了，再接再厉吧。\r\n感觉有种很刻意的想卖老广情怀的感觉……\r\n然后关于“百”的部分有点用力过猛了，媚宅的部分也是，感觉有点模仿老动漫的感觉，亦或者导演心目中的“日本动漫”。\r\n里面还有两个有些古怪的分镜（一个是花好像，一个是走廊背景，有点忘了）。\r\n我感觉真的想要写出这边学校的这种日常，其实也有挺多挺特别的东西可以写的啊。说到这我又想起高中时期的一些欢乐的日常了。\r\n不过也许能勾起人们心中的回忆这也是一个优点吧。\r\n说是不知道怎么评价，但是还是没忍住写了这么多，可能因为原先真的挺期待的吧。毕竟第一次能在家附近圣地巡礼。\r\n希望正片能更加优秀一点。","updatedAt":"2026-03-04T22:51:56+08:00","largePath":"../../public/images/bangumi/e3e4b105bfc0b74e.webp","thumbPath":"../../public/images/bangumi/e3e4b105bfc0b74e-thumb.webp"},{"id":565802,"name":"かぐや様は告らせたい 大人への階段","nameCn":"辉夜大小姐想让我告白 通往大人的阶梯","bangumiScore":8.3,"rank":102,"url":"https://bangumi.tv/subject/565802","userScore":9,"comment":"这是我开始看动漫后追的第二部番，从初三到大四，没想到已经过去这么久了。感谢辉夜制作组由始至终的优秀制作，至此也是给了一个完美的尾声（虽然好像还有个完结篇？（雾））。没想到过了这么久我看着这部依旧会像追第一季时那样捧腹大笑，依旧会被这份青涩真挚的感情所打动。在此谨以九分送上我最诚挚的敬意。","updatedAt":"2026-02-24T01:33:46+08:00","largePath":"../../public/images/bangumi/0fe613b0d45ee9c9.webp","thumbPath":"../../public/images/bangumi/0fe613b0d45ee9c9-thumb.webp"},{"id":425211,"name":"かぐや様は告らせたい-ファーストキッスは終わらない-","nameCn":"辉夜大小姐想让我告白-初吻不会结束-","bangumiScore":8,"rank":269,"url":"https://bangumi.tv/subject/425211","userScore":8,"comment":"好像当年看过一遍了，但是如今再看依旧是看得非常的开心，也再次被这个系列的制作折服。好像回到了初心悸动的那个夏天","updatedAt":"2026-02-22T19:21:01+08:00","largePath":"../../public/images/bangumi/a8691b97cf315fa6.webp","thumbPath":"../../public/images/bangumi/a8691b97cf315fa6-thumb.webp"},{"id":498378,"name":"SPY×FAMILY Season 3","nameCn":"间谍过家家 第三季","bangumiScore":7.3,"rank":1453,"url":"https://bangumi.tv/subject/498378","userScore":0,"comment":"看了四集实在是提不起任何继续看下去的欲望了","updatedAt":"2026-02-09T13:10:38+08:00","largePath":"../../public/images/bangumi/3dec70dfa635cea2.webp","thumbPath":"../../public/images/bangumi/3dec70dfa635cea2-thumb.webp"},{"id":604826,"name":"超かぐや姫！","nameCn":"超辉夜姬！","bangumiScore":8,"rank":204,"url":"https://bangumi.tv/subject/604826","userScore":10,"comment":"这是一场无与伦比的视觉盛宴，感谢这部作品的出现，让我的双眼刚刚经受了无比绚烂的洗礼。虽然我的理性很想打九分，但是管它那么多的，我真的超级喜欢这部啊！在我心目中这就是能称之为神作的作品。","updatedAt":"2026-02-08T02:29:37+08:00","largePath":"../../public/images/bangumi/4e553e2f2b77032b.webp","thumbPath":"../../public/images/bangumi/4e553e2f2b77032b-thumb.webp"},{"id":199392,"name":"血界戦線 & BEYOND","nameCn":"血界战线 & BEYOND","bangumiScore":7.5,"rank":844,"url":"https://bangumi.tv/subject/199392","userScore":9,"comment":"这季很好看诶，故事讲的比第一季好很多。当缺点被补足了之后就是非常优秀的动漫了啊。非常喜欢这季！","updatedAt":"2026-01-14T16:03:25+08:00","largePath":"../../public/images/bangumi/1669add5164fcbde.webp","thumbPath":"../../public/images/bangumi/1669add5164fcbde-thumb.webp"},{"id":285757,"name":"ワンパンマン 第3期","nameCn":"一拳超人 第三季","bangumiScore":4.5,"rank":10290,"url":"https://bangumi.tv/subject/285757","userScore":3,"comment":"从第一集一直追到最后一集，吃了一个季度的石，我都开始怀疑我是m了。就算是穷也可以做的有趣做的好看，有很多动漫可以拿来举例，但是这一步就是纯纯的大构式。作画史，配乐史，音效史，节奏史……更不用说有些分镜了，虽然我没看过漫画原作但我都能看出来完全就是在抄袭原作的画面（而且和漫画一样一动不动），直接就差把漫画贴在脑门上了。整部动漫没有一个优点，完完全全就是靠着原作的故事来吸引人，我要不是因为想看接下来的故事才不会主动来受虐。啊当然原作故事的这一优点在拖沓的节奏下也基本上化为虚无，哈哈，最后一集真给我看乐了。懒得再喷下去了，我真希望这第三季从没出来过、或者希望我对前两季以前没有那么喜欢、亦或者看完第三季第一集我就去开始看了了原作，这样我也不用来赤这坨大大的变了。看动漫以来最不愉快的追番体验。","updatedAt":"2026-01-03T00:52:21+08:00","largePath":"../../public/images/bangumi/54f0be8a96000e95.webp","thumbPath":"../../public/images/bangumi/54f0be8a96000e95-thumb.webp"},{"id":470660,"name":"劇場版 チェンソーマン レゼ篇","nameCn":"剧场版 链锯人 蕾塞篇","bangumiScore":8.3,"rank":78,"url":"https://bangumi.tv/subject/470660","userScore":7,"comment":"非常优秀的作画，很多分镜也是美得不得了，还真的做到了非常的具有“电影感”。氛围感的烘托也很不错，节奏也可以，确实是值得去电影院看的一部作品。但是剧情上总感觉有些许的问题，逻辑上有些地方也不是很自洽，整体上给我有一种吹过头了的感觉。啊我还有一丢丢战力学上的疑惑……只能说确实谈不上喜欢","updatedAt":"2025-12-29T17:49:25+08:00","largePath":"../../public/images/bangumi/d4290cc420b8b874.webp","thumbPath":"../../public/images/bangumi/d4290cc420b8b874-thumb.webp"},{"id":508958,"name":"ワンダンス","nameCn":"绝妙舞步","bangumiScore":6.1,"rank":7271,"url":"https://bangumi.tv/subject/508958","userScore":8,"comment":"我真觉得挺好看的啊，不论是节奏还是配乐都很合我的胃口。3D的部分其实也还差强人意吧，除了前两集有点抽象外，做的也是越来越好了，到了第六集的舞蹈部分就真的让我感觉还挺帅的。第八集的斗舞更不用说了，看得爽飞了，也很好的把poping、house、waacking等的特色和技术展现了出来。\r\n而且这部番真的有很认真的在诠释舞蹈啊，像是音乐和舞蹈的关系，就很自然的激起了对舞蹈的兴趣，让我去情不自禁的搜索相关的知识和舞蹈视频去看。 \r\n真挺喜欢这部","updatedAt":"2025-12-26T14:35:09+08:00","largePath":"../../public/images/bangumi/c834b2838ceea3d2.webp","thumbPath":"../../public/images/bangumi/c834b2838ceea3d2-thumb.webp"},{"id":105075,"name":"血界戦線","nameCn":"血界战线","bangumiScore":7.4,"rank":1099,"url":"https://bangumi.tv/subject/105075","userScore":7,"comment":"很优秀的作品，无论是从音乐还是作画上来说都是无可挑剔的，很多搞笑的地方也做得非常有意思。\r\n但是不知为何就是没那么吸引我，也没有对这部作品产生那种喜爱之情。可能是叙事的问题？我也不懂。\r\n//ep.12 这下明白了，这主线到底在乱七八糟的讲些什么啊，前因后果和事件之间的逻辑完全都给人看的一团雾水，更别说还有那么多不明所以的谜语对话。\r\n看到最后我脑袋里带了几百个问题想问，结果导致那一段情感的抒发完全带入不进去。\r\n但是最后一集的这个极具电影感的分镜、作画和配乐又一度让我惊叹不已，害。","updatedAt":"2025-12-21T02:58:50+08:00","largePath":"../../public/images/bangumi/28cbaf96fd745b38.webp","thumbPath":"../../public/images/bangumi/28cbaf96fd745b38-thumb.webp"},{"id":419613,"name":"Zootopia 2","nameCn":"疯狂动物城2","bangumiScore":6.8,"rank":3785,"url":"https://bangumi.tv/subject/419613","userScore":6,"comment":"六七分差不多了，不过我更倾向于六。\r\n剧情实在是太公式了，迪士尼写剧本的人就是这么敷衍的？没想到“看得都能让我猜到接下来要干啥”的电影还真的出现了。\r\n分全是打给制作和一些小巧思的","updatedAt":"2025-12-14T21:29:46+08:00","largePath":"../../public/images/bangumi/f8da0e0de6b0d42a.webp","thumbPath":"../../public/images/bangumi/f8da0e0de6b0d42a-thumb.webp"},{"id":214272,"name":"ようこそ実力至上主義の教室へ","nameCn":"欢迎来到实力至上主义的教室","bangumiScore":6.2,"rank":7215,"url":"https://bangumi.tv/subject/214272","userScore":5,"comment":"有点拖沓，有点老套，有点无聊，逻辑也有点那啥。\r\nop还挺好听","updatedAt":"2025-11-23T13:04:31+08:00","largePath":"../../public/images/bangumi/16c5cf7fa768eba4.webp","thumbPath":"../../public/images/bangumi/16c5cf7fa768eba4-thumb.webp"},{"id":545328,"name":"銀河特急 ミルキー☆サブウェイ","nameCn":"银河特急 银河☆地铁","bangumiScore":7.5,"rank":826,"url":"https://bangumi.tv/subject/545328","userScore":8,"comment":"超可爱，超好看啊！不过就是有点太短了","updatedAt":"2025-10-25T23:50:24+08:00","largePath":"../../public/images/bangumi/4b478c9d5103683a.webp","thumbPath":"../../public/images/bangumi/4b478c9d5103683a-thumb.webp"},{"id":528438,"name":"フードコートで、また明日。","nameCn":"明天，美食广场见。","bangumiScore":7.5,"rank":986,"url":"https://bangumi.tv/subject/528438","userScore":9,"comment":"最日常的日常，用最简单的场景最少的人物构筑出了最美好的图画","updatedAt":"2025-10-16T15:04:03+08:00","largePath":"../../public/images/bangumi/b197afdfe51c19f4.webp","thumbPath":"../../public/images/bangumi/b197afdfe51c19f4-thumb.webp"},{"id":1879,"name":"スクールランブル 三学期","nameCn":"校园迷糊大王 三学期","bangumiScore":7.2,"rank":1714,"url":"https://bangumi.tv/subject/1879","userScore":7,"comment":"今天我终于把漫画补完了，很抱歉我得给第三学期的动画一个不高的分数了。后面这段漫画其实超级无敌精彩的啊，你短短两集根本就讲不了多少东西也确实漏了太多东西了啊喂！！！","updatedAt":"2025-10-10T21:11:13+08:00","largePath":"../../public/images/bangumi/6610907b5ce7e14c.webp","thumbPath":"../../public/images/bangumi/6610907b5ce7e14c-thumb.webp"},{"id":467930,"name":"青春ブタ野郎はサンタクロースの夢を見ない","nameCn":"青春猪头少年不会梦到圣诞服女郎","bangumiScore":6.9,"rank":3305,"url":"https://bangumi.tv/subject/467930","userScore":5,"comment":"第二集看到一半实在是看不下去了，感觉有点无聊到令人发指了。制作也穷，讲的话还不明所以的。这好歹是我的入宅作的第二季啊，情怀肯定是非常有的，但是真看不下去了。就让青猪如同青春一样消逝在风里吧，唉","updatedAt":"2025-10-05T13:32:02+08:00","largePath":"../../public/images/bangumi/f8d96f5cf920ec9d.webp","thumbPath":"../../public/images/bangumi/f8d96f5cf920ec9d-thumb.webp"},{"id":514358,"name":"CITY THE ANIMATION","nameCn":"小城日常","bangumiScore":7.5,"rank":856,"url":"https://bangumi.tv/subject/514358","userScore":10,"comment":"太太太太喜欢这部了！！\r\n到ep5以及后面对这部的喜爱之情达到顶峰。\r\n精妙绝伦的作画，天马行空的创意和想象力。\r\n有趣的地方我也觉得非常有趣，时不时就会让我会心一笑亦或者咧着嘴傻笑。\r\n不论是节奏还是其它地方都太合我的胃口了。\r\n它没有刻意的去凸显到底谁才是主角，而是尽心尽力去刻画每一个角色的故事。在这个小镇中，每个人都有各自有趣的故事和奇妙的境遇。而且每个故事又是那么的暖心与美好，是那种最真挚的友谊以及人与人之间的碰撞。每个人都是那么的可爱。看到ep6结尾时我都差点哭出来了。\r\n要我来说的话，我真的觉得不比日常差。\r\n真的太喜欢这部动画了！\r\n//ep11和12依旧是有着很有趣的演绎方式，不过也许是我期待值太高了？觉得好像有点低于预期啊。\r\n//京阿尼用它自己的方式给予了这部作品一个与众不同且有趣至极的结尾，希望未来我们还能在某个夏天再见吧！","updatedAt":"2025-09-29T13:18:57+08:00","largePath":"../../public/images/bangumi/cbc4c9e030df1083.webp","thumbPath":"../../public/images/bangumi/cbc4c9e030df1083-thumb.webp"},{"id":12426,"name":"映画けいおん！","nameCn":"轻音少女 剧场版","bangumiScore":8.4,"rank":62,"url":"https://bangumi.tv/subject/12426","userScore":10,"comment":"","updatedAt":"2025-09-28T00:46:05+08:00","largePath":"../../public/images/bangumi/9aab20b96708f9e3.webp","thumbPath":"../../public/images/bangumi/9aab20b96708f9e3-thumb.webp"},{"id":3774,"name":"けいおん！！","nameCn":"轻音少女 第二季","bangumiScore":8.4,"rank":55,"url":"https://bangumi.tv/subject/3774","userScore":10,"comment":"","updatedAt":"2025-09-28T00:45:45+08:00","largePath":"../../public/images/bangumi/2e53fd967f652620.webp","thumbPath":"../../public/images/bangumi/2e53fd967f652620-thumb.webp"},{"id":1424,"name":"けいおん！","nameCn":"轻音少女","bangumiScore":8.3,"rank":101,"url":"https://bangumi.tv/subject/1424","userScore":10,"comment":"补标。\r\n2022年时看的。最喜欢的动漫","updatedAt":"2025-09-28T00:45:22+08:00","largePath":"../../public/images/bangumi/7fba612f2e8f4b55.webp","thumbPath":"../../public/images/bangumi/7fba612f2e8f4b55-thumb.webp"},{"id":529431,"name":"ダンダダン 第2期","nameCn":"胆大党 第二季","bangumiScore":7.3,"rank":1444,"url":"https://bangumi.tv/subject/529431","userScore":8,"comment":"和上一季一样非常精彩啊。作画依旧是那么的不同凡响，还有各种有趣的分镜，我觉得画得非常有意思啊！圣母的地方确实会让人看的有点小难受以及不理解，扣一点分吧。不过瑕不掩瑜，反正我是看得爽飞了。\r\n但是你为什么又断在这种地方啊喂！！！！科学猴你tm，我命令你十月份就把下一季端出来啊！！","updatedAt":"2025-09-20T19:35:57+08:00","largePath":"../../public/images/bangumi/75c0e458f4accb4d.webp","thumbPath":"../../public/images/bangumi/75c0e458f4accb4d-thumb.webp"},{"id":426983,"name":"Scott Pilgrim Takes Off","nameCn":"歪小子斯科特","bangumiScore":7.2,"rank":1814,"url":"https://bangumi.tv/subject/426983","userScore":7,"comment":"作画挺有意思的，讲故事的方法也很有趣。剧情一开始觉得一般，但是后面也突然有趣了起来。不赖","updatedAt":"2025-09-02T16:41:19+08:00","largePath":"../../public/images/bangumi/e5d94c2033e0068b.webp","thumbPath":"../../public/images/bangumi/e5d94c2033e0068b-thumb.webp"},{"id":501958,"name":"劇場版 鬼滅の刃 無限城編 第一章 猗窩座再来","nameCn":"剧场版 鬼灭之刃 无限城篇 第一章 猗窝座再袭","bangumiScore":7.4,"rank":1183,"url":"https://bangumi.tv/subject/501958","userScore":8,"comment":"我原本以为我对打斗类型的画面无感的，直到看了这部。\r\n伟大的作画。\r\n感觉是我看过几乎最牛逼的打斗作画，开局就给我看高潮了。每一个战斗的部分都会令人屏住呼吸目不转睛的观赏、感受。\r\n音乐也是极好的。\r\n但是，很多地方的演绎我就不喜欢了，前半段那一大堆的“死前走马灯”我是真没绷住。每次走马灯我不知道该干些啥就摸起旁边的可乐喝一口。\r\n不过最后那段讲猗窝座的，可能由于篇幅够长吧，感觉观感还可以。啊不过炭治郎说的每一句大道理我都绷不住。\r\n加分制，作画超模了给八分吧，在电影院看的真的是太爽了。看前半段时还想着剧情给负分的，后面也勉勉强强还行了，算了给了。\r\n这绝对是最适合去电影院看的那种动漫。我觉得说是最适合的那一个也不为过。\r\n动漫史上最伟大的打斗！（哈哈这么说会不会太过激了）","updatedAt":"2025-08-22T21:05:43+08:00","largePath":"../../public/images/bangumi/487e9f43b18c0cb6.webp","thumbPath":"../../public/images/bangumi/487e9f43b18c0cb6-thumb.webp"},{"id":495562,"name":"デッドデッドデーモンズデデデデデストラクション","nameCn":"DDDD 恶魔的破坏","bangumiScore":7.6,"rank":731,"url":"https://bangumi.tv/subject/495562","userScore":9,"comment":"兼具深度与有趣，精彩绝伦的作画搭配上精彩绝伦的故事，超乎想象的发展还带有我最爱的日常元素。现在刚看完，还停留在刚刚的震撼之中，不知道怎么接着写观后感了。看到后面我一度以为可能高开然后结尾就一般，但是结尾依旧出乎我的意料，我真的很喜欢这个结尾。\r\n美中不足的可能确实是有一些东西没讲清楚，例如说末世后的各种情况，不过瑕不掩瑜，毕竟由于篇幅问题就应该只能讲这么多了，到最后两三集我还想着这能讲完我吃（）呢。\r\n总而言之，非常非常喜欢这部作品。","updatedAt":"2025-07-06T00:02:56+08:00","largePath":"../../public/images/bangumi/21c6053f3898d3a7.webp","thumbPath":"../../public/images/bangumi/21c6053f3898d3a7-thumb.webp"},{"id":509986,"name":"アポカリプスホテル","nameCn":"末日后酒店","bangumiScore":8.2,"rank":146,"url":"https://bangumi.tv/subject/509986","userScore":9,"comment":"毋庸置疑，是一部非常优秀的原创动画啊！\r\n但是就是我感觉个人来说，没有特别喜欢这部。\r\n然后我思考了一下原因，突然发现这部并没有特意的把角色画得非常有魅力，在人物性格的塑造上也没有去刻意迎合大众市场，去设计那种如今比较大势所趋的角色。反而好像是有点一反常态的。\r\n所以说这部其实就证明了，单纯的用很好的制作把故事讲好，也是能成为一部非常优秀的作品的。\r\n然后隔壁的gquxxxx好像就和这部完全相反了（捂脸）。不过有一说一如果删掉最后一集我还是更喜欢高达一点(    。","updatedAt":"2025-06-27T13:33:39+08:00","largePath":"../../public/images/bangumi/38fca61dd471ef0e.webp","thumbPath":"../../public/images/bangumi/38fca61dd471ef0e-thumb.webp"},{"id":526816,"name":"機動戦士Gundam GQuuuuuuX","nameCn":"机动战士高达 GQuuuuuuX","bangumiScore":6.1,"rank":7537,"url":"https://bangumi.tv/subject/526816","userScore":7,"comment":"看前面的时候感觉都还挺喜欢的，毕竟作画真的很吊啊，然后也蛮有意思的，直到最后一集……\r\n就算只是最后一集，看前半部分的时候还想着虽然剧情有些仓促很乱很怪，但是无敌炸裂的作画又弥补了这一点。看到后半集实在是绷不住了，这勾八到底是什么东西啊wdf(；￣д￣)。\r\n啊不过最后一回那一段的作画确实算是我看的最叼的几段作画之一了。\r\n（删掉第12集我肯定能给至少八分）（（（","updatedAt":"2025-06-26T13:53:41+08:00","largePath":"../../public/images/bangumi/5c46a3b51382d7e1.webp","thumbPath":"../../public/images/bangumi/5c46a3b51382d7e1-thumb.webp"},{"id":489820,"name":"らんま1/2","nameCn":"乱马1/2","bangumiScore":7.5,"rank":997,"url":"https://bangumi.tv/subject/489820","userScore":8,"comment":"看了第一集就被吸引了，很有趣的题材、演绎得也很有趣，画得也很好啊！人物也都很可爱啊！哎呦我都想去看看老版了。","updatedAt":"2025-06-14T23:15:19+08:00","largePath":"../../public/images/bangumi/741268c148747dda.webp","thumbPath":"../../public/images/bangumi/741268c148747dda-thumb.webp"},{"id":237,"name":"GHOST IN THE SHELL / 攻殻機動隊","nameCn":"攻壳机动队","bangumiScore":8.8,"rank":9,"url":"https://bangumi.tv/subject/237","userScore":7,"comment":"没有想象中该有的炸裂作画。你要非说这个在那个时代这个制作已经无敌好了的话，那我觉得FLCL可以吊打这个。剧情也稍显拖沓无聊了。最后一段蛮精彩的，不过也仅限最后一段了。\r\n你可以说我没看懂啊没脑子不配看什么的，但是我就是get不到。","updatedAt":"2025-06-07T20:50:56+08:00","largePath":"../../public/images/bangumi/7ac2672b260e86bf.webp","thumbPath":"../../public/images/bangumi/7ac2672b260e86bf-thumb.webp"},{"id":1878,"name":"スクールランブル 二学期","nameCn":"校园迷糊大王 二学期","bangumiScore":7.8,"rank":439,"url":"https://bangumi.tv/subject/1878","userScore":9,"comment":"确实还是像第一季一样会偶尔看得胃疼，甚至更频繁了……不过依旧是非常非常有趣的一部动漫。\r\n偶尔会笑得肚子疼、眼泪都笑出来，又偶尔会非常的感动，萦绕着淡淡的忧伤。\r\n这一季最后两集的演绎方式真是神了，看到最后一集前半段时都快看哭了……但是！牛魔的后面又开始胃疼起来，又nm的重置了。不是！！！给我气得。\r\n但现在回过头想想，所有人都以为到最后了总该解开误会了吧，结果又出人意料的回到原点。这永远无法料到的剧情也许正是校园迷糊大王的精彩之处吧。\r\n唉，就这样吧，有笑有泪又胃疼，对于这部番我内心的情感是非常复杂的。它将最真实的青春用另类的方式演绎了出来，每个角色都塑造得栩栩如生。也许每个人都能在里面看到过去自己的影子吧。\r\n这是一部无与伦比的校园日常群像番，我相信它会永远在我心目中留下不可磨灭的印象。","updatedAt":"2025-05-20T16:11:52+08:00","largePath":"../../public/images/bangumi/74732b02510e9fa9.webp","thumbPath":"../../public/images/bangumi/74732b02510e9fa9-thumb.webp"},{"id":526817,"name":"機動戦士Gundam GQuuuuuuX -Beginning-","nameCn":"机动战士高达 跨时之战","bangumiScore":6.7,"rank":3874,"url":"https://bangumi.tv/subject/526817","userScore":7,"comment":"之前任何一部高达都没看过，这次由于和同学出来实在没啥电影看了就选了这部。\r\n前半部分还是有点观看门槛的，设定也介绍了一些，但是会导致有些我们这种非高达迷看得有点昏昏欲睡。\r\n后半段我是很喜欢的，无论是画风、作画的精美度还是音乐亦或者节奏，个人都感觉远超前半部分。有种“突然坐直身子来看”的感觉。当然，仅是以一个路人的角度。\r\n不过总体来说还是蛮喜欢的，身为一个“预告片”确实勾起了我看正片的欲望，这下不得不浅追一追高达了（","updatedAt":"2025-04-06T01:12:39+08:00","largePath":"../../public/images/bangumi/481149f439fd2ed9.webp","thumbPath":"../../public/images/bangumi/481149f439fd2ed9-thumb.webp"},{"id":1877,"name":"スクールランブル 一学期補習","nameCn":"校园迷糊大王 一学期补习","bangumiScore":7.6,"rank":747,"url":"https://bangumi.tv/subject/1877","userScore":9,"comment":"这两集的观感很棒啊！在这部番里没有一个人是配角，每个人都是活生生的。而且也很有趣啊！","updatedAt":"2025-04-02T22:39:16+08:00","largePath":"../../public/images/bangumi/4cc0282a8b81852a.webp","thumbPath":"../../public/images/bangumi/4cc0282a8b81852a-thumb.webp"},{"id":440,"name":"スクールランブル","nameCn":"校园迷糊大王","bangumiScore":8,"rank":250,"url":"https://bangumi.tv/subject/440","userScore":9,"comment":"永远都会有意想不到的地方，永远都会带来惊喜啊！\r\n常常会忍不住捧腹大笑，笑得不能自已。\r\n虽然有时候确实看得有一点胃疼，不过也许正是因为有着这些误会以及曲折，才是青春最真实的样貌吧。","updatedAt":"2025-04-02T21:13:51+08:00","largePath":"../../public/images/bangumi/2880112d27219ada.webp","thumbPath":"../../public/images/bangumi/2880112d27219ada-thumb.webp"},{"id":518519,"name":"ONE PIECE FAN LETTER","nameCn":"航海王：粉丝来信","bangumiScore":8.6,"rank":37,"url":"https://bangumi.tv/subject/518519","userScore":9,"comment":"为什么这么短只有一集啊！！！！极其高的内容密度，但是又演绎得非常流畅清晰。无可挑剔的一集。让我这个只在很多年前看过一点点海贼的人都非常感动啊","updatedAt":"2025-03-09T23:16:54+08:00","largePath":"../../public/images/bangumi/02579207d0846673.webp","thumbPath":"../../public/images/bangumi/02579207d0846673-thumb.webp"},{"id":282433,"name":"映像研には手を出すな！","nameCn":"别对映像研出手！","bangumiScore":8.1,"rank":195,"url":"https://bangumi.tv/subject/282433","userScore":9,"comment":"精妙绝伦的想象力，天马行空的演绎方式。而且里面有超多有趣的地方，例如说水崎燕的跑步姿势，这些都超级灵动好玩啊。\r\n而且确实是学到了很多东西。这部片里讲解的地方也不会显得枯燥。那些设计图也是设计慢慢，让人忍不住暂停下来慢慢欣赏啊。\r\n里面将动画展现得淋漓尽致，让人忍不住惊呼“这才是动画的魅力啊！！”\r\n真的是很帅很好看的一部动漫啊！","updatedAt":"2025-02-21T00:15:58+08:00","largePath":"../../public/images/bangumi/71fbab30fbfe3167.webp","thumbPath":"../../public/images/bangumi/71fbab30fbfe3167-thumb.webp"},{"id":363242,"name":"古見さんは、コミュ症です。2期","nameCn":"古见同学有交流障碍症 第二季","bangumiScore":7.3,"rank":1526,"url":"https://bangumi.tv/subject/363242","userScore":8,"comment":"这季糖分超标了啊！！！！！\r\n而且超有趣的！","updatedAt":"2025-01-22T17:15:58+08:00","largePath":"../../public/images/bangumi/f9e0f42013686cb8.webp","thumbPath":"../../public/images/bangumi/f9e0f42013686cb8-thumb.webp"},{"id":335225,"name":"古見さんは、コミュ症です。","nameCn":"古见同学有交流障碍症","bangumiScore":7,"rank":2667,"url":"https://bangumi.tv/subject/335225","userScore":8,"comment":"蛮有趣的(◕ᴗ◕✿)","updatedAt":"2025-01-15T15:10:23+08:00","largePath":"../../public/images/bangumi/0bd465c1060e909d.webp","thumbPath":"../../public/images/bangumi/0bd465c1060e909d-thumb.webp"},{"id":93545,"name":"甘城ブリリアントパーク","nameCn":"甘城光辉游乐园","bangumiScore":7,"rank":2644,"url":"https://bangumi.tv/subject/93545","userScore":8,"comment":"真的很喜欢这部动漫啊！非常的有趣搞笑，有些时候真的零帧起手根本绷不住啊哈哈哈。画的人物也都超美的呀！而且实际上里面有很多细节，真的都超级有趣的。那三小只是有种反差感，但确实是塑造得很好，有些时候特别逗啊。最后真的很感动。确实是从各种地方来说都能算得上很优秀的一部动漫，因为称其“媚宅”而给低分实在是忍受不了啊啊啊！！","updatedAt":"2024-12-29T14:07:46+08:00","largePath":"../../public/images/bangumi/c6ece1b552c6a321.webp","thumbPath":"../../public/images/bangumi/c6ece1b552c6a321-thumb.webp"},{"id":467461,"name":"ダンダダン","nameCn":"胆大党","bangumiScore":7.5,"rank":990,"url":"https://bangumi.tv/subject/467461","userScore":9,"comment":"超级牛逼的作画，每周都在第一时间看，然而每次都能带给我新的惊喜与震撼。剧情和节奏也都超棒的，看得爽爆了。","updatedAt":"2024-12-28T14:23:12+08:00","largePath":"../../public/images/bangumi/05bd873c03888c33.webp","thumbPath":"../../public/images/bangumi/05bd873c03888c33-thumb.webp"},{"id":770,"name":"天元突破グレンラガン","nameCn":"天元突破 红莲螺岩","bangumiScore":8.5,"rank":40,"url":"https://bangumi.tv/subject/770","userScore":8,"comment":"在看这部之前我曾经以为自己已经对热血漫免疫了。\r\n没想到真的能让我再热血沸腾一次啊！！！","updatedAt":"2024-12-05T14:52:56+08:00","largePath":"../../public/images/bangumi/5ff67db3e9203d43.webp","thumbPath":"../../public/images/bangumi/5ff67db3e9203d43-thumb.webp"},{"id":82572,"name":"ノラガミ","nameCn":"野良神","bangumiScore":7.1,"rank":2116,"url":"https://bangumi.tv/subject/82572","userScore":4,"comment":"看到中间和赤了石一样难受。\r\n先是女主那让人迷糊的圣母操作。ok女主圣母就算了，到后面男主也亚撒西。真的看的人血压高。\r\n一开始我想着赶紧把雪音斩了得了，看到第九集我觉得这三个人还是一个都别活好一点（暴论）","updatedAt":"2024-11-19T23:17:53+08:00","largePath":"../../public/images/bangumi/58bd27426aa445f7.webp","thumbPath":"../../public/images/bangumi/58bd27426aa445f7-thumb.webp"},{"id":480441,"name":"ルックバック","nameCn":"蓦然回首","bangumiScore":7.8,"rank":363,"url":"https://bangumi.tv/subject/480441","userScore":7,"comment":"最喜欢的那段就是藤野跑回家的那一幕。\r\n但是总体来看我感觉原作的篇幅确实有点不够做成剧场版了，有些地方会显得确实有点小水","updatedAt":"2024-10-30T16:02:29+08:00","largePath":"../../public/images/bangumi/ffca357b6618a9b8.webp","thumbPath":"../../public/images/bangumi/ffca357b6618a9b8-thumb.webp"},{"id":464376,"name":"負けヒロインが多すぎる！","nameCn":"败犬女主太多了！","bangumiScore":8,"rank":266,"url":"https://bangumi.tv/subject/464376","userScore":8,"comment":"这个制作真的太好了，画的太美了啊。给予了我一季度超好的追番体验。\r\n也是蛮喜欢这部的，剧情上也很有趣。\r\n好青春啊！！","updatedAt":"2024-10-06T11:42:59+08:00","largePath":"../../public/images/bangumi/bf7e320400b9f7a6.webp","thumbPath":"../../public/images/bangumi/bf7e320400b9f7a6-thumb.webp"},{"id":424883,"name":"時々ボソッとロシア語でデレる隣のアーリャさん","nameCn":"不时轻声地以俄语遮羞的邻座艾莉同学","bangumiScore":5.5,"rank":9430,"url":"https://bangumi.tv/subject/424883","userScore":6,"comment":"作画加1.5颗星，剧情硬伤太太太严重了","updatedAt":"2024-10-03T00:37:26+08:00","largePath":"../../public/images/bangumi/f6fbe8d7be301241.webp","thumbPath":"../../public/images/bangumi/f6fbe8d7be301241-thumb.webp"},{"id":80548,"name":"ディーふらぐ!","nameCn":"属性同好会","bangumiScore":6.9,"rank":2982,"url":"https://bangumi.tv/subject/80548","userScore":8,"comment":"蛮有趣也蛮搞笑的，挺喜欢这部番的，感觉是那种未来可以再看一次的动漫！\r\n芦花也很可爱，高尾也很可爱，大家都很可爱啊\r\n可惜有关恋爱的这部分讲太少了，最后也没讲清楚呀","updatedAt":"2024-09-24T22:24:23+08:00","largePath":"../../public/images/bangumi/bfb608a7cc74d7db.webp","thumbPath":"../../public/images/bangumi/bfb608a7cc74d7db-thumb.webp"},{"id":342667,"name":"この素晴らしい世界に祝福を！3","nameCn":"为美好的世界献上祝福！第三季","bangumiScore":7.7,"rank":583,"url":"https://bangumi.tv/subject/342667","userScore":8,"comment":"最喜欢的一季！刚刚看完的，是真的很有趣很好看啊！有些地方画的也是很灵动和可爱。终于是几乎丢掉了那个颜艺的“老传统”，看的很是舒服啊！\r\n也更加的温馨，感觉日常感又更强了。这四个人之间的羁绊也牢牢的将他们捆在了一起，更加的温暖也更加的日常，好像真的发生在另外一个异世界的故事一样。大家为了共同的目标而努力，有钱了就开摆，但是躺又躺不平总是会遇到一些突发的事件。我也很喜欢爱丽丝啊，太可爱了。\r\n最后抢婚的那一幕真的看的很感动。\r\n而前面对于邪恶领主的一切在最后也有了交代，也全部都很合理。这部也是把所有的铺垫都好好的交代完了。\r\n反正真的很喜欢这种温馨日常的动漫，对于四个人的特点和性格也描绘的更加生动，让我也是真真正正的喜欢上了这四个角色，真真正正的喜欢上了《为美好的世界献上祝福！》。\r\n什么时候出第四季啊！","updatedAt":"2024-08-23T23:09:52+08:00","largePath":"../../public/images/bangumi/28fc717522f68a29.webp","thumbPath":"../../public/images/bangumi/28fc717522f68a29-thumb.webp"},{"id":385209,"name":"この素晴らしい世界に爆焔を！","nameCn":"为美好的世界献上爆焰！","bangumiScore":7,"rank":2509,"url":"https://bangumi.tv/subject/385209","userScore":8,"comment":"虽然没了和真这几个确实感觉少了点什么，但是依旧是蛮有趣的，为什么会比前两部低这么多。\r\n打个八分抬一手。\r\n这部在人物的性格和想法刻画上就更细致了，让我好好的重新认识了一下惠惠和芸芸。前面对这俩还没啥感觉的，现在看了爆焰后倒是很喜欢了呀。\r\n还有，小米超可爱！！！！","updatedAt":"2024-08-23T22:28:58+08:00","largePath":"../../public/images/bangumi/6c044482eeeada44.webp","thumbPath":"../../public/images/bangumi/6c044482eeeada44-thumb.webp"},{"id":220631,"name":"映画 この素晴らしい世界に祝福を！紅伝説","nameCn":"电影 为美好的世界献上祝福！红传说","bangumiScore":7.7,"rank":627,"url":"https://bangumi.tv/subject/220631","userScore":7,"comment":"感觉相比前两季更有趣好看了！\r\n我给7.5，在我看来这个剧场版终于是值得它原本的评分了。\r\n这部剧场版是确确实实把整部搞笑有意思的点都完全展现了出来，真的能让人会心一笑。\r\n也终于有值得回拉的镜头了。","updatedAt":"2024-08-15T01:04:13+08:00","largePath":"../../public/images/bangumi/b886ca11d6386174.webp","thumbPath":"../../public/images/bangumi/b886ca11d6386174-thumb.webp"},{"id":174043,"name":"この素晴らしい世界に祝福を！2","nameCn":"为美好的世界献上祝福！ 第二季","bangumiScore":7.7,"rank":531,"url":"https://bangumi.tv/subject/174043","userScore":6,"comment":"感觉比第一季有趣一些，剧情上也精彩一点。\r\n但是emmmm也离它的评分该有的水平有点远吧","updatedAt":"2024-08-15T01:01:30+08:00","largePath":"../../public/images/bangumi/f05c1bfb6d14a10a.webp","thumbPath":"../../public/images/bangumi/f05c1bfb6d14a10a-thumb.webp"},{"id":135275,"name":"この素晴らしい世界に祝福を！","nameCn":"为美好的世界献上祝福！","bangumiScore":7.7,"rank":542,"url":"https://bangumi.tv/subject/135275","userScore":4,"comment":"怎么说呢，感觉有点get不到啊。\r\n首先这个作画就不用说了，经常脸会崩掉。一开始看的时候我还以为是00年左右的作品。\r\n然后笑点也感觉不搞笑啊，也是get不到。感觉有点尴尬也有点无聊。\r\n不过人设确实很新颖啦，但是人物关系和塑造方面也有点怪吧。看了下原作风评很好，是不是动漫删改太多了啊。","updatedAt":"2024-08-12T21:41:56+08:00","largePath":"../../public/images/bangumi/f235bd2ecc6c60f1.webp","thumbPath":"../../public/images/bangumi/f235bd2ecc6c60f1-thumb.webp"},{"id":343176,"name":"のんのんびより のんすとっぷ OAD","nameCn":"悠哉日常大王 Nonstop OAD","bangumiScore":7.9,"rank":365,"url":"https://bangumi.tv/subject/343176","userScore":9,"comment":"如果说第12集像是一个最美好的结尾，那么这个OAD就是一个对所有人的交代，一个对于未来的延展。\r\n他们的生活还在我们看不到的地方一直继续下去……","updatedAt":"2024-08-12T01:17:35+08:00","largePath":"../../public/images/bangumi/7b89d880a85e44a9.webp","thumbPath":"../../public/images/bangumi/7b89d880a85e44a9-thumb.webp"},{"id":100449,"name":"月刊少女野崎くん","nameCn":"月刊少女野崎君","bangumiScore":7.8,"rank":426,"url":"https://bangumi.tv/subject/100449","userScore":9,"comment":"超级超级好看啊！\r\n这部片真的非常有趣，每个人的性格都塑造的很鲜明，每个人都很可爱啊！\r\n最开始看的时候还觉得这画风会不会有点老了，但是越看越喜欢，女主佐仓也是越看越可爱，真的超级喜欢她呀！\r\n虽然没说是恋爱番，但是这部有关这部分的内容是如同涓涓细流一般的，是从生活中的点点滴滴体现出来的。也正是这种像是日常生活中的每个细节，才能让人感受到那种真正的美好与感动。当然这些地方也超级甜超级可爱啊！\r\n每一对我也都超喜欢的。\r\n如果这种感情不是恋爱那什么才叫恋爱呢？！","updatedAt":"2024-08-05T22:48:24+08:00","largePath":"../../public/images/bangumi/11b021042cb1ad24.webp","thumbPath":"../../public/images/bangumi/11b021042cb1ad24-thumb.webp"},{"id":282684,"name":"のんのんびより のんすとっぷ","nameCn":"悠哉日常大王 Nonstop","bangumiScore":8.2,"rank":133,"url":"https://bangumi.tv/subject/282684","userScore":10,"comment":"这一场悠哉美好的乡村的梦也终究是结束了啊……\r\n——致世界上最美好的动漫《悠哉日常大王》","updatedAt":"2024-07-29T15:08:10+08:00","largePath":"../../public/images/bangumi/0189d549949d72da.webp","thumbPath":"../../public/images/bangumi/0189d549949d72da-thumb.webp"},{"id":444403,"name":"変人のサラダボウル","nameCn":"怪人的沙拉碗","bangumiScore":7.1,"rank":2233,"url":"https://bangumi.tv/subject/444403","userScore":6,"comment":"哈哈哈确实蛮有趣的。虽然前面就已经显露了一些端倪，但是后面实在是太穷了啊喂！！！","updatedAt":"2024-07-18T20:31:00+08:00","largePath":"../../public/images/bangumi/0a820520e81a70bf.webp","thumbPath":"../../public/images/bangumi/0a820520e81a70bf-thumb.webp"},{"id":395378,"name":"ダンジョン飯","nameCn":"迷宫饭","bangumiScore":7.9,"rank":355,"url":"https://bangumi.tv/subject/395378","userScore":8,"comment":"很优秀的作品啊，兼顾了有趣与精彩的剧情。\r\n一开始感觉还好，后面确实很好看，根本停不下来啊！\r\n很期待下一部了","updatedAt":"2024-07-16T14:41:08+08:00","largePath":"../../public/images/bangumi/1cdcc891e45c8ab0.webp","thumbPath":"../../public/images/bangumi/1cdcc891e45c8ab0-thumb.webp"},{"id":101442,"name":"のんのんびより  りぴーと","nameCn":"悠哉日常大王 Repeat","bangumiScore":8.1,"rank":206,"url":"https://bangumi.tv/subject/101442","userScore":10,"comment":"不用多说什么了吧，这可是悠哉日常大王第二季啊！\r\n依旧超水准的制作，超级舒服的节奏把控，那对日常暖心的诠释。\r\n这依旧是一部超级超级优秀的作品啊！\r\n非常多的创意，非常多意想不到的有趣与暖心。\r\n最后一集的ed响起时，真的差点潸然泪下\r\n必须满分啊！！！","updatedAt":"2024-07-06T23:21:28+08:00","largePath":"../../public/images/bangumi/59027fc0755ae8be.webp","thumbPath":"../../public/images/bangumi/59027fc0755ae8be-thumb.webp"},{"id":215618,"name":"劇場版 のんのんびより ばけーしょん","nameCn":"剧场版 悠哉日常大王 Vacation","bangumiScore":8,"rank":234,"url":"https://bangumi.tv/subject/215618","userScore":10,"comment":"我想，这就是真正的日常啊……像是几个最好的朋友一起出游一样打打闹闹，在旅途中遇到了新认识的好朋友，一起留下来一些永不磨灭的记忆。\r\n吹着那轻柔的海风，望着闪闪发光的星空，捧起一捧闪着荧光的海水……\r\n也是那不舍的离别，那是在车背后的挥手，是一瓶带着星星沙的玻璃瓶……\r\n是世界上最温柔的“我回来了”","updatedAt":"2024-06-15T00:14:39+08:00","largePath":"../../public/images/bangumi/e7fd86edb134360e.webp","thumbPath":"../../public/images/bangumi/e7fd86edb134360e-thumb.webp"},{"id":78405,"name":"のんのんびより","nameCn":"悠哉日常大王","bangumiScore":8,"rank":228,"url":"https://bangumi.tv/subject/78405","userScore":10,"comment":"虽然没有刻意的抒情，但是就是非常的感动，莫名的眼眶湿润了。\r\n真的很喜欢这部动漫，我看得很慢，但是它每一次都能带给我无数的美好，让我度过一个无比美好的夜晚…\r\n谢谢你，悠哉日常大王","updatedAt":"2024-06-15T00:09:33+08:00","largePath":"../../public/images/bangumi/ffb7b5abba887547.webp","thumbPath":"../../public/images/bangumi/ffb7b5abba887547-thumb.webp"},{"id":357961,"name":"スキップとローファー","nameCn":"跃动青春","bangumiScore":7.7,"rank":521,"url":"https://bangumi.tv/subject/357961","userScore":9,"comment":"","updatedAt":"2024-04-23T12:00:34+08:00","largePath":"../../public/images/bangumi/38dcc74ceb06002d.webp","thumbPath":"../../public/images/bangumi/38dcc74ceb06002d-thumb.webp"},{"id":400602,"name":"葬送のフリーレン","nameCn":"葬送的芙莉莲","bangumiScore":8.5,"rank":43,"url":"https://bangumi.tv/subject/400602","userScore":10,"comment":"","updatedAt":"2024-03-24T02:22:31+08:00","largePath":"../../public/images/bangumi/32e3183a127fee6f.webp","thumbPath":"../../public/images/bangumi/32e3183a127fee6f-thumb.webp"},{"id":217021,"name":"PLUTO","nameCn":"冥王","bangumiScore":7.2,"rank":1908,"url":"https://bangumi.tv/subject/217021","userScore":7,"comment":"","updatedAt":"2024-03-23T18:32:14+08:00","largePath":"../../public/images/bangumi/41d9a3baf1ab9b54.webp","thumbPath":"../../public/images/bangumi/41d9a3baf1ab9b54-thumb.webp"}]};
+
+    (() => {
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+      const desktopHandoffQuery = window.matchMedia("(min-width: 961px) and (min-height: 680px)");
+      const { reviews, watchHistory } = DEMO_DATA;
+      const reviewById = new Map(reviews.map((item) => [item.id, item]));
+      const largeSrc = (item) => item.largePath || "";
+      const thumbSrc = (item) => item.thumbPath || item.largePath || "";
+      const fmtDate = (iso) => iso ? iso.slice(0, 10).replace(/-/g, " / ") : "未知日期";
+      const fmtMonthDay = (iso) => {
+        if (!iso) return "";
+        const d = new Date(iso);
+        return `${String(d.getMonth() + 1).padStart(2, "0")}月${String(d.getDate()).padStart(2, "0")}日`;
+      };
+      const escapeHtml = (str) => String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+      function formatProseHtml(comment) {
+        const clean = (comment || "").replace(/\r\n/g, "\n").trim();
+        if (!clean) return `<p class="folio-empty-stamp">这次只留下了评分，没有写短评。</p>`;
+        const segments = clean.split(/\n+|(?<!:)\s*\/\/\s*/g).map((s) => s.trim()).filter(Boolean);
+        return segments.map((seg) => {
+          const epMatch = seg.match(/^(ep\.?\s*\d+(?:[-~～、]\d+)?|第\s*\d+\s*集)\s*(.*)$/i);
+          if (epMatch) return `<p><span class="ep-marker">${escapeHtml(epMatch[1])}</span>${escapeHtml(epMatch[2])}</p>`;
+          return `<p>${escapeHtml(seg)}</p>`;
+        }).join("");
+      }
+
+      /* SECTION 01 */
+      const reviewsTrack = document.getElementById("reviews-track");
+      const stagePin = document.getElementById("stage-pin");
+      const revSection = document.getElementById("section-reviews");
+      const reviewsTop = document.getElementById("reviews-top");
+      const deckZone = document.getElementById("deck-zone");
+      const deckOrbit = document.getElementById("deck-orbit");
+      const deckBar = document.getElementById("deck-bar");
+      const reviewPlate = document.getElementById("review-plate");
+      const folioCounter = document.getElementById("folio-counter");
+      const folioCopy = document.getElementById("folio-copy");
+      const folioDate = document.getElementById("folio-date");
+      const folioRankInfo = document.getElementById("folio-rank-info");
+      const folioTitle = document.getElementById("folio-title");
+      const folioNative = document.getElementById("folio-native");
+      const folioScore = document.getElementById("folio-score");
+      const scoreBrush = document.getElementById("score-brush");
+      const folioDeltaText = document.getElementById("folio-delta-text");
+      const folioRulerFill = document.getElementById("folio-ruler-fill");
+      const folioRulerBgm = document.getElementById("folio-ruler-bgm");
+      const folioProse = document.getElementById("folio-prose");
+      const folioBgmLink = document.getElementById("folio-bgm-link");
+      const filterButtons = Array.from(document.querySelectorAll("#review-filters .filter-btn"));
+      const filterThumb = document.getElementById("review-filter-thumb");
+
+      let filteredReviews = reviews.slice();
+      let activeReviewIndex = 0;
+      let isCardFlipped = false;
+      let isCardFlipping = false;
+      let flipEndTimer = 0;
+      let tiltTargetX = 0, tiltTargetY = 0, tiltCurrX = 0, tiltCurrY = 0, dragDx = 0;
+      let hoverTarget = 0, hoverCurr = 0;
+      let isDraggingDeck = false, tiltRaf = 0;
+      let deckGatherProgress = 0; // driven by scroll phase 1 (0 -> 1 tucks rear cards in behind front card)
+
+      function positionThumb(container, thumb, activeBtn) {
+        if (!activeBtn || !thumb) return;
+        const cRect = container.getBoundingClientRect();
+        const bRect = activeBtn.getBoundingClientRect();
+        thumb.style.width = `${bRect.width}px`;
+        thumb.style.transform = `translateX(${bRect.left - cRect.left - 4}px)`;
+      }
+
+      function applyReviewFilter(filterKey) {
+        filterButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.filter === filterKey)));
+        positionThumb(document.getElementById("review-filters"), filterThumb, filterButtons.find((b) => b.dataset.filter === filterKey));
+        if (filterKey === "love") filteredReviews = reviews.filter((r) => r.userScore >= 9);
+        else if (filterKey === "long") filteredReviews = reviews.filter((r) => (r.comment || "").trim().length >= 60);
+        else if (filterKey === "strict") filteredReviews = reviews.filter((r) => r.userScore <= 5);
+        else filteredReviews = reviews.slice();
+        if (flipEndTimer) { clearTimeout(flipEndTimer); flipEndTimer = 0; }
+        if (tiltRaf) { cancelAnimationFrame(tiltRaf); tiltRaf = 0; }
+        activeReviewIndex = 0; isCardFlipped = false; isCardFlipping = false;
+        tiltTargetX = 0; tiltTargetY = 0; tiltCurrX = 0; tiltCurrY = 0; hoverTarget = 0; hoverCurr = 0; dragDx = 0;
+        deckZone.classList.remove("is-deck-hovered");
+        renderDeck(true, 0); renderFolioCopy(false); syncProxyImage();
+      }
+
+      function deckRestingPose(offset) {
+        if (offset === 0) return { x: 0, y: 0, rot: 0, scale: 1, opacity: 1 };
+        if (offset === 1) return { x: -28, y: -8, rot: -5.2, scale: 0.945, opacity: 0.96 };
+        if (offset === 2) return { x: -54, y: -15, rot: -10.2, scale: 0.89, opacity: 0.88 };
+        if (offset === 3) return { x: -76, y: -20, rot: -14.5, scale: 0.835, opacity: 0.74 };
+        return { x: 140, y: -18, rot: 12, scale: 0.92, opacity: 0 };
+      }
+
+      function createTicketCard(item, idx, offset) {
+        const card = document.createElement("div");
+        card.className = "ticket-card";
+        if (offset === 0 && isCardFlipped) card.classList.add("is-flipped");
+        card.dataset.offset = String(offset);
+        const bgm = item.bangumiScore ? item.bangumiScore.toFixed(1) : "暂无";
+        const diff = item.bangumiScore ? (item.userScore - item.bangumiScore) : null;
+        const diffStr = diff === null ? "—" : diff > 0.05 ? `+${diff.toFixed(1)}` : diff < -0.05 ? `${diff.toFixed(1)}` : "0.0";
+        card.innerHTML = `
+          <div class="ticket-flipper">
+            <div class="ticket-face ticket-face--front">
+              <div class="ticket-poster-wrap"><img src="${largeSrc(item)}" alt="${escapeHtml(item.nameCn || item.name)}" draggable="false" /></div>
+              <span class="ticket-corner-reticle" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            </div>
+            <div class="ticket-face ticket-face--back">
+              <div class="postcard-head">
+                <div class="postcard-serial">ARCHIVE NO. ${String(idx + 1).padStart(2, "0")}<br/>SUBJECT #${item.id}</div>
+                <div class="postcard-stamp"><div>${item.userScore.toFixed(1)}<span>SCORE</span></div></div>
+              </div>
+              <div class="postcard-titles"><h4>${escapeHtml(item.nameCn || item.name)}</h4><p>${escapeHtml(item.name)}</p></div>
+              <dl class="postcard-specs">
+                <div><dt>我的评分</dt><dd>${item.userScore.toFixed(1)} / 10</dd></div>
+                <div><dt>Bangumi 均分</dt><dd>${bgm} (${diffStr})</dd></div>
+                <div><dt>全站排名</dt><dd>${item.rank ? "#" + item.rank : "暂无"}</dd></div>
+                <div><dt>记录日期</dt><dd>${item.updatedAt ? item.updatedAt.slice(0, 10) : "暂无"}</dd></div>
+              </dl>
+              <div class="postcard-foot"><span>点击翻回封面</span><a class="postcard-bgm-link" href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">Bangumi ↗</a></div>
+            </div>
+          </div>`;
+        return card;
+      }
+
+      function applyCardTransforms(animateFlag) {
+        const cards = Array.from(deckOrbit.querySelectorAll(".ticket-card"));
+        const dragProgress = Math.min(1, Math.abs(dragDx) / 140);
+        const gather = deckGatherProgress;
+        const hExpand = hoverCurr * (1 - gather) * (isCardFlipped ? 0 : 1);
+        cards.forEach((card) => {
+          const offset = Number(card.dataset.offset);
+          const pose = deckRestingPose(offset);
+          let x = pose.x, y = pose.y, rot = pose.rot, scale = pose.scale, opacity = pose.opacity;
+
+          if (offset === 0) {
+            x += dragDx; y -= Math.abs(dragDx) * 0.05; rot += dragDx * 0.045;
+            scale += 0.044 * hExpand;
+            if (!isDraggingDeck && !isCardFlipped && (tiltCurrX !== 0 || tiltCurrY !== 0)) {
+              card.style.setProperty("--tilt-x", `${tiltCurrX.toFixed(2)}deg`);
+              card.style.setProperty("--tilt-y", `${tiltCurrY.toFixed(2)}deg`);
+            } else {
+              card.style.setProperty("--tilt-x", "0deg");
+              card.style.setProperty("--tilt-y", "0deg");
+            }
+          } else if (offset > 0) {
+            const nextPose = deckRestingPose(offset - 1);
+            x += (nextPose.x - pose.x) * dragProgress - tiltCurrY * offset * 0.14;
+            y += (nextPose.y - pose.y) * dragProgress + tiltCurrX * offset * 0.12;
+            rot += (nextPose.rot - pose.rot) * dragProgress;
+            scale += (nextPose.scale - pose.scale) * dragProgress;
+            // Shift rear stack proportionally outward & match subtle scale so exposed area stays unchanged on front zoom
+            x -= (3.2 + (offset - 1) * 1.4) * hExpand;
+            y -= (2.8 + (offset - 1) * 1.0) * hExpand;
+            rot -= offset * 0.45 * hExpand;
+            scale += 0.026 * hExpand;
+            // Tuck rear cards behind front card as handoff starts
+            x *= (1 - gather);
+            y *= (1 - gather);
+            rot *= (1 - gather);
+            opacity *= (1 - gather);
+          }
+
+          card.style.transition = (isDraggingDeck || !animateFlag || gather > 0 || hExpand > 0.002) ? "none" : "transform 460ms var(--ease), opacity 360ms ease";
+          card.style.opacity = String(opacity.toFixed(3));
+          if (offset === 0 && !isDraggingDeck && Math.abs(x) < 0.05 && Math.abs(y) < 0.05 && Math.abs(rot) < 0.02 && Math.abs(scale - 1) < 0.001) {
+            card.style.transform = "none";
+          } else {
+            card.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) rotateZ(${rot.toFixed(2)}deg) scale(${scale.toFixed(3)})`;
+          }
+        });
+      }
+
+      function renderDeck(animateFlag = true, enterDir = 0) {
+        const n = filteredReviews.length;
+        deckOrbit.innerHTML = "";
+        if (!n) return;
+        const visibleOffsets = Math.min(4, n);
+        for (let off = visibleOffsets - 1; off >= 0; off--) {
+          const idx = (activeReviewIndex + off) % n;
+          const card = createTicketCard(filteredReviews[idx], idx, off);
+          if (off === 0) bindFrontCardInteractions(card);
+          deckOrbit.appendChild(card);
+        }
+        if (enterDir !== 0 && !reducedMotion.matches) {
+          Array.from(deckOrbit.querySelectorAll(".ticket-card")).forEach((card) => {
+            const off = Number(card.dataset.offset);
+            const fromPose = (off === 0 && enterDir < 0) ? { x: -175, y: -14, rot: -10, scale: 0.94, opacity: 0.25 } : deckRestingPose(Math.min(3, off + (enterDir > 0 ? 1 : 0)));
+            card.style.transition = "none"; card.style.opacity = String(fromPose.opacity);
+            card.style.transform = `translate3d(${fromPose.x}px, ${fromPose.y}px, 0) rotateZ(${fromPose.rot}deg) scale(${fromPose.scale})`;
+          });
+          void deckOrbit.offsetWidth;
+          requestAnimationFrame(() => applyCardTransforms(true));
+        } else {
+          applyCardTransforms(animateFlag);
+        }
+      }
+
+      function stepReview(dir) {
+        const n = filteredReviews.length;
+        if (n <= 1) return;
+        const outgoing = deckOrbit.querySelector('.ticket-card[data-offset="0"]');
+        if (outgoing && !reducedMotion.matches && dir > 0) {
+          outgoing.animate([
+            { transform: outgoing.style.transform === "none" ? "translate3d(0,0,0)" : outgoing.style.transform, opacity: 1 },
+            { transform: `translate3d(-240px, -24px, 0) rotateZ(-16deg) scale(0.94)`, opacity: 0 },
+          ], { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "forwards" });
+        }
+        if (flipEndTimer) { clearTimeout(flipEndTimer); flipEndTimer = 0; }
+        if (tiltRaf) { cancelAnimationFrame(tiltRaf); tiltRaf = 0; }
+        activeReviewIndex = (activeReviewIndex + dir + n) % n;
+        isCardFlipped = false; isCardFlipping = false;
+        tiltTargetX = 0; tiltTargetY = 0; tiltCurrX = 0; tiltCurrY = 0; hoverTarget = 0; hoverCurr = 0; dragDx = 0;
+        deckZone.classList.remove("is-deck-hovered");
+        window.setTimeout(() => { renderDeck(true, dir); renderFolioCopy(true); syncProxyImage(); }, reducedMotion.matches || dir < 0 ? 0 : 110);
+      }
+
+      function jumpToReview(targetIdx) {
+        if (targetIdx === activeReviewIndex) return;
+        if (flipEndTimer) { clearTimeout(flipEndTimer); flipEndTimer = 0; }
+        if (tiltRaf) { cancelAnimationFrame(tiltRaf); tiltRaf = 0; }
+        const n = filteredReviews.length;
+        const chosenDir = ((targetIdx - activeReviewIndex + n) % n) <= n / 2 ? 1 : -1;
+        activeReviewIndex = targetIdx; isCardFlipped = false; isCardFlipping = false;
+        tiltTargetX = 0; tiltTargetY = 0; tiltCurrX = 0; tiltCurrY = 0; hoverTarget = 0; hoverCurr = 0; dragDx = 0;
+        deckZone.classList.remove("is-deck-hovered");
+        renderDeck(true, chosenDir); renderFolioCopy(true); syncProxyImage();
+      }
+
+      function toggleFrontCardFlip() {
+        const front = deckOrbit.querySelector('.ticket-card[data-offset="0"]');
+        if (!front) return;
+        const flipper = front.querySelector(".ticket-flipper");
+        if (flipEndTimer) { clearTimeout(flipEndTimer); flipEndTimer = 0; }
+        if (tiltRaf) { cancelAnimationFrame(tiltRaf); tiltRaf = 0; }
+        isCardFlipped = !isCardFlipped;
+        isCardFlipping = true;
+        tiltTargetX = 0; tiltTargetY = 0; tiltCurrX = 0; tiltCurrY = 0;
+        hoverTarget = 0; hoverCurr = 0;
+        front.classList.remove("is-tilting", "is-hovered");
+        deckZone.classList.remove("is-deck-hovered");
+        front.classList.add("is-flipping");
+        applyCardTransforms(false);
+        if (flipper) void flipper.offsetWidth;
+        front.classList.toggle("is-flipped", isCardFlipped);
+        if (reducedMotion.matches) {
+          isCardFlipping = false;
+          front.classList.remove("is-flipping");
+          return;
+        }
+        flipEndTimer = window.setTimeout(() => {
+          flipEndTimer = 0;
+          isCardFlipping = false;
+          front.classList.remove("is-flipping");
+        }, 680);
+      }
+
+      function startTiltLoop() {
+        if (tiltRaf || reducedMotion.matches) return;
+        const tick = () => {
+          tiltCurrX += (tiltTargetX - tiltCurrX) * 0.16;
+          tiltCurrY += (tiltTargetY - tiltCurrY) * 0.16;
+          hoverCurr += (hoverTarget - hoverCurr) * 0.18;
+          if (!isDraggingDeck) applyCardTransforms(false);
+          const stillMoving = Math.abs(tiltTargetX - tiltCurrX) > 0.04 || Math.abs(tiltTargetY - tiltCurrY) > 0.04 || Math.abs(hoverTarget - hoverCurr) > 0.008;
+          if (stillMoving) tiltRaf = requestAnimationFrame(tick);
+          else {
+            tiltCurrX = tiltTargetX; tiltCurrY = tiltTargetY; hoverCurr = hoverTarget;
+            applyCardTransforms(false);
+            if (tiltCurrX === 0 && tiltCurrY === 0 && hoverCurr === 0) deckOrbit.querySelector('.ticket-card[data-offset="0"]')?.classList.remove("is-tilting");
+            tiltRaf = 0;
+          }
+        };
+        tiltRaf = requestAnimationFrame(tick);
+      }
+
+      function bindFrontCardInteractions(card) {
+        card.querySelector(".postcard-bgm-link")?.addEventListener("click", (e) => e.stopPropagation());
+        card.addEventListener("pointerenter", () => {
+          if (isDraggingDeck || isCardFlipped || isCardFlipping) return;
+          hoverTarget = 1;
+          card.classList.add("is-hovered");
+          deckZone.classList.add("is-deck-hovered");
+          if (reducedMotion.matches) { hoverCurr = 1; applyCardTransforms(false); }
+          else startTiltLoop();
+        });
+        card.addEventListener("pointermove", (e) => {
+          if (isDraggingDeck || isCardFlipped || isCardFlipping || reducedMotion.matches) return;
+          hoverTarget = 1;
+          card.classList.add("is-tilting", "is-hovered");
+          deckZone.classList.add("is-deck-hovered");
+          const rect = card.getBoundingClientRect();
+          tiltTargetX = (0.5 - (e.clientY - rect.top) / rect.height) * 9;
+          tiltTargetY = ((e.clientX - rect.left) / rect.width - 0.5) * 11;
+          startTiltLoop();
+        });
+        card.addEventListener("pointerleave", () => {
+          if (isDraggingDeck || isCardFlipping || isCardFlipped) return;
+          tiltTargetX = 0; tiltTargetY = 0; hoverTarget = 0;
+          card.classList.remove("is-hovered");
+          deckZone.classList.remove("is-deck-hovered");
+          if (reducedMotion.matches) { hoverCurr = 0; applyCardTransforms(false); }
+          else startTiltLoop();
+        });
+        card.addEventListener("pointerdown", (e) => {
+          if (e.target.closest("a, button")) return;
+          const startX = e.clientX, startY = e.clientY;
+          let moved = false, lastX = startX, lastT = performance.now(), vx = 0;
+          card.setPointerCapture(e.pointerId);
+          const onMove = (ev) => {
+            const dx = ev.clientX - startX, dy = ev.clientY - startY;
+            if (!moved && Math.hypot(dx, dy) > 7) { moved = true; isDraggingDeck = true; card.classList.add("is-dragging"); revSection.classList.add("is-travelling"); }
+            if (!moved) return;
+            const now = performance.now(); vx = (ev.clientX - lastX) / Math.max(8, now - lastT);
+            lastX = ev.clientX; lastT = now; dragDx = dx; applyCardTransforms(false);
+          };
+          const onUp = () => {
+            card.removeEventListener("pointermove", onMove); card.removeEventListener("pointerup", onUp); card.removeEventListener("pointercancel", onUp);
+            card.classList.remove("is-dragging"); revSection.classList.remove("is-travelling"); isDraggingDeck = false;
+            if (!moved) { toggleFrontCardFlip(); return; }
+            const flingScore = dragDx + vx * 160;
+            if (Math.abs(flingScore) > 85 && filteredReviews.length > 1) stepReview(flingScore < 0 ? 1 : -1);
+            else { dragDx = 0; applyCardTransforms(true); }
+          };
+          card.addEventListener("pointermove", onMove); card.addEventListener("pointerup", onUp); card.addEventListener("pointercancel", onUp);
+        });
+      }
+
+      function renderFolioCopy(animateFlag = true) {
+        const item = filteredReviews[activeReviewIndex];
+        if (!item) return;
+        folioCounter.innerHTML = `<strong>${String(activeReviewIndex + 1).padStart(2, "0")}</strong> / ${filteredReviews.length}`;
+        folioDate.textContent = fmtDate(item.updatedAt);
+        folioRankInfo.textContent = item.bangumiScore ? `BGM ${item.bangumiScore.toFixed(1)}${item.rank ? ` · #${item.rank}` : ""}` : "暂无均分";
+        folioTitle.textContent = item.nameCn || item.name;
+        folioNative.textContent = item.nameCn && item.name !== item.nameCn ? item.name : "";
+        folioScore.textContent = item.userScore.toFixed(1);
+        folioBgmLink.href = item.url;
+        folioRulerFill.style.width = `${Math.max(0, Math.min(100, item.userScore * 10))}%`;
+        if (item.bangumiScore) {
+          folioRulerBgm.hidden = false; folioRulerBgm.style.left = `${item.bangumiScore * 10}%`;
+          const delta = item.userScore - item.bangumiScore;
+          folioDeltaText.textContent = `${item.bangumiScore.toFixed(1)} (${delta >= 0 ? "+" : ""}${delta.toFixed(1)})`;
+        } else { folioRulerBgm.hidden = true; folioDeltaText.textContent = "暂无"; }
+        folioProse.innerHTML = formatProseHtml(item.comment);
+        if (animateFlag && !reducedMotion.matches) {
+          folioCopy.classList.remove("is-entering"); scoreBrush.classList.remove("is-drawing");
+          void folioCopy.offsetWidth;
+          folioCopy.classList.add("is-entering"); scoreBrush.classList.add("is-drawing");
+        }
+      }
+
+      filterButtons.forEach((btn) => btn.addEventListener("click", () => applyReviewFilter(btn.dataset.filter)));
+      document.getElementById("review-prev-btn").addEventListener("click", () => stepReview(-1));
+      document.getElementById("review-next-btn").addEventListener("click", () => stepReview(1));
+      deckZone.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight") { e.preventDefault(); stepReview(1); }
+        else if (e.key === "ArrowLeft") { e.preventDefault(); stepReview(-1); }
+        else if (e.key === " ") { e.preventDefault(); toggleFrontCardFlip(); }
+      });
+
+      /* ARCHIVE DRAWER */
+      const archiveDrawer = document.getElementById("archive-drawer");
+      const archiveGrid = document.getElementById("archive-grid");
+      const archiveSearch = document.getElementById("archive-search");
+      const archiveSort = document.getElementById("archive-sort");
+      const archiveTierChips = Array.from(document.querySelectorAll("#archive-tier-chips .archive-chip"));
+      let archiveTier = "all";
+
+      function renderArchiveGrid() {
+        const query = archiveSearch.value.trim().toLowerCase();
+        const sortBy = archiveSort.value;
+        const list = reviews.filter((r) => {
+          if (archiveTier === "9-10" && r.userScore < 9) return false;
+          if (archiveTier === "7-8" && (r.userScore < 7 || r.userScore >= 9)) return false;
+          if (archiveTier === "0-6" && r.userScore >= 7) return false;
+          if (archiveTier === "commented" && !(r.comment || "").trim()) return false;
+          if (query && !`${r.nameCn} ${r.name} ${r.comment}`.toLowerCase().includes(query)) return false;
+          return true;
+        });
+        if (sortBy === "score-desc") list.sort((a, b) => b.userScore - a.userScore || b.updatedAt.localeCompare(a.updatedAt));
+        else if (sortBy === "score-asc") list.sort((a, b) => a.userScore - b.userScore || b.updatedAt.localeCompare(a.updatedAt));
+        else if (sortBy === "diff-desc") list.sort((a, b) => (b.bangumiScore ? Math.abs(b.userScore - b.bangumiScore) : -1) - (a.bangumiScore ? Math.abs(a.userScore - a.bangumiScore) : -1));
+        archiveGrid.innerHTML = "";
+        if (!list.length) { archiveGrid.innerHTML = `<p style="color:var(--muted);padding:24px 0">没有找到符合条件的记录。</p>`; return; }
+        list.forEach((item, idx) => {
+          const card = document.createElement("button"); card.type = "button"; card.className = "archive-ticket";
+          card.style.setProperty("--tilt", `${((idx % 5) - 2) * 0.4}deg`);
+          const excerpt = (item.comment || "").replace(/\s+/g, " ").trim();
+          card.innerHTML = `<img src="${thumbSrc(item)}" alt="" loading="lazy" /><div class="archive-ticket-body"><div class="archive-ticket-meta"><span>${item.updatedAt ? item.updatedAt.slice(0, 10) : "未知"}</span><span class="archive-ticket-score">★ ${item.userScore.toFixed(1)}</span></div><h4>${escapeHtml(item.nameCn || item.name)}</h4><p class="archive-ticket-excerpt">${escapeHtml(excerpt || "暂无短评。")}</p></div>`;
+          card.addEventListener("click", () => {
+            archiveDrawer.hidden = true; applyReviewFilter("all");
+            const idxInAll = filteredReviews.findIndex((r) => r.id === item.id);
+            if (idxInAll >= 0) jumpToReview(idxInAll);
+            window.scrollTo({ top: 0, behavior: reducedMotion.matches ? "auto" : "smooth" });
+          });
+          archiveGrid.appendChild(card);
+        });
+      }
+      document.getElementById("open-archive-btn").addEventListener("click", () => { renderArchiveGrid(); archiveDrawer.hidden = false; archiveSearch.focus(); });
+      document.getElementById("close-archive-btn").addEventListener("click", () => { archiveDrawer.hidden = true; });
+      archiveSearch.addEventListener("input", renderArchiveGrid);
+      archiveSort.addEventListener("change", renderArchiveGrid);
+      archiveTierChips.forEach((chip) => chip.addEventListener("click", () => {
+        archiveTier = chip.dataset.tier;
+        archiveTierChips.forEach((c) => c.setAttribute("aria-pressed", String(c === chip)));
+        renderArchiveGrid();
+      }));
+      window.addEventListener("keydown", (e) => { if (e.key === "Escape" && !archiveDrawer.hidden) archiveDrawer.hidden = true; });
+
+      /* SECTION 02 */
+      const dates = watchHistory.map((e) => new Date(e.updatedAt)).filter((d) => !Number.isNaN(d.getTime()));
+      const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+      const maxDate = new Date(Math.max(...dates.map((d) => d.getTime()), new Date("2026-11-01").getTime()));
+      const startM = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+      const endM = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
+      const totalMonths = (endM.getFullYear() - startM.getFullYear()) * 12 + (endM.getMonth() - startM.getMonth()) + 1;
+
+      const months = Array.from({ length: totalMonths }, (_, i) => {
+        const d = new Date(startM.getFullYear(), startM.getMonth() + i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        const entries = watchHistory.filter((e) => e.updatedAt && e.updatedAt.startsWith(key)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        return { index: i, key, year: d.getFullYear(), monthNum: d.getMonth() + 1, shortLabel: `${d.getMonth() + 1}月`, entries };
+      });
+
+      const tlSection = document.getElementById("section-timeline");
+      const timelineTop = document.getElementById("timeline-top");
+      const timelineCopy = document.getElementById("timeline-copy");
+      const polaroidStage = document.getElementById("polaroid-stage");
+      const polaroidRing = document.getElementById("polaroid-ring");
+      const polaroidDeck = document.getElementById("polaroid-deck");
+      const polaroidSleeve = document.getElementById("polaroid-sleeve");
+      const sleeveYear = document.getElementById("sleeve-year");
+      const odoTens = document.getElementById("odo-tens");
+      const odoOnes = document.getElementById("odo-ones");
+      const tlYearLabel = document.getElementById("tl-year-label");
+      const tlCountLine = document.getElementById("tl-count-line");
+      const contactList = document.getElementById("contact-sheet-list");
+      const rangeButtons = Array.from(document.querySelectorAll("#tl-range-group .range-btn"));
+      const rangeThumb = document.getElementById("tl-range-thumb");
+      const rulerInstrument = document.getElementById("ruler-instrument");
+      const rulerScroll = document.getElementById("ruler-scroll");
+      const rulerCanvas = document.getElementById("ruler-canvas");
+      const rulerSvg = document.getElementById("ruler-svg");
+      const rulerCols = document.getElementById("ruler-cols");
+      const rulerLoupe = document.getElementById("ruler-loupe");
+      const rulerLoupeLine = document.getElementById("ruler-loupe-line");
+      const rulerCaption = document.getElementById("ruler-range-caption");
+
+      let tlRange = "12";
+      let visibleMonths = months.slice(-12);
+      let activeMonthKey = ([...months].reverse().find((m) => m.entries.length) || months[months.length - 1]).key;
+      let frontOrderOffset = 0, fanSpreadBias = 0, scrollFanFactor = 1, hoveredAnimeId = null;
+
+      function getMonthObj(key) { return months.find((m) => m.key === key) || months[months.length - 1]; }
+      function jumpToReviewSubject(subjectId) {
+        const rev = reviewById.get(subjectId);
+        if (!rev) return false;
+        applyReviewFilter("all");
+        const idx = filteredReviews.findIndex((r) => r.id === subjectId);
+        if (idx >= 0) jumpToReview(idx);
+        window.scrollTo({ top: 0, behavior: reducedMotion.matches ? "auto" : "smooth" });
+        return true;
+      }
+
+      function polaroidPose(slotIdx, total, spreadBias, fanOpen) {
+        if (total === 1) return { x: spreadBias * 8, y: -4, angle: (-2.5 + spreadBias * 2) * fanOpen, scale: 1.02, z: 20 };
+        if (slotIdx === 0) return { x: spreadBias * 10, y: 2, angle: -2 + spreadBias * 3, scale: 1.02, z: 20 };
+        const side = slotIdx % 2 === 1 ? 1 : -1;
+        const tier = Math.ceil(slotIdx / 2);
+        const maxTier = Math.max(1, Math.ceil((total - 1) / 2));
+        const u = tier / maxTier;
+        const easeU = Math.pow(u, 0.88);
+        const maxX = total <= 3 ? 42 : total <= 5 ? 66 : 78;
+        const maxAngle = total <= 3 ? 10.5 : total <= 5 ? 15.5 : 18.5;
+        const maxDrop = total <= 3 ? 4 : total <= 5 ? 9 : 13;
+        const spreadFactor = (1 + Math.abs(spreadBias) * 0.16) * fanOpen;
+        return {
+          x: side * easeU * maxX * spreadFactor + spreadBias * easeU * 14,
+          y: (2 + Math.pow(u, 1.35) * maxDrop) * fanOpen - Math.abs(spreadBias) * 2,
+          angle: (side * easeU * maxAngle + spreadBias * 2.2) * fanOpen,
+          scale: Math.max(0.86, 0.97 - easeU * 0.11),
+          z: Math.max(1, 20 - slotIdx),
+        };
+      }
+
+      function applyPolaroidPositions(animateCards = true) {
+        const cards = Array.from(polaroidDeck.querySelectorAll(".polaroid-card"));
+        const total = cards.length;
+        cards.forEach((card) => {
+          const slot = Number(card.dataset.slot), id = Number(card.dataset.animeId);
+          const pose = polaroidPose(slot, total, fanSpreadBias, scrollFanFactor);
+          const isHovered = hoveredAnimeId === id;
+          card.style.zIndex = isHovered ? "26" : String(pose.z);
+          card.style.transition = animateCards ? "transform 420ms var(--ease), box-shadow 240ms ease, border-color 240ms ease" : "none";
+          card.classList.toggle("is-synced-hover", isHovered);
+          // Rear cards emerge cleanly as fan opens
+          card.style.opacity = slot === 0 ? "1" : String(Math.min(1, Math.max(0, (scrollFanFactor - 0.15) / 0.55)).toFixed(3));
+          card.style.transform = `translate(-50%, -50%) translate3d(${pose.x.toFixed(1)}px, ${(pose.y + (isHovered ? -14 : 0)).toFixed(1)}px, 0) rotate(${pose.angle.toFixed(2)}deg) scale(${(pose.scale * (isHovered ? 1.055 : 1)).toFixed(3)})`;
+        });
+        contactList.querySelectorAll(".contact-sheet-btn").forEach((btn) => btn.classList.toggle("is-synced-hover", Number(btn.dataset.animeId) === hoveredAnimeId));
+      }
+
+      function renderPolaroidDeck(direction = 0) {
+        const m = getMonthObj(activeMonthKey);
+        polaroidDeck.innerHTML = "";
+        if (!m.entries.length) {
+          const empty = document.createElement("div"); empty.className = "polaroid-empty-card";
+          empty.innerHTML = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg><strong>留白的一页</strong><span>${m.key.replace("-", ".")} 暂无新增观看记录</span>`;
+          polaroidDeck.appendChild(empty);
+          return;
+        }
+        const len = m.entries.length;
+        m.entries.map((_, i) => m.entries[(i + frontOrderOffset) % len]).forEach((entry, slot) => {
+          const fig = document.createElement("figure"); fig.className = "polaroid-card";
+          fig.dataset.slot = String(slot); fig.dataset.animeId = String(entry.id);
+          fig.innerHTML = `<div class="polaroid-card-img"><img src="${largeSrc(entry)}" alt="${escapeHtml(entry.nameCn || entry.name)}" draggable="false" /></div><figcaption><span class="polaroid-card-title">${escapeHtml(entry.nameCn || entry.name)}</span><span class="polaroid-card-score">${entry.userScore ? "★" + entry.userScore.toFixed(1) : "—"}</span></figcaption>`;
+          fig.addEventListener("pointerenter", () => { hoveredAnimeId = entry.id; applyPolaroidPositions(true); });
+          fig.addEventListener("pointerleave", () => { if (hoveredAnimeId === entry.id) hoveredAnimeId = null; applyPolaroidPositions(true); });
+          fig.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (slot !== 0) { frontOrderOffset = (frontOrderOffset + slot) % len; renderPolaroidDeck(0); return; }
+            if (!jumpToReviewSubject(entry.id)) window.open(entry.url, "_blank", "noopener,noreferrer");
+          });
+          polaroidDeck.appendChild(fig);
+        });
+        applyPolaroidPositions(false);
+        if (direction !== 0 && !reducedMotion.matches) {
+          Array.from(polaroidDeck.querySelectorAll(".polaroid-card")).forEach((card, i) => {
+            const dest = card.style.transform;
+            card.animate([
+              { opacity: 0, transform: `translate(-50%, -50%) translate3d(${direction * 38}px, 24px, 0) rotate(${direction * 8}deg) scale(0.9)` },
+              { opacity: 1, transform: dest },
+            ], { duration: 420, delay: i * 42, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "backwards" });
+          });
+        }
+      }
+
+      function animateOdometerDigit(slotEl, newChar, direction) {
+        const oldEl = slotEl.querySelector(".odo-digit");
+        if (oldEl && oldEl.textContent === newChar) return;
+        const fresh = document.createElement("span"); fresh.className = "odo-digit"; fresh.textContent = newChar;
+        slotEl.innerHTML = ""; slotEl.appendChild(fresh);
+        if (!reducedMotion.matches && direction && oldEl) {
+          fresh.animate([{ transform: `translateY(${direction > 0 ? "100%" : "-100%"})`, opacity: 0.2 }, { transform: "translateY(0%)", opacity: 1 }], { duration: 340, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+        }
+      }
+
+      function renderTimelineDetails(direction = 0) {
+        const m = getMonthObj(activeMonthKey);
+        const mmStr = String(m.monthNum).padStart(2, "0");
+        animateOdometerDigit(odoTens, mmStr[0], direction);
+        animateOdometerDigit(odoOnes, mmStr[1], direction);
+        tlYearLabel.textContent = String(m.year); sleeveYear.textContent = String(m.year);
+        if (m.entries.length) {
+          tlCountLine.innerHTML = `收录 <strong>${m.entries.length}</strong> 部动画`;
+          contactList.hidden = false; contactList.innerHTML = "";
+          m.entries.forEach((entry) => {
+            const li = document.createElement("li"); li.className = "contact-sheet-item";
+            const rev = reviewById.get(entry.id);
+            li.innerHTML = `<button class="contact-sheet-btn" type="button" data-anime-id="${entry.id}"><img src="${thumbSrc(entry)}" alt="" loading="lazy" /><span class="contact-sheet-text"><strong>${escapeHtml(entry.nameCn || entry.name)}</strong><span>${fmtMonthDay(entry.updatedAt)} 记录</span></span><span class="contact-sheet-score ${entry.userScore ? "" : "is-none"}">${entry.userScore ? "★ " + entry.userScore.toFixed(1) : "未评分"}</span><span class="contact-sheet-action">${rev ? "短评 ↑" : "BGM ↗"}</span></button>`;
+            const btn = li.querySelector("button");
+            btn.addEventListener("pointerenter", () => { hoveredAnimeId = entry.id; applyPolaroidPositions(true); });
+            btn.addEventListener("pointerleave", () => { if (hoveredAnimeId === entry.id) hoveredAnimeId = null; applyPolaroidPositions(true); });
+            btn.addEventListener("click", () => { if (!jumpToReviewSubject(entry.id)) window.open(entry.url, "_blank", "noopener,noreferrer"); });
+            contactList.appendChild(li);
+          });
+        } else { tlCountLine.innerHTML = `暂无观看记录`; contactList.hidden = true; }
+      }
+
+      function catmullRomPath(pts) {
+        if (!pts.length) return "";
+        if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
+        let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+          d += ` C ${(p1.x + (p2.x - p0.x) / 6).toFixed(1)} ${Math.min(pts[0].baseY, Math.max(8, p1.y + (p2.y - p0.y) / 6)).toFixed(1)}, ${(p2.x - (p3.x - p1.x) / 6).toFixed(1)} ${Math.min(pts[0].baseY, Math.max(8, p2.y - (p3.y - p1.y) / 6)).toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+        }
+        return d;
+      }
+
+      let rulerMetrics = [], loupeCurrX = 0, loupeTargetX = 0, loupeVisible = false, rulerRaf = 0, rulerCurveEl = null, rulerAreaEl = null;
+      function renderRuler() {
+        visibleMonths = tlRange === "12" ? months.slice(-12) : tlRange === "24" ? months.slice(-24) : months.slice();
+        if (!visibleMonths.some((m) => m.key === activeMonthKey)) activeMonthKey = visibleMonths[visibleMonths.length - 1].key;
+        rulerCaption.textContent = `${visibleMonths[0].key.replace("-", ".")} — ${visibleMonths[visibleMonths.length - 1].key.replace("-", ".")}`;
+        const minColW = visibleMonths.length > 24 ? 46 : visibleMonths.length > 12 ? 52 : 66;
+        const canvasW = Math.max(rulerScroll.clientWidth || 900, visibleMonths.length * minColW);
+        rulerCanvas.style.width = `${canvasW}px`;
+        const svgH = 112, padTop = 18, baseY = 98, maxCnt = Math.max(...visibleMonths.map((m) => m.entries.length), 1), colW = canvasW / visibleMonths.length;
+        const pts = visibleMonths.map((m, i) => ({ x: (i + 0.5) * colW, y: baseY - (m.entries.length / maxCnt) * (baseY - padTop), baseY, month: m }));
+        rulerMetrics = pts;
+        const curveD = catmullRomPath(pts);
+        const areaD = `${curveD} L ${pts[pts.length - 1].x.toFixed(1)} ${baseY} L ${pts[0].x.toFixed(1)} ${baseY} Z`;
+        let yearLines = "";
+        pts.forEach((p, i) => {
+          if ((i === 0 && p.month.monthNum <= 11) || p.month.monthNum === 1) {
+            const x = i * colW + (i === 0 ? 6 : 0);
+            yearLines += `<line class="ruler-year-divider" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="6" y2="${baseY}" /><text class="ruler-year-tag" x="${(x + 6).toFixed(1)}" y="16">${p.month.year}</text>`;
+          }
+        });
+        rulerSvg.setAttribute("viewBox", `0 0 ${canvasW} ${svgH}`);
+        rulerSvg.innerHTML = `<line class="ruler-grid" x1="0" x2="${canvasW}" y1="${baseY}" y2="${baseY}" /><line class="ruler-grid" x1="0" x2="${canvasW}" y1="${(baseY + padTop) * 0.5}" y2="${(baseY + padTop) * 0.5}" />${yearLines}<path class="ruler-area" id="ruler-area-path" d="${areaD}" /><path class="ruler-curve" id="ruler-curve-path" d="${curveD}" />`;
+        rulerCurveEl = document.getElementById("ruler-curve-path"); rulerAreaEl = document.getElementById("ruler-area-path");
+        rulerCols.style.gridTemplateColumns = `repeat(${visibleMonths.length}, minmax(0, 1fr))`;
+        rulerCols.innerHTML = "";
+        pts.forEach((p) => {
+          const m = p.month;
+          const colBtn = document.createElement("button");
+          colBtn.type = "button"; colBtn.className = "ruler-col"; colBtn.dataset.monthKey = m.key;
+          colBtn.setAttribute("aria-pressed", String(m.key === activeMonthKey));
+          colBtn.setAttribute("aria-label", `${m.year}年${m.monthNum}月：${m.entries.length}部动画`);
+          colBtn.innerHTML = `<span class="ruler-dot ${m.entries.length === 0 ? "is-zero" : ""}" style="bottom:${(146 - p.y - 4.5).toFixed(1)}px"></span><span class="ruler-col-label">${m.shortLabel}</span>`;
+          colBtn.addEventListener("click", () => selectTimelineMonth(m.key));
+          rulerCols.appendChild(colBtn);
+        });
+      }
+
+      function selectTimelineMonth(key) {
+        if (key === activeMonthKey) return;
+        const direction = months.findIndex((m) => m.key === key) >= months.findIndex((m) => m.key === activeMonthKey) ? 1 : -1;
+        activeMonthKey = key; frontOrderOffset = 0; hoveredAnimeId = null;
+        rulerCols.querySelectorAll(".ruler-col").forEach((col) => col.setAttribute("aria-pressed", String(col.dataset.monthKey === activeMonthKey)));
+        renderPolaroidDeck(direction); renderTimelineDetails(direction);
+        measureMorphAnchors();
+      }
+
+      function setTimelineRange(rangeVal) {
+        tlRange = rangeVal;
+        rangeButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.range === rangeVal)));
+        positionThumb(document.getElementById("tl-range-group"), rangeThumb, rangeButtons.find((b) => b.dataset.range === rangeVal));
+        renderRuler();
+        const activeCol = rulerCols.querySelector(`[data-month-key="${activeMonthKey}"]`);
+        if (activeCol) rulerScroll.scrollLeft = Math.max(0, activeCol.offsetLeft - rulerScroll.clientWidth / 2 + activeCol.clientWidth / 2);
+        updateHandoff();
+      }
+
+      function updateMagneticRuler() {
+        const cols = Array.from(rulerCols.querySelectorAll(".ruler-col"));
+        if (!loupeVisible) { cols.forEach((c) => { c.style.setProperty("--mag-y", "0px"); c.style.setProperty("--mag-scale", "1"); c.style.setProperty("--label-y", "0px"); }); rulerRaf = 0; return; }
+        loupeCurrX += (loupeTargetX - loupeCurrX) * 0.28;
+        rulerLoupe.style.left = `${loupeCurrX.toFixed(1)}px`; rulerLoupeLine.style.left = `${loupeCurrX.toFixed(1)}px`;
+        let closest = rulerMetrics[0], minDist = Infinity;
+        rulerMetrics.forEach((pt, idx) => {
+          const dist = Math.abs(loupeCurrX - pt.x);
+          if (dist < minDist) { minDist = dist; closest = pt; }
+          const factor = Math.exp(-(dist * dist) / (2 * 68 * 68));
+          const col = cols[idx];
+          if (col) { col.style.setProperty("--mag-y", `${(-9 * factor).toFixed(1)}px`); col.style.setProperty("--mag-scale", `${(1 + 0.32 * factor).toFixed(3)}`); col.style.setProperty("--label-y", `${(-2 * factor).toFixed(1)}px`); }
+        });
+        if (closest) rulerLoupe.textContent = `${closest.month.key.replace("-", ".")} · ${closest.month.entries.length}部`;
+        if (Math.abs(loupeTargetX - loupeCurrX) > 0.4) rulerRaf = requestAnimationFrame(updateMagneticRuler);
+        else rulerRaf = 0;
+      }
+
+      let isScrubbingRuler = false;
+      function monthKeyAtClientX(clientX) {
+        const rect = rulerCanvas.getBoundingClientRect();
+        const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+        let closest = rulerMetrics[0], minD = Infinity;
+        for (const p of rulerMetrics) { const d = Math.abs(x - p.x); if (d < minD) { minD = d; closest = p; } }
+        return { x, key: closest?.month.key };
+      }
+      rulerCanvas.addEventListener("pointermove", (e) => {
+        const { x, key } = monthKeyAtClientX(e.clientX);
+        loupeTargetX = x;
+        if (!loupeVisible) { loupeCurrX = x; loupeVisible = true; rulerLoupe.classList.add("is-visible"); rulerLoupeLine.classList.add("is-visible"); }
+        if (isScrubbingRuler && key) selectTimelineMonth(key);
+        if (!rulerRaf && !reducedMotion.matches) rulerRaf = requestAnimationFrame(updateMagneticRuler);
+      });
+      rulerCanvas.addEventListener("pointerleave", () => { if (isScrubbingRuler) return; loupeVisible = false; rulerLoupe.classList.remove("is-visible"); rulerLoupeLine.classList.remove("is-visible"); updateMagneticRuler(); });
+      rulerCanvas.addEventListener("pointerdown", (e) => { isScrubbingRuler = true; rulerCanvas.setPointerCapture(e.pointerId); const { x, key } = monthKeyAtClientX(e.clientX); loupeTargetX = x; loupeCurrX = x; if (key) selectTimelineMonth(key); });
+      rulerCanvas.addEventListener("pointerup", () => { isScrubbingRuler = false; });
+      rulerCanvas.addEventListener("pointercancel", () => { isScrubbingRuler = false; });
+
+      polaroidStage.addEventListener("pointermove", (e) => { if (reducedMotion.matches) return; const rect = polaroidStage.getBoundingClientRect(); fanSpreadBias = ((e.clientX - rect.left) / rect.width - 0.5) * 2; applyPolaroidPositions(true); });
+      polaroidStage.addEventListener("pointerleave", () => { fanSpreadBias = 0; applyPolaroidPositions(true); });
+      polaroidStage.addEventListener("pointerdown", (e) => {
+        if (e.target.closest(".polaroid-card")) return;
+        const startX = e.clientX; polaroidStage.classList.add("is-scrubbing");
+        const onUp = (ev) => {
+          polaroidStage.removeEventListener("pointerup", onUp); polaroidStage.classList.remove("is-scrubbing");
+          const dx = ev.clientX - startX;
+          if (Math.abs(dx) > 48) { const idx = visibleMonths.findIndex((m) => m.key === activeMonthKey); selectTimelineMonth(visibleMonths[Math.max(0, Math.min(visibleMonths.length - 1, idx + (dx < 0 ? 1 : -1)))].key); }
+        };
+        polaroidStage.addEventListener("pointerup", onUp);
+      });
+      rangeButtons.forEach((b) => b.addEventListener("click", () => setTimelineRange(b.dataset.range)));
+
+      /* ===================================================================
+         PLAN C CHOREOGRAPHY: PIXEL-EXACT CIRCULAR PLATE & POSTER CONTINUOUS MORPH
+      =================================================================== */
+      const proxyPlate = document.getElementById("morph-proxy-plate");
+      const proxyCard = document.getElementById("morph-proxy-card");
+      const proxyImg = document.getElementById("morph-proxy-img");
+      const proxyTitle = document.getElementById("morph-proxy-title");
+      const proxyScore = document.getElementById("morph-proxy-score");
+      const navRevLink = document.getElementById("nav-reviews");
+      const navTlLink = document.getElementById("nav-timeline");
+
+      let anchors = null;
+      let handoffRaf = 0;
+      const clamp01 = (v) => Math.max(0, Math.min(1, v));
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+      const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+      function syncProxyImage() {
+        const item = filteredReviews[activeReviewIndex];
+        if (!item) return;
+        proxyImg.src = largeSrc(item);
+        proxyTitle.textContent = item.nameCn || item.name || "";
+        proxyScore.textContent = item.userScore ? "★" + item.userScore.toFixed(1) : "—";
+      }
+
+      function measureMorphAnchors() {
+        if (!desktopHandoffQuery.matches) { anchors = null; return; }
+        const pinRect = stagePin.getBoundingClientRect();
+        const pA = reviewPlate.getBoundingClientRect();
+        const pB = polaroidRing.getBoundingClientRect();
+        const cA = deckOrbit.getBoundingClientRect();
+
+        // Measure the exact front Polaroid center/size matching slot=0 pose (scale 1.02)
+        const frontPol = polaroidDeck.querySelector(".polaroid-card[data-slot='0']") || polaroidDeck.querySelector(".polaroid-empty-card");
+        const stageRect = polaroidStage.getBoundingClientRect();
+        const baseW = frontPol ? frontPol.offsetWidth : 210;
+        const baseH = frontPol ? frontPol.offsetHeight : 300;
+        const cB = {
+          cx: stageRect.left - pinRect.left + stageRect.width * 0.5,
+          cy: stageRect.top - pinRect.top + stageRect.height * 0.43 + 1.5,
+          w: baseW * 1.02,
+          h: baseH * 1.02,
+        };
+
+        anchors = {
+          plateA: { cx: pA.left - pinRect.left + pA.width / 2, cy: pA.top - pinRect.top + pA.height / 2, size: pA.width },
+          plateB: { cx: pB.left - pinRect.left + pB.width / 2, cy: pB.top - pinRect.top + pB.height / 2, size: pB.width },
+          cardA: { cx: cA.left - pinRect.left + cA.width / 2, cy: cA.top - pinRect.top + cA.height / 2, w: cA.width, h: cA.height },
+          cardB: cB,
+        };
+      }
+
+      function mixColorRgb(a, b, t) {
+        return `rgb(${Math.round(lerp(a[0], b[0], t))}, ${Math.round(lerp(a[1], b[1], t))}, ${Math.round(lerp(a[2], b[2], t))})`;
+      }
+
+      function updateHandoff() {
+        handoffRaf = 0;
+        const vh = window.innerHeight || 900;
+        const headerH = 56;
+        const stickyH = vh - headerH;
+
+        if (reducedMotion.matches || !desktopHandoffQuery.matches) {
+          stagePin.style.removeProperty("--morph-bg");
+          reviewsTop.style.transform = ""; reviewsTop.style.opacity = "";
+          folioCopy.style.transform = ""; folioCopy.style.opacity = "";
+          deckBar.style.opacity = "";
+          deckOrbit.style.opacity = "";
+          reviewPlate.style.opacity = "";
+          proxyPlate.style.opacity = "0"; proxyCard.style.opacity = "0";
+          tlSection.style.opacity = "1"; tlSection.style.pointerEvents = "auto"; tlSection.inert = false;
+          timelineTop.style.transform = ""; timelineTop.style.opacity = "";
+          timelineCopy.style.transform = ""; timelineCopy.style.opacity = "";
+          polaroidRing.style.opacity = "1";
+          polaroidSleeve.style.opacity = "1"; polaroidSleeve.style.transform = "";
+          rulerInstrument.style.transform = ""; rulerInstrument.style.opacity = "";
+          revSection.inert = false;
+          polaroidDeck.style.opacity = "";
+          if (rulerCurveEl) rulerCurveEl.style.clipPath = "";
+          if (rulerAreaEl) rulerAreaEl.style.opacity = "";
+          deckGatherProgress = 0; applyCardTransforms(false);
+          scrollFanFactor = 1; applyPolaroidPositions(false);
+          const inTimeline = tlSection.getBoundingClientRect().top <= headerH + stickyH * 0.45;
+          navRevLink.classList.toggle("is-current", !inTimeline);
+          navTlLink.classList.toggle("is-current", inTimeline);
+          return;
+        }
+
+        if (!anchors) measureMorphAnchors();
+        const trackRect = reviewsTrack.getBoundingClientRect();
+        const travel = Math.max(1, reviewsTrack.offsetHeight - stickyH);
+        const p = clamp01((headerH - trackRect.top) / travel);
+
+        navRevLink.classList.toggle("is-current", p < 0.55);
+        navTlLink.classList.toggle("is-current", p >= 0.55);
+
+        // Flat solid background interpolation: #f2f3ed -> #eaf0eb
+        stagePin.style.setProperty("--morph-bg", clamp01((p - 0.12) / 0.56).toFixed(4));
+
+        // 1. Outgoing Reviews copy & rear cards tuck cleanly behind the front card (0 -> 0.36)
+        const clearP = easeOutCubic(clamp01(p / 0.36));
+        reviewsTop.style.transform = `translateY(${(-clearP * 26).toFixed(1)}px)`;
+        reviewsTop.style.opacity = String((1 - clearP).toFixed(3));
+        folioCopy.style.transform = `translateY(${(-clearP * 34).toFixed(1)}px)`;
+        folioCopy.style.opacity = String((1 - clearP).toFixed(3));
+        deckBar.style.opacity = String(Math.max(0, 1 - clearP * 1.4).toFixed(3));
+        revSection.inert = p > 0.05;
+
+        const nextGather = clamp01(p / 0.22);
+        if (Math.abs(nextGather - deckGatherProgress) > 0.005 || nextGather === 0 || nextGather === 1) {
+          deckGatherProgress = nextGather;
+          applyCardTransforms(false);
+        }
+
+        // 2. Spatial Proxy Plate & Card active window (p: 0.015 -> 0.80) with sculptural arc + caption reveal
+        const morphT = easeInOutCubic(clamp01((p - 0.10) / 0.58));
+        const proxyActive = p > 0.015 && p < 0.80 && anchors;
+
+        if (proxyActive) {
+          reviewPlate.style.opacity = "0";
+          deckOrbit.style.opacity = p < 0.07 ? String(1 - (p - 0.015) / 0.055) : "0";
+          polaroidRing.style.opacity = "0";
+
+          const arcSin = Math.sin(morphT * Math.PI);
+          // Interpolate Circular Plate from plateA -> plateB with gentle mid-flight expansion & drift
+          const pSize = lerp(anchors.plateA.size, anchors.plateB.size, morphT) * (1 + arcSin * 0.09);
+          const pCx = lerp(anchors.plateA.cx, anchors.plateB.cx, morphT) + arcSin * 36;
+          const pCy = lerp(anchors.plateA.cy, anchors.plateB.cy, morphT) - arcSin * 12;
+          proxyPlate.style.opacity = "1";
+          proxyPlate.style.width = `${pSize.toFixed(1)}px`;
+          proxyPlate.style.height = `${pSize.toFixed(1)}px`;
+          proxyPlate.style.left = `${(pCx - pSize / 2).toFixed(1)}px`;
+          proxyPlate.style.top = `${(pCy - pSize / 2).toFixed(1)}px`;
+          proxyPlate.style.background = mixColorRgb([233, 237, 229], [221, 232, 220], morphT);
+          proxyPlate.style.borderColor = mixColorRgb([220, 227, 216], [211, 224, 211], morphT);
+
+          // Interpolate Poster Card along a gentle S-arc from cardA -> cardB with physical 3D tilt & caption reveal
+          const cCx = lerp(anchors.cardA.cx, anchors.cardB.cx, morphT) + arcSin * 62;
+          const cCy = lerp(anchors.cardA.cy, anchors.cardB.cy, morphT) - arcSin * 28;
+          const cW = lerp(anchors.cardA.w, anchors.cardB.w, morphT);
+          const cH = lerp(anchors.cardA.h, anchors.cardB.h, morphT);
+          const pad = lerp(10, 8, morphT);
+          const capProg = clamp01((morphT - 0.36) / 0.50);
+          const rotZ = lerp(0, -2, morphT) - arcSin * 5.2;
+          const rotY = -arcSin * 17;
+          const handoffFade = p > 0.66 ? 1 - clamp01((p - 0.66) / 0.14) : 1;
+
+          proxyCard.style.opacity = String(handoffFade.toFixed(3));
+          proxyCard.style.width = `${cW.toFixed(1)}px`;
+          proxyCard.style.height = `${cH.toFixed(1)}px`;
+          proxyCard.style.left = `${(cCx - cW / 2).toFixed(1)}px`;
+          proxyCard.style.top = `${(cCy - cH / 2).toFixed(1)}px`;
+          proxyCard.style.padding = `${pad.toFixed(1)}px ${pad.toFixed(1)}px ${lerp(10, 0, capProg).toFixed(1)}px`;
+          proxyCard.style.borderRadius = `${lerp(10, 5, morphT).toFixed(1)}px`;
+          proxyCard.style.setProperty("--cap-h", `${(capProg * 33).toFixed(1)}px`);
+          proxyCard.style.setProperty("--cap-op", capProg.toFixed(3));
+          proxyCard.style.transform = `perspective(1200px) rotateY(${rotY.toFixed(2)}deg) rotateZ(${rotZ.toFixed(2)}deg)`;
+        } else {
+          proxyPlate.style.opacity = "0";
+          proxyCard.style.opacity = "0";
+          reviewPlate.style.opacity = p <= 0.015 ? "1" : "0";
+          deckOrbit.style.opacity = p <= 0.015 ? "1" : "0";
+          polaroidRing.style.opacity = p >= 0.80 ? "1" : "0";
+        }
+
+        // 3. Overlapping Right-Column & Timeline Rhythm entrance (eliminates mid-transition void!)
+        const rightIn = easeOutCubic(clamp01((p - 0.20) / 0.46));
+        const deckIn = clamp01((p - 0.64) / 0.16);
+        const sleeveIn = easeOutCubic(clamp01((p - 0.44) / 0.30));
+
+        if (rightIn <= 0) {
+          tlSection.style.opacity = "0"; tlSection.style.pointerEvents = "none"; tlSection.inert = true;
+        } else {
+          tlSection.style.opacity = "1";
+          tlSection.style.pointerEvents = p > 0.86 ? "auto" : "none";
+          tlSection.inert = p <= 0.86;
+
+          polaroidDeck.style.opacity = String(deckIn.toFixed(3));
+          polaroidSleeve.style.opacity = String(sleeveIn.toFixed(3));
+          polaroidSleeve.style.transform = `translateX(-50%) translateY(${((1 - sleeveIn) * 20).toFixed(1)}px) rotate(-1.5deg)`;
+
+          scrollFanFactor = easeOutCubic(clamp01((p - 0.66) / 0.28));
+          applyPolaroidPositions(false);
+
+          timelineTop.style.opacity = String(rightIn.toFixed(3));
+          timelineTop.style.transform = `translateY(${((1 - rightIn) * 22).toFixed(1)}px)`;
+          timelineCopy.style.opacity = String(rightIn.toFixed(3));
+          timelineCopy.style.transform = `translateY(${((1 - rightIn) * 32).toFixed(1)}px)`;
+
+          const rulerIn = easeOutCubic(clamp01((p - 0.26) / 0.48));
+          rulerInstrument.style.opacity = String(Math.min(1, rulerIn * 1.4).toFixed(3));
+          rulerInstrument.style.transform = `translateY(${((1 - rulerIn) * 18).toFixed(1)}px)`;
+          if (rulerCurveEl) rulerCurveEl.style.clipPath = `inset(0 ${((1 - rulerIn) * 100).toFixed(1)}% 0 0)`;
+          if (rulerAreaEl) rulerAreaEl.style.opacity = String(rulerIn.toFixed(3));
+        }
+      }
+
+      window.addEventListener("scroll", () => { if (!handoffRaf) handoffRaf = requestAnimationFrame(updateHandoff); }, { passive: true });
+      navRevLink.addEventListener("click", (e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: reducedMotion.matches ? "auto" : "smooth" }); });
+      navTlLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!desktopHandoffQuery.matches || reducedMotion.matches) { tlSection.scrollIntoView({ behavior: reducedMotion.matches ? "auto" : "smooth" }); return; }
+        window.scrollTo({ top: Math.max(0, reviewsTrack.offsetTop + reviewsTrack.offsetHeight - window.innerHeight), behavior: "smooth" });
+      });
+
+      function init() {
+        applyReviewFilter("all");
+        setTimelineRange("12");
+        renderPolaroidDeck(0);
+        renderTimelineDetails(0);
+        syncProxyImage();
+        measureMorphAnchors();
+        updateHandoff();
+        window.addEventListener("resize", () => {
+          positionThumb(document.getElementById("review-filters"), filterThumb, filterButtons.find((b) => b.getAttribute("aria-pressed") === "true"));
+          positionThumb(document.getElementById("tl-range-group"), rangeThumb, rangeButtons.find((b) => b.getAttribute("aria-pressed") === "true"));
+          renderRuler(); measureMorphAnchors(); updateHandoff();
+        });
+        desktopHandoffQuery.addEventListener?.("change", () => { measureMorphAnchors(); updateHandoff(); });
+        reducedMotion.addEventListener?.("change", () => { measureMorphAnchors(); updateHandoff(); });
+      }
+      init();
+    })();
+  </script>
+</body>
+</html>
