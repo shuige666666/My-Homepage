@@ -1,3 +1,4 @@
+import { HANDOFF_DOCK } from "./preview-showcase";
 import { FAN_END } from "./preview-watched";
 
 type Section = "hero" | "collection" | "journal" | "reviews" | "memories";
@@ -18,13 +19,15 @@ interface SnapRoute {
   direction: Direction;
   target: number;
   fromBoundary?: number;
+  finale?: boolean;
 }
 
 const WHEEL_THRESHOLD = 36;
 const HERO_EXIT_WHEEL_THRESHOLD = 6;
 const HERO_EXIT_DURATION = 760;
-const SHOWCASE_MORPH_FORWARD_DURATION = 1950;
-const SHOWCASE_MORPH_REVERSE_DURATION = 1800;
+const SHOWCASE_FINALE_FORWARD_DURATION = 760;
+const SHOWCASE_FINALE_REVERSE_DURATION = 680;
+const SHOWCASE_MORPH_REVERSE_DURATION = 1650;
 const GESTURE_GAP = 135;
 const ALIGN_TOLERANCE = 1.5;
 // 触摸位移放大 15%，余滑按松手速度衰减，最多滑过视口的 28%。
@@ -96,6 +99,9 @@ export function setupPreviewSnap() {
     const reviewsEnd = showcaseSticky
       ? reviewsTop
       : Math.max(reviewsTop, memoriesTop - height);
+    const reviewsDock = showcaseSticky
+      ? Math.round(reviewsTop + (memoriesTop - reviewsTop) * HANDOFF_DOCK)
+      : reviewsEnd;
     return {
       hero,
       heroEnd: Math.max(heroRestEnd, collectionTop - height),
@@ -105,6 +111,7 @@ export function setupPreviewSnap() {
       journalFanEnd: journalTop + (journal!.offsetHeight - journalStage!.clientHeight) * FAN_END,
       journalEnd: hasJournalAnimation ? reviewsTop : Math.max(journalTop, reviewsTop - height),
       reviews: reviewsTop,
+      reviewsDock,
       reviewsEnd,
       memories: Math.min(memoriesTop, scrollHeight - height),
       hasJournalAnimation,
@@ -117,7 +124,7 @@ export function setupPreviewSnap() {
     const y = window.scrollY;
     const direction: Direction = delta > 0 ? 1 : -1;
     const { hero, heroEnd, collection, collectionEnd, journal, journalEnd,
-      journalFanEnd, reviews: reviewsTop, reviewsEnd, memories: memoriesTop, hasJournalAnimation, showcaseSticky } = scrollLayout(y);
+      journalFanEnd, reviews: reviewsTop, reviewsDock, reviewsEnd, memories: memoriesTop, hasJournalAnimation, showcaseSticky } = scrollLayout(y);
 
     // 画廊和海报动画可能还在追赶滚动位置，完全显现后才能消耗阅读行程。
     if (direction === 1) {
@@ -134,11 +141,14 @@ export function setupPreviewSnap() {
       { at: collectionEnd, snap: { from: "collection", to: "journal", direction, target: journal } },
       hasJournalAnimation ? { at: reviewsTop }
         : { at: journalEnd, snap: { from: "journal", to: "reviews", direction, target: reviewsTop } },
-      showcaseSticky ? { at: memoriesTop }
+      // 滚轮拖到卡片接力停靠点后，连续自动完成最后换图与拍立得扇开段。
+      showcaseSticky
+        ? { at: reviewsDock, snap: { from: "reviews", to: "memories", direction, target: memoriesTop, fromBoundary: reviewsDock, finale: true } }
         : { at: reviewsEnd, snap: { from: "reviews", to: "memories", direction, target: memoriesTop } },
     ] : [
       { at: memoriesTop },
-      showcaseSticky ? { at: memoriesTop }
+      showcaseSticky
+        ? { at: memoriesTop, snap: { from: "memories", to: "reviews", direction, target: reviewsDock, finale: true } }
         : { at: memoriesTop, snap: { from: "memories", to: "reviews", direction, target: reviewsEnd } },
       { at: reviewsTop },
       // 回到最近看过时让液面退回已打开的海报，避免一帧越过所有卡片。
@@ -204,13 +214,17 @@ export function setupPreviewSnap() {
     const showcaseMorph =
       (next.from === "reviews" && next.to === "memories") ||
       (next.from === "memories" && next.to === "reviews");
-    const morphBaseDuration = next.to === "memories"
-      ? SHOWCASE_MORPH_FORWARD_DURATION
-      : SHOWCASE_MORPH_REVERSE_DURATION;
+    const finaleForward = showcaseMorph && Boolean(next.finale) && next.to === "memories";
+    const morphBaseDuration = finaleForward
+      ? SHOWCASE_FINALE_FORWARD_DURATION
+      : next.finale
+        ? SHOWCASE_FINALE_REVERSE_DURATION
+        : SHOWCASE_MORPH_REVERSE_DURATION;
+    const minReverse = next.finale ? 320 : 480;
     const duration = heroExit ? HERO_EXIT_DURATION
       : showcaseMorph
         ? reversing
-          ? Math.max(480, Math.min(morphBaseDuration, Math.round(morphBaseDuration * Math.abs(distance) / Math.max(1, Math.abs(returnTo - next.target)))))
+          ? Math.max(minReverse, Math.min(morphBaseDuration, Math.round(morphBaseDuration * Math.abs(distance) / Math.max(1, Math.abs(returnTo - next.target)))))
           : morphBaseDuration
         : reversing ? Math.max(360, Math.min(1000, 1000 * Math.sqrt(Math.abs(distance) / window.innerHeight))) : 1000;
     const startedAt = performance.now();
@@ -221,12 +235,14 @@ export function setupPreviewSnap() {
     function tick(now: number) {
       if (!active) return;
       const time = Math.min(1, Math.max(0, (now - startedAt) / duration));
-      // 首屏离场立即给位移反馈，短评与时间轴接力采用对称正弦缓动以保证中段 arc 流畅从容。
+      // 末段交接正向承接滚轮速度直接流出，反向与整段回跳采用对称正弦缓入缓出。
       active.progress = heroExit
         ? 1 - (1 - time) ** 2.4
-        : showcaseMorph
-          ? (time === 1 ? 1 : morphEase(time))
-          : time === 1 ? 1 : pageEase(time);
+        : finaleForward
+          ? 1 - (1 - time) ** 2.6
+          : showcaseMorph
+            ? (time === 1 ? 1 : morphEase(time))
+            : time === 1 ? 1 : pageEase(time);
       window.scrollTo({ top: start + distance * active.progress, behavior: "instant" });
       active.writtenY = window.scrollY;
       announce(time === 1 ? "end" : "progress");
@@ -242,8 +258,8 @@ export function setupPreviewSnap() {
   /** 明确的反向手势回到本次换页的起点，触控板的小幅抖动不会触发反向。 */
   function reverse() {
     if (!active) return;
-    const { from, to, direction, origin, target } = active;
-    animateTo({ from: to, to: from, direction: direction === 1 ? -1 : 1, target: origin }, target);
+    const { from, to, direction, origin, target, finale } = active;
+    animateTo({ from: to, to: from, direction: direction === 1 ? -1 : 1, target: origin, finale }, target);
   }
 
   /** 对齐阅读段边界，或触发整屏缓动。 */
@@ -333,12 +349,12 @@ export function setupPreviewSnap() {
     wheelDelta += delta;
     if ("from" in next && next.fromBoundary !== undefined) {
       const remaining = Math.max(0, next.fromBoundary - window.scrollY);
-      // 停留段内按原滚轮距离走，只有超过末尾的输入计入换页阈值。
+      // 停留段内按原滚轮距离走，只有超过末尾的输入计入换页阈值；短评接力抵达停靠点即顺畅续演末段。
       wheelDelta = Math.max(0, wheelDelta - remaining);
       if (remaining > 0 && remaining <= delta) {
         window.scrollTo({ top: next.fromBoundary, behavior: "instant" });
       }
-      if (wheelDelta < HERO_EXIT_WHEEL_THRESHOLD) return;
+      if (next.from === "hero" && wheelDelta < HERO_EXIT_WHEEL_THRESHOLD) return;
     } else if ("from" in next && Math.abs(wheelDelta) < WHEEL_THRESHOLD) return;
     consumedWheel = { direction, until: now + GESTURE_GAP };
     wheelDelta = 0;

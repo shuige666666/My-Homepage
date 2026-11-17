@@ -46,6 +46,8 @@ interface RulerPoint {
   month: TimelineMonth;
 }
 
+export const HANDOFF_DOCK = 0.72;
+
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
@@ -1305,7 +1307,8 @@ export function setupPreviewShowcase() {
       displayHandoff = targetP;
     } else {
       const elapsed = lastMotionFrame ? Math.min(32, Math.max(1, now - lastMotionFrame)) : 16;
-      displayHandoff += (targetP - displayHandoff) * (1 - Math.exp(-elapsed / 82));
+      const tau = targetP >= HANDOFF_DOCK || displayHandoff >= HANDOFF_DOCK ? 26 : 82;
+      displayHandoff += (targetP - displayHandoff) * (1 - Math.exp(-elapsed / tau));
     }
     if (Math.abs(targetP - displayHandoff) < 0.0004) {
       displayHandoff = targetP;
@@ -1359,9 +1362,9 @@ export function setupPreviewShowcase() {
     applyCardTransforms(false);
 
     if (!anchors) measureMorphAnchors();
-    // Beat 2 (0.22 -> 0.72): Proxy plate & front card smoothly arc between Reviews and Timeline
-    const morphT = easeInOutCubic(clamp01((p - 0.22) / 0.5));
-    const proxyActive = p > 0.22 && p < 0.8 && Boolean(anchors);
+    // Beat 2 (0.22 -> 0.72): Wheel-scrubbed spatial morph landing right at HANDOFF_DOCK
+    const morphT = easeInOutCubic(clamp01((p - 0.22) / (HANDOFF_DOCK - 0.22)));
+    const proxyActive = p > 0.22 && p < 0.84 && Boolean(anchors);
 
     if (proxyActive && anchors) {
       reviewPlate.style.opacity = "0";
@@ -1388,7 +1391,8 @@ export function setupPreviewShowcase() {
       const capProg = clamp01((morphT - 0.36) / 0.5);
       const rotZ = lerp(0, -2, morphT) - arcSin * 5.2;
       const rotY = -arcSin * 17;
-      const handoffFade = p > 0.66 ? 1 - clamp01((p - 0.66) / 0.14) : 1;
+      // Beat 3 continuous finale (0.72 -> 1.00): smooth card swap + polaroid bloom after crossing dock
+      const handoffFade = p > 0.735 ? 1 - easeOutCubic(clamp01((p - 0.735) / 0.095)) : 1;
 
       proxyCard.style.opacity = String(handoffFade.toFixed(3));
       proxyCard.style.width = `${cW.toFixed(1)}px`;
@@ -1405,11 +1409,11 @@ export function setupPreviewShowcase() {
       proxyCard.style.opacity = "0";
       reviewPlate.style.opacity = p <= 0.22 ? "1" : "0";
       deckOrbit.style.opacity = p <= 0.22 ? "1" : "0";
-      polaroidRing.style.opacity = p >= 0.8 ? "1" : "0";
+      polaroidRing.style.opacity = p >= 0.84 ? "1" : "0";
     }
 
-    const rightIn = easeOutCubic(clamp01((p - 0.2) / 0.46));
-    const deckIn = clamp01((p - 0.64) / 0.16);
+    const rightIn = easeOutCubic(clamp01((p - 0.2) / 0.5));
+    const deckIn = easeOutCubic(clamp01((p - HANDOFF_DOCK) / 0.1));
     const sleeveIn = easeOutCubic(clamp01((p - 0.44) / 0.3));
 
     if (rightIn <= 0) {
@@ -1425,7 +1429,7 @@ export function setupPreviewShowcase() {
       polaroidSleeve.style.opacity = String(sleeveIn.toFixed(3));
       polaroidSleeve.style.transform = `translateX(-50%) translateY(${((1 - sleeveIn) * 20).toFixed(1)}px) rotate(-1.5deg)`;
 
-      scrollFanFactor = easeOutCubic(clamp01((p - 0.66) / 0.28));
+      scrollFanFactor = easeOutCubic(clamp01((p - 0.76) / 0.24));
       applyPolaroidPositions(false);
 
       timelineTop.style.opacity = String(rightIn.toFixed(3));
@@ -1433,7 +1437,7 @@ export function setupPreviewShowcase() {
       timelineCopy.style.opacity = String(rightIn.toFixed(3));
       timelineCopy.style.transform = `translateY(${((1 - rightIn) * 32).toFixed(1)}px)`;
 
-      const rulerIn = easeOutCubic(clamp01((p - 0.26) / 0.48));
+      const rulerIn = easeOutCubic(clamp01((p - 0.24) / 0.48));
       rulerInstrument.style.opacity = String(Math.min(1, rulerIn * 1.4).toFixed(3));
       rulerInstrument.style.transform = `translateY(${((1 - rulerIn) * 18).toFixed(1)}px)`;
       if (rulerCurveEl) rulerCurveEl.style.clipPath = `inset(0 ${((1 - rulerIn) * 100).toFixed(1)}% 0 0)`;

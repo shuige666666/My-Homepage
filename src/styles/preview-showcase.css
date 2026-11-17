@@ -23,7 +23,7 @@
   --sc-serif-num: Georgia, "Times New Roman", serif;
   --sc-sans: "Microsoft YaHei", "Noto Sans CJK SC", "PingFang SC", sans-serif;
   --sc-mono: "Cascadia Mono", "Consolas", "Courier New", monospace;
-  --pv-handoff-travel: 240svh;
+  --pv-handoff-travel: 215svh;
 
   position: relative;
   z-index: 2;
