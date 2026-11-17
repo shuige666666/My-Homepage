@@ -136,13 +136,31 @@ function mountStaticScroll(section: HTMLElement): void {
     section.style.setProperty("--depth-progress", progress.toFixed(4));
     section.style.setProperty("--depth-handoff", progress.toFixed(4));
     document.documentElement.style.setProperty("--homepage-reveal", smoothstep(progress).toFixed(4));
-    document.body.classList.toggle("depth-gallery-home", progress > 0.92);
-    document.body.classList.toggle("depth-gallery-active", progress <= 0.92);
+    syncGalleryHome(section, progress > 0.92);
   };
 
   update();
+  const cover = section.querySelector<HTMLImageElement>(".depth-static-art");
+  void cover?.decode().catch(() => undefined).then(() => {
+    requestAnimationFrame(() => announceGalleryReady(section));
+  });
   window.addEventListener("scroll", update, { passive: true });
   window.addEventListener("resize", update, { passive: true });
+}
+
+/** 开场首帧已提交，可以用后台带宽预载后续章节。 */
+function announceGalleryReady(section: HTMLElement) {
+  if (section.dataset.galleryReady === "true") return;
+  section.dataset.galleryReady = "true";
+  section.dispatchEvent(new Event("depth-gallery:ready"));
+}
+
+/** 主页完整接管后通知收藏章节，可以在停留时预热 WebGL。 */
+function syncGalleryHome(section: HTMLElement, home: boolean) {
+  const wasHome = document.body.classList.contains("depth-gallery-home");
+  document.body.classList.toggle("depth-gallery-home", home);
+  document.body.classList.toggle("depth-gallery-active", !home);
+  if (home && !wasHome) section.dispatchEvent(new Event("depth-gallery:home"));
 }
 
 /** 用第六幕在视口中的投影和明信片的实际尺寸做可逆的图像交接。 */
@@ -431,8 +449,7 @@ class DepthGalleryExperience {
     this.section.style.setProperty("--depth-progress", progress.toFixed(4));
     this.section.style.setProperty("--depth-handoff", handoff.toFixed(4));
     document.documentElement.style.setProperty("--homepage-reveal", handoff.toFixed(4));
-    document.body.classList.toggle("depth-gallery-home", handoff === 1);
-    document.body.classList.toggle("depth-gallery-active", handoff < 1);
+    syncGalleryHome(this.section, handoff === 1);
     return handoff;
   }
 
@@ -582,6 +599,7 @@ class DepthGalleryExperience {
       this.renderer.autoClear = false;
       this.renderer.clearDepth();
       this.renderer.render(this.scene, this.camera);
+      announceGalleryReady(this.section);
     }
     this.frameId = requestAnimationFrame(this.render);
   };
