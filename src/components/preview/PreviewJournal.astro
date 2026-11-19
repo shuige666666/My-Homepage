@@ -1,5 +1,6 @@
 ---
 import { ArrowUpRight } from "@lucide/astro";
+import Wordmark from "@/components/Wordmark.astro";
 import type { AnimeEntry } from "@/types/bangumi";
 
 interface Props {
@@ -34,7 +35,7 @@ const formatSlashDate = (iso: string) => {
     <header class="pv-journal__top">
       <div class="pv-container">
         <div class="pv-journal__title-row">
-          <h2 id="preview-journal-title">最近看过</h2>
+          <h2 id="preview-journal-title" lang="en"><Wordmark name="recently-watched" /></h2>
           {first && (
             <span class="pv-journal__counter" aria-live="polite">
               <strong data-pv-journal-index>01</strong> / {totalStr}

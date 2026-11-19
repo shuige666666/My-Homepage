@@ -1,5 +1,6 @@
 ---
 import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight } from "@lucide/astro";
+import Wordmark from "@/components/Wordmark.astro";
 import type { AnimeEntry } from "@/types/bangumi";
 
 interface Props {
@@ -47,7 +48,7 @@ const firstReview = reviews[0];
         <div class="pv-container pv-sc-shell">
           <header class="pv-sc-top" data-sc-reviews-top>
             <div class="pv-sc-title-row">
-              <h2 id="preview-reviews-title">评分与短评</h2>
+              <h2 id="preview-reviews-title" lang="en"><Wordmark name="ratings-reviews" /></h2>
               <span class="pv-sc-counter" data-sc-folio-counter>
                 <strong>01</strong> / {reviews.length}
               </span>
@@ -176,7 +177,7 @@ const firstReview = reviews[0];
       <div class="pv-container pv-sc-shell pv-sc-shell--timeline">
         <header class="pv-sc-top" data-sc-timeline-top>
           <div class="pv-sc-title-row">
-            <h2 id="preview-timeline-title">观看时间轴</h2>
+            <h2 id="preview-timeline-title" lang="en"><Wordmark name="watch-timeline" /></h2>
             <span class="pv-sc-counter">
               <strong>{records.length}</strong> 部
             </span>
@@ -252,7 +253,7 @@ const firstReview = reviews[0];
     aria-labelledby="pv-sc-drawer-title"
   >
     <div class="pv-sc-drawer-head">
-      <h3 id="pv-sc-drawer-title">全部评分与短评</h3>
+      <h3 id="pv-sc-drawer-title" lang="en"><Wordmark name="all-ratings-reviews" /></h3>
       <button class="pv-sc-drawer-close" type="button" data-sc-close-archive aria-label="关闭档案视图">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
           <path d="M18 6 6 18" />

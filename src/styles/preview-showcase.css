@@ -237,8 +237,7 @@
 
 .pv-sc-title-row h2 {
   margin: 0;
-  font: 400 clamp(30px, 2.8vw, 40px)/1.18 var(--sc-serif-display);
-  letter-spacing: 0.02em;
+  font: 400 clamp(28px, 2.8vw, 42px)/1.1 Georgia, serif;
 }
 
 .pv-sc-counter {
@@ -1508,7 +1507,7 @@
 
 .pv-sc-drawer-head h3 {
   margin: 0;
-  font: 400 26px/1.2 var(--sc-serif-display);
+  font: 400 clamp(20px, 5.2vw, 26px)/1.1 Georgia, serif;
 }
 
 .pv-sc-drawer-close {

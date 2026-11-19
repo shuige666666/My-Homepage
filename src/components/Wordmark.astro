@@ -1,0 +1,71 @@
+---
+/**
+ * 以本机 Californian FB Regular 预先渲染的高清透明字标，
+ * 统一 168px（4x @ 42px）字号基线，保证无该字体的设备也能呈现一致字形并与旁侧计数器基线对齐。
+ */
+const WORDMARKS = {
+  "my-favorite-anime": {
+    src: "/images/profile/wordmark-my-favorite-anime.png",
+    alt: "My Favorite Anime",
+    width: 1320,
+    height: 176,
+  },
+  "recently-watched": {
+    src: "/images/profile/wordmark-recently-watched.png",
+    alt: "Recently Watched",
+    width: 1288,
+    height: 176,
+  },
+  "ratings-reviews": {
+    src: "/images/profile/wordmark-ratings-reviews.png",
+    alt: "Ratings & Reviews",
+    width: 1325,
+    height: 176,
+  },
+  "watch-timeline": {
+    src: "/images/profile/wordmark-watch-timeline.png",
+    alt: "Watch Timeline",
+    width: 1127,
+    height: 176,
+  },
+  "all-ratings-reviews": {
+    src: "/images/profile/wordmark-all-ratings-reviews.png",
+    alt: "All Ratings & Reviews",
+    width: 1568,
+    height: 176,
+  },
+} as const;
+
+export type WordmarkName = keyof typeof WORDMARKS;
+
+interface Props {
+  name: WordmarkName;
+}
+
+const { name } = Astro.props;
+const item = WORDMARKS[name];
+const emWidth = `${(item.width / 168).toFixed(6)}em`;
+---
+
+<img
+  class="pv-wordmark"
+  src={item.src}
+  alt={item.alt}
+  width={item.width}
+  height={item.height}
+  decoding="async"
+  draggable="false"
+  style={`--wm-w: ${emWidth}`}
+/>
+
+<style>
+  .pv-wordmark {
+    display: inline-block;
+    width: var(--wm-w);
+    max-width: 100%;
+    height: auto;
+    /* 176px 高框中基线距底边 47px（47 / 168 = 0.279762em），对齐同行计数器基线。 */
+    vertical-align: -0.279762em;
+    user-select: none;
+  }
+</style>

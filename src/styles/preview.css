@@ -283,10 +283,10 @@ body:has(.pv-page) .review-detail-comment {
   min-height: 0;
   animation: none;
 }
-/* 用本机安装的 Californian FB Regular 试排英文标题。 */
+/* 英文章节标题使用本机 Californian FB Regular 渲染的字标图，保留同尺度字号以驱动 em 宽高。 */
 .pv-collection .album-gallery__section-title {
   margin: 0;
-  font: 400 clamp(28px, 2.8vw, 42px)/1.1 "Californian FB", Georgia, serif;
+  font: 400 clamp(28px, 2.8vw, 42px)/1.1 Georgia, serif;
 }
 .pv-collection .album-gallery__stage:focus-visible {
   outline: 2px solid #567b73;
@@ -588,8 +588,7 @@ body:has(.pv-page) .review-detail-comment {
 }
 .pv-journal__title-row h2 {
   margin: 0;
-  font: 400 clamp(30px, 2.8vw, 40px)/1.18 var(--pv-heading-serif);
-  letter-spacing: 0.02em;
+  font: 400 clamp(28px, 2.8vw, 42px)/1.1 Georgia, serif;
   color: var(--pv-ink);
 }
 .pv-journal__counter {
@@ -1432,9 +1431,6 @@ body:has(.pv-page) .review-detail-comment {
   }
   .is-animated .pv-journal__top {
     padding-top: 24px;
-  }
-  .pv-journal__title-row h2 {
-    font-size: clamp(26px, 7.2vw, 34px);
   }
   .is-animated .pv-journal__footer {
     padding-bottom: 20px;
