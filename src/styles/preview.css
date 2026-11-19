@@ -634,6 +634,7 @@ body:has(.pv-page) .review-detail-comment {
   margin: 0;
   transform: translateY(-50%);
   pointer-events: none;
+  will-change: opacity;
 }
 .is-animated .pv-journal__wheel:focus-visible {
   outline: 2px solid var(--pv-sage-deep);
@@ -663,7 +664,7 @@ body:has(.pv-page) .review-detail-comment {
   height: 100%;
   pointer-events: auto;
   opacity: 0;
-  translate: 0 30%;
+  translate: 0 42%;
   scale: 0.96;
   perspective: 1400px;
   transition:
@@ -675,7 +676,7 @@ body:has(.pv-page) .review-detail-comment {
   opacity: 1;
   translate: none;
   scale: none;
-  transition: transform 380ms var(--pv-ease);
+  transition: transform 340ms cubic-bezier(0.22, 1.24, 0.36, 1);
 }
 .pv-journal__flipper {
   display: block;
@@ -688,7 +689,7 @@ body:has(.pv-page) .review-detail-comment {
 .pv-journal__frame {
   position: relative;
   display: block;
-  padding: calc(var(--pv-relay-frame, 0) * 10px);
+  padding: calc(var(--pv-relay-frame, 0) * 10px / var(--pv-card-scale, 1));
   border-radius: calc(9px + var(--pv-relay-frame, 0) * 1px);
   background: color-mix(
     in srgb,
@@ -946,7 +947,8 @@ body:has(.pv-page) .review-detail-comment {
     z-index: 12;
   }
   .is-animated .pv-journal__slot:not([inert]) .pv-journal__card:hover {
-    transform: translateY(-16px) scale(1.032);
+    transform: translateY(-23px) scale(1.045);
+    transition: transform 360ms cubic-bezier(0.22, 1.44, 0.36, 1);
   }
   .is-animated
     .pv-journal__slot:not([inert])
@@ -975,7 +977,8 @@ body:has(.pv-page) .review-detail-comment {
 }
 .is-animated .pv-journal__slot:not([inert]) .pv-journal__card:focus-visible {
   outline-color: var(--pv-sage-deep);
-  transform: translateY(-14px) scale(1.024);
+  transform: translateY(-20px) scale(1.038);
+  transition: transform 360ms cubic-bezier(0.22, 1.44, 0.36, 1);
 }
 .is-animated
   .pv-journal__slot:not([inert])

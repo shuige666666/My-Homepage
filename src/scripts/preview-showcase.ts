@@ -205,10 +205,18 @@ export function setupPreviewShowcase() {
   const stagePin = track.querySelector<HTMLElement>("[data-sc-stage-pin]")!;
   const revSection = track.querySelector<HTMLElement>("[data-sc-reviews-section]")!;
   const reviewsTop = track.querySelector<HTMLElement>("[data-sc-reviews-top]")!;
-  const deckZone = track.querySelector<HTMLElement>("[data-sc-deck-zone]")!;
+  const deckZone = track.querySelector<HTMLElement>("[data-sc-deck-zone]");
   const reviewPlate = track.querySelector<HTMLElement>("[data-sc-review-plate]")!;
   const deckOrbit = track.querySelector<HTMLElement>("[data-sc-deck-orbit]")!;
-  const deckBar = track.querySelector<HTMLElement>("[data-sc-deck-bar]")!;
+  const deckBar = track.querySelector<HTMLElement>("[data-sc-deck-bar]");
+  const prevButtons = Array.from(track.querySelectorAll<HTMLButtonElement>("[data-sc-prev]"));
+  const nextButtons = Array.from(track.querySelectorAll<HTMLButtonElement>("[data-sc-next]"));
+  const dockScrubber = track.querySelector<HTMLElement>("[data-sc-dock-scrubber]");
+  const dockFill = track.querySelector<HTMLElement>("[data-sc-dock-fill]");
+  const dockThumb = track.querySelector<HTMLElement>("[data-sc-dock-thumb]");
+  const dockLoupe = track.querySelector<HTMLElement>("[data-sc-dock-loupe]");
+  const dockMinNum = track.querySelector<HTMLElement>("[data-sc-dock-min]");
+  const dockMaxNum = track.querySelector<HTMLElement>("[data-sc-dock-max]");
   const folioCopy = track.querySelector<HTMLElement>("[data-sc-folio-copy]")!;
 
   const folioCounter = track.querySelector<HTMLElement>("[data-sc-folio-counter]")!;
@@ -496,7 +504,7 @@ export function setupPreviewShowcase() {
     hoverTarget = 0;
     hoverCurr = 0;
     front.classList.remove("is-tilting", "is-hovered");
-    deckZone.classList.remove("is-deck-hovered");
+    deckZone?.classList.remove("is-deck-hovered");
     front.classList.add("is-flipping");
     applyCardTransforms(false);
     if (flipper) void flipper.offsetWidth;
@@ -531,7 +539,7 @@ export function setupPreviewShowcase() {
     hoverTarget = 0;
     hoverCurr = 0;
     dragDx = 0;
-    deckZone.classList.remove("is-deck-hovered");
+    deckZone?.classList.remove("is-deck-hovered");
   }
 
   function retireOutgoingFrontCard(card: HTMLElement) {
@@ -605,7 +613,7 @@ export function setupPreviewShowcase() {
         return;
       hoverTarget = 1;
       card.classList.add("is-hovered");
-      deckZone.classList.add("is-deck-hovered");
+      deckZone?.classList.add("is-deck-hovered");
       if (reducedMotion.matches) {
         hoverCurr = 1;
         applyCardTransforms(false);
@@ -626,7 +634,7 @@ export function setupPreviewShowcase() {
         return;
       hoverTarget = 1;
       card.classList.add("is-tilting", "is-hovered");
-      deckZone.classList.add("is-deck-hovered");
+      deckZone?.classList.add("is-deck-hovered");
       const rect = card.getBoundingClientRect();
       tiltTargetX = (0.5 - (e.clientY - rect.top) / rect.height) * 9;
       tiltTargetY = ((e.clientX - rect.left) / rect.width - 0.5) * 11;
@@ -638,7 +646,7 @@ export function setupPreviewShowcase() {
       tiltTargetY = 0;
       hoverTarget = 0;
       card.classList.remove("is-hovered");
-      deckZone.classList.remove("is-deck-hovered");
+      deckZone?.classList.remove("is-deck-hovered");
       if (reducedMotion.matches) {
         hoverCurr = 0;
         applyCardTransforms(false);
@@ -785,6 +793,43 @@ export function setupPreviewShowcase() {
     }
   }
 
+  function hideDockLoupe() {
+    dockScrubber?.classList.remove("is-scrubbing");
+    dockLoupe?.classList.remove("is-visible");
+  }
+
+  function updateDockControls() {
+    const n = filteredReviews.length;
+    const disabled = n <= 1;
+    prevButtons.forEach((btn) => {
+      btn.disabled = disabled;
+    });
+    nextButtons.forEach((btn) => {
+      btn.disabled = disabled;
+    });
+
+    if (n > 0) {
+      const prevItem = filteredReviews[(activeReviewIndex - 1 + n) % n];
+      const nextItem = filteredReviews[(activeReviewIndex + 1) % n];
+      prevButtons.forEach((btn) => btn.setAttribute("title", `上一部：${prevItem.nameCn || prevItem.name}`));
+      nextButtons.forEach((btn) => btn.setAttribute("title", `下一部：${nextItem.nameCn || nextItem.name}`));
+    } else {
+      prevButtons.forEach((btn) => btn.removeAttribute("title"));
+      nextButtons.forEach((btn) => btn.removeAttribute("title"));
+    }
+
+    const pct = n === 0 ? 0 : n === 1 ? 100 : (activeReviewIndex / (n - 1)) * 100;
+    if (dockFill) dockFill.style.width = `${pct.toFixed(2)}%`;
+    if (dockThumb) dockThumb.style.left = `${pct.toFixed(2)}%`;
+    if (dockMinNum) dockMinNum.textContent = n === 0 ? "00" : "01";
+    if (dockMaxNum) dockMaxNum.textContent = String(n).padStart(2, "0");
+    if (dockScrubber) {
+      dockScrubber.setAttribute("aria-valuemax", String(Math.max(1, n)));
+      dockScrubber.setAttribute("aria-valuenow", String(n ? activeReviewIndex + 1 : 0));
+    }
+    if (n === 0) hideDockLoupe();
+  }
+
   function renderFolioCopy(animateFlag = true) {
     const item = filteredReviews[activeReviewIndex];
     if (!item) return;
@@ -807,6 +852,7 @@ export function setupPreviewShowcase() {
       folioDeltaText.textContent = "暂无";
     }
     folioProse.innerHTML = formatProseHtml(item.comment);
+    updateDockControls();
     if (animateFlag && !reducedMotion.matches) {
       folioCopy.classList.remove("is-entering");
       scoreBrush.classList.remove("is-drawing");
@@ -828,6 +874,7 @@ export function setupPreviewShowcase() {
     activeReviewIndex = 0;
     renderDeck(true, 0);
     renderFolioCopy(false);
+    updateDockControls();
     syncProxyImage();
     prewarmAdjacentCards();
   }
@@ -1226,8 +1273,10 @@ export function setupPreviewShowcase() {
       reviewsTop.style.transform = "";
       reviewPlate.style.opacity = "";
       reviewPlate.style.transform = "";
-      deckBar.style.opacity = "";
-      deckBar.style.transform = "";
+      if (deckBar) {
+        deckBar.style.opacity = "";
+        deckBar.style.transform = "";
+      }
       folioCopy.style.opacity = "";
       folioCopy.style.transform = "";
       folioRulerFill.style.width = `${targetScorePct}%`;
@@ -1250,8 +1299,10 @@ export function setupPreviewShowcase() {
       ? `translateX(-22px) scale(${(0.86 + 0.14 * eP).toFixed(3)})`
       : `translateX(${(-22 + (1 - eP) * 38).toFixed(1)}px) scale(${(0.84 + 0.16 * eP).toFixed(3)})`;
 
-    deckBar.style.opacity = String(barP.toFixed(3));
-    deckBar.style.transform = `translateY(${((1 - barP) * 12).toFixed(1)}px)`;
+    if (deckBar) {
+      deckBar.style.opacity = String(barP.toFixed(3));
+      deckBar.style.transform = `translateY(${((1 - barP) * 12).toFixed(1)}px)`;
+    }
 
     folioCopy.style.opacity = String(clamp01((r - 0.12) / 0.65).toFixed(3));
     folioCopy.style.transform = `translateY(${((1 - eP) * 24).toFixed(1)}px)`;
@@ -1364,12 +1415,16 @@ export function setupPreviewShowcase() {
     reviewsTop.style.opacity = String((1 - clearP).toFixed(3));
     folioCopy.style.transform = `translateY(${(-clearP * 34).toFixed(1)}px)`;
     folioCopy.style.opacity = String((1 - clearP).toFixed(3));
-    deckBar.style.opacity = String(Math.max(0, 1 - clearP * 1.4).toFixed(3));
+    if (deckBar) {
+      deckBar.style.opacity = String(Math.max(0, 1 - clearP * 1.4).toFixed(3));
+      deckBar.style.transform = `translateY(${(clearP * 10).toFixed(1)}px)`;
+    }
     revSection.inert = p > 0.05;
+    if (p > 0.05) hideDockLoupe();
     if (p > 0.01 && hoverTarget > 0) {
       hoverTarget = 0;
       hoverCurr = 0;
-      deckZone.classList.remove("is-deck-hovered");
+      deckZone?.classList.remove("is-deck-hovered");
       deckOrbit.querySelector('.pv-sc-ticket-card[data-offset="0"]')?.classList.remove("is-hovered");
     }
 
@@ -1468,9 +1523,67 @@ export function setupPreviewShowcase() {
 
   // Bind UI & Scroll Events
   filterButtons.forEach((btn) => btn.addEventListener("click", () => applyReviewFilter(btn.dataset.filter || "all")));
-  track.querySelector("[data-sc-prev]")?.addEventListener("click", () => stepReview(-1));
-  track.querySelector("[data-sc-next]")?.addEventListener("click", () => stepReview(1));
-  deckZone.addEventListener("keydown", (e) => {
+  prevButtons.forEach((btn) => btn.addEventListener("click", () => stepReview(-1)));
+  nextButtons.forEach((btn) => btn.addEventListener("click", () => stepReview(1)));
+
+  if (dockScrubber) {
+    const indexFromPointer = (clientX: number) => {
+      const n = filteredReviews.length;
+      if (n <= 1) return { idx: 0, pct: n === 1 ? 100 : 0 };
+      const rect = dockScrubber.getBoundingClientRect();
+      const t = Math.max(0, Math.min(1, (clientX - rect.left) / Math.max(1, rect.width)));
+      const idx = Math.round(t * (n - 1));
+      return { idx, pct: (idx / (n - 1)) * 100 };
+    };
+    const showDockLoupeAt = (idx: number, pct: number) => {
+      if (!dockLoupe) return;
+      const item = filteredReviews[idx];
+      if (!item) return;
+      dockLoupe.textContent = `${String(idx + 1).padStart(2, "0")} / ${filteredReviews.length} · ${item.nameCn || item.name} ★${item.userScore.toFixed(1)}`;
+      dockLoupe.style.left = `${pct.toFixed(2)}%`;
+      dockLoupe.classList.add("is-visible");
+    };
+    dockScrubber.addEventListener("pointermove", (e) => {
+      if (filteredReviews.length <= 1) return;
+      const { idx, pct } = indexFromPointer(e.clientX);
+      showDockLoupeAt(idx, pct);
+    });
+    dockScrubber.addEventListener("pointerleave", () => {
+      if (!dockScrubber.classList.contains("is-scrubbing")) dockLoupe?.classList.remove("is-visible");
+    });
+    dockScrubber.addEventListener("pointerdown", (e) => {
+      if (filteredReviews.length <= 1) return;
+      dockScrubber.setPointerCapture(e.pointerId);
+      dockScrubber.classList.add("is-scrubbing");
+      const updateFromClientX = (clientX: number) => {
+        const { idx, pct } = indexFromPointer(clientX);
+        showDockLoupeAt(idx, pct);
+        if (idx !== activeReviewIndex) jumpToReview(idx);
+      };
+      updateFromClientX(e.clientX);
+      const onMove = (ev: PointerEvent) => updateFromClientX(ev.clientX);
+      const onUp = () => {
+        hideDockLoupe();
+        dockScrubber.removeEventListener("pointermove", onMove);
+        dockScrubber.removeEventListener("pointerup", onUp);
+        dockScrubber.removeEventListener("pointercancel", onUp);
+      };
+      dockScrubber.addEventListener("pointermove", onMove);
+      dockScrubber.addEventListener("pointerup", onUp);
+      dockScrubber.addEventListener("pointercancel", onUp);
+    });
+    dockScrubber.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        stepReview(1);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        stepReview(-1);
+      }
+    });
+  }
+
+  deckZone?.addEventListener("keydown", (e) => {
     if (e.key === "ArrowRight") {
       e.preventDefault();
       stepReview(1);
@@ -1489,7 +1602,19 @@ export function setupPreviewShowcase() {
     if (e.target === archiveDrawer) closeArchiveDrawer();
   });
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !archiveDrawer.hidden) closeArchiveDrawer();
+    if (e.key === "Escape" && !archiveDrawer.hidden) {
+      closeArchiveDrawer();
+      return;
+    }
+    if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    if (!archiveDrawer.hidden || revSection.inert || document.querySelector("dialog:modal")) return;
+    const activeEl = document.activeElement;
+    if (activeEl?.closest("input, select, textarea, .album-gallery, [data-pv-journal], [data-sc-timeline-section]")) return;
+    const rect = revSection.getBoundingClientRect();
+    if (rect.top >= window.innerHeight * 0.65 || rect.bottom <= window.innerHeight * 0.35) return;
+    e.preventDefault();
+    stepReview(e.key === "ArrowRight" ? 1 : -1);
   });
   archiveTierChips.forEach((chip) => {
     chip.addEventListener("click", () => {

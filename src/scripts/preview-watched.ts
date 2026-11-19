@@ -8,7 +8,7 @@ const ENTRY_END = 0.045;
 export const FAN_END = 0.62;
 const GATHER_END = 0.74;
 const FLY_END = 0.93;
-const RECOIL_DURATION = 440;
+const RECOIL_DURATION = 560;
 
 /** 与「评分与短评」左侧四层叠卡完全一致的落地姿态，用于空间接力无缝落位。 */
 const RELAY_DECK_OFFSETS = [
@@ -157,7 +157,7 @@ export function setupPreviewJournal() {
     schedule();
   }
 
-  /** 新卡从前一张右下缘轻升，单次克制阻尼过冲后落稳在轮轴卡位上。 */
+  /** 新卡从前一张的右下缘升起，横向与缩放双次弹性过冲后落在轮轴卡位上。 */
   function springIn(index: number, delay: number) {
     const card = cards[index];
     const spacing = wheelRadius * slotStep;
@@ -165,23 +165,39 @@ export function setupPreviewJournal() {
       [
         {
           offset: 0,
-          translate: `${index ? -0.22 * spacing : 0}px 28%`,
-          rotate: "-2.1deg",
-          scale: ".96",
-          opacity: 0,
-          easing: "cubic-bezier(.22,1,.36,1)",
+          translate: `${index ? -0.35 * spacing : 0}px 42%`,
+          rotate: "-3.2deg",
+          scale: ".935",
+          opacity: 0.16,
+          easing: "cubic-bezier(.18,.72,.28,1)",
         },
         {
-          offset: 0.56,
-          translate: `${0.065 * spacing}px -1.4%`,
-          rotate: "0.6deg",
-          scale: "1.006",
+          offset: 0.36,
+          translate: `${0.21 * spacing}px -3.8%`,
+          rotate: "1.9deg",
+          scale: "1.016",
           opacity: 1,
-          easing: "cubic-bezier(.22,1,.36,1)",
+          easing: "ease-in-out",
+        },
+        {
+          offset: 0.61,
+          translate: `${-0.085 * spacing}px 1.3%`,
+          rotate: "-.88deg",
+          scale: "0.995",
+          opacity: 1,
+          easing: "ease-in-out",
+        },
+        {
+          offset: 0.82,
+          translate: `${0.025 * spacing}px -0.3%`,
+          rotate: ".25deg",
+          scale: "1.003",
+          opacity: 1,
+          easing: "ease-out",
         },
         { offset: 1, translate: "0 0", rotate: "0deg", scale: "1", opacity: 1 },
       ],
-      { duration: 520, delay, fill: "both" },
+      { duration: 640, delay, fill: "both" },
     );
     card.entrance = motion;
     motion.onfinish = () => {
@@ -227,6 +243,7 @@ export function setupPreviewJournal() {
     if (rect.top > stageHeight || rect.bottom < 0 || travel <= 0) {
       previousFrame = 0;
       pin!.classList.remove("is-relay-pass");
+      wheel!.style.opacity = rect.bottom < 0 ? "0" : "";
       if (rect.bottom < 0) {
         revealReviews(1, 1, 1, false);
       } else {
@@ -240,12 +257,12 @@ export function setupPreviewJournal() {
     const jumped = !previousFrame || Math.abs(target - previousProgress) > 0.28;
     previousProgress = target;
     if (jumped || target === 1 || rect.top > 0) displayProgress = target;
-    else displayProgress += (target - displayProgress) * (1 - Math.exp(-elapsed / 82));
+    else displayProgress += (target - displayProgress) * (1 - Math.exp(-elapsed / 88));
     if (Math.abs(target - displayProgress) < 0.00025) displayProgress = target;
     previousFrame = now;
 
     const progress = displayProgress;
-    const entry = ease(unit((stageHeight * 0.72 - rect.top) / (stageHeight * 0.7)));
+    const entry = ease(unit((stageHeight * 0.7 - rect.top) / (stageHeight * 0.68)));
     const position = unit((progress - ENTRY_END) / (FAN_END - ENTRY_END)) * last;
     const gather = ease(unit((progress - FAN_END) / (GATHER_END - FAN_END)));
 
@@ -253,7 +270,7 @@ export function setupPreviewJournal() {
     const nextSlot = Math.min(last, Math.floor(position + 0.82));
     const retainedSlot = Math.floor(position + 0.96);
     revealedThrough =
-      entry < 0.58
+      entry < 0.62
         ? -1
         : progress >= FAN_END
           ? last
@@ -282,14 +299,14 @@ export function setupPreviewJournal() {
     const recoil = unit((now - recoilAt) / RECOIL_DURATION);
     const swing =
       recoilDirection *
-      0.045 *
-      Math.sin(1.45 * Math.PI * recoil) *
-      (1 - recoil) ** 2.2;
+      0.13 *
+      Math.sin(2.65 * Math.PI * recoil) *
+      (1 - recoil) ** 2;
 
     const occupied = Math.min(position, Math.max(0, revealedThrough));
     const arcStep = slotStep * (1 - gather) * (1 + swing);
-    const angleStep = ((2 * edgeAngle) / gaps) * (1 - gather);
-    const lift = (1 - entry) * 38 + (gatheredCenter - posterCenter) * gather;
+    const angleStep = ((2 * edgeAngle) / gaps) * (1 - gather) * (1 + swing * 0.45);
+    const lift = (1 - entry) * 46 + (gatheredCenter - posterCenter) * gather;
     const finalWidth = cardWidths[last] || 1;
 
     const isDesktopRelay = desktopRelayQuery.matches && hasTargetDeck;
@@ -304,6 +321,7 @@ export function setupPreviewJournal() {
     const chromeOpacity = 1 - ease(unit((progress - GATHER_END) / 0.08));
     const exitBgMix = ease(unit((progress - GATHER_END) / 0.15));
     let relayFrame = 0;
+    let wheelOpacity = 1;
 
     const extra = slots.map(() => ({
       dx: 0,
@@ -319,7 +337,10 @@ export function setupPreviewJournal() {
     if (isDesktopRelay) {
       const fly = ease(unit((progress - GATHER_END) / (FLY_END - GATHER_END)));
       const settleReveal = ease(unit((progress - 0.84) / 0.12));
-      const deckSwap = ease(unit((progress - 0.925) / 0.06));
+      // 先让底部的评分叠卡完整显现（0.91→0.935），再把整个轮盘组作为单一合成层淡出（0.935→0.975），避免单卡降透明度导致后方叠卡透出。
+      const deckIn = ease(unit((progress - 0.91) / 0.025));
+      const wheelFade = ease(unit((progress - 0.935) / 0.04));
+      wheelOpacity = 1 - wheelFade;
       // 扇面与收束及飞行前半程保持 0px 无白边，仅在临近落位衔接短评卡叠时才平滑“长出”10px 奶油纸边。
       relayFrame = ease(unit((fly - 0.56) / 0.42));
 
@@ -338,7 +359,7 @@ export function setupPreviewJournal() {
             extra[index].dAngle = lerp(0, pose.angle, fly);
             extra[index].scaleTo = targetScale * pose.scaleMul;
             extra[index].scaleMix = fly;
-            extra[index].opacity = lerp(1, pose.op, fly) * (1 - deckSwap);
+            extra[index].opacity = lerp(1, pose.op, fly);
             if (depthFromTop === 0) {
               extra[index].relaySwap = ease(unit((fly - 0.46) / 0.46));
               extra[index].flipDeg = -Math.sin(Math.PI * fly) * 12;
@@ -355,7 +376,7 @@ export function setupPreviewJournal() {
 
       const passThrough = showcaseCoversViewport && progress >= GATHER_END;
       pin!.classList.toggle("is-relay-pass", passThrough);
-      revealReviews(settleReveal, deckSwap, exitBgMix, true);
+      revealReviews(settleReveal, deckIn, exitBgMix, true);
     } else {
       // 窄屏/移动视口：卡片收叠后柔和轻退，交由粘性短评平滑淡入。
       pin!.classList.remove("is-relay-pass");
@@ -421,7 +442,7 @@ export function setupPreviewJournal() {
       slot.classList.toggle("is-revealed", revealed);
       const card = cards[index];
       if (revealed && spring && index > previouslyRevealed)
-        springIn(index, (index - previouslyRevealed - 1) * 52);
+        springIn(index, (index - previouslyRevealed - 1) * 55);
       else if ((!revealed || gather === 1) && card.entrance) {
         card.entrance.cancel();
         card.entrance = null;
@@ -434,6 +455,7 @@ export function setupPreviewJournal() {
     pin!.style.setProperty("--pv-journal-entry", entry.toFixed(4));
     pin!.style.setProperty("--pv-journal-header", chromeOpacity.toFixed(4));
     pin!.style.setProperty("--pv-journal-exit-bg", exitBgMix.toFixed(4));
+    wheel!.style.opacity = wheelOpacity < 1 ? wheelOpacity.toFixed(4) : "";
     titleLink.tabIndex = progress > FAN_END ? -1 : 0;
     wheel!.tabIndex = progress > FAN_END ? -1 : 0;
     dotBtns.forEach((btn) => {
@@ -583,6 +605,7 @@ export function setupPreviewJournal() {
       hoveredIndex = -1;
       recoilAt = -Infinity;
       wheel!.tabIndex = 0;
+      wheel!.style.opacity = "";
       pin!.classList.remove("is-relay-pass");
       revealReviews(1, 1, 1, false);
       slots.forEach((slot, index) => {

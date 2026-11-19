@@ -86,18 +86,10 @@ const firstReview = reviews[0];
                   class="pv-sc-deck-zone"
                   data-sc-deck-zone
                   tabindex="0"
-                  aria-label="评分作品卡片：左右键切换，空格或点击卡面翻看背面档案"
+                  aria-label="评分作品卡片：左右拖拽或方向键切换，空格或点击卡面翻看背面档案"
                 >
                   <div class="pv-sc-review-plate" data-sc-review-plate aria-hidden="true"></div>
                   <div class="pv-sc-deck-orbit" data-sc-deck-orbit></div>
-                </div>
-                <div class="pv-sc-deck-bar" data-sc-deck-bar>
-                  <button class="pv-sc-round-nav-btn" type="button" data-sc-prev aria-label="上一部作品">
-                    <ChevronLeft size={18} aria-hidden="true" />
-                  </button>
-                  <button class="pv-sc-round-nav-btn" type="button" data-sc-next aria-label="下一部作品">
-                    <ChevronRight size={18} aria-hidden="true" />
-                  </button>
                 </div>
               </div>
 
@@ -150,6 +142,38 @@ const firstReview = reviews[0];
             </div>
           ) : (
             <p class="pv-empty">暂无评分与短评。</p>
+          )}
+
+          {firstReview && (
+            <nav class="pv-sc-deck-dock" data-sc-deck-bar aria-label="评分作品前后切换与进度定位">
+              <div class="pv-sc-dock-center">
+                <span class="pv-sc-dock-edge pv-sc-dock-edge--start" data-sc-dock-min>01</span>
+                <div
+                  class="pv-sc-dock-scrubber"
+                  data-sc-dock-scrubber
+                  role="slider"
+                  tabindex="0"
+                  aria-label="拖动或点击快速跳转评分作品"
+                  aria-valuemin={1}
+                  aria-valuemax={reviews.length}
+                  aria-valuenow={1}
+                >
+                  <div class="pv-sc-dock-rail">
+                    <div class="pv-sc-dock-fill" data-sc-dock-fill></div>
+                    <div class="pv-sc-dock-thumb" data-sc-dock-thumb></div>
+                  </div>
+                  <div class="pv-sc-dock-loupe" data-sc-dock-loupe aria-hidden="true"></div>
+                </div>
+                <span class="pv-sc-dock-edge" data-sc-dock-max>{String(reviews.length).padStart(2, "0")}</span>
+              </div>
+
+              <button class="pv-sc-pill-btn pv-sc-pill-btn--prev" type="button" data-sc-prev aria-label="上一部作品">
+                <ChevronLeft size={16} aria-hidden="true" />
+              </button>
+              <button class="pv-sc-pill-btn pv-sc-pill-btn--next" type="button" data-sc-next aria-label="下一部作品">
+                <ChevronRight size={16} aria-hidden="true" />
+              </button>
+            </nav>
           )}
         </div>
       </section>
