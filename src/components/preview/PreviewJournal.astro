@@ -1,49 +1,136 @@
 ---
+import { ArrowUpRight } from "@lucide/astro";
 import type { AnimeEntry } from "@/types/bangumi";
 
-interface Props { watched: AnimeEntry[]; }
-const { watched } = Astro.props;
+interface Props {
+  watched: AnimeEntry[];
+  handoffPoster?: string;
+}
+
+const { watched, handoffPoster = "" } = Astro.props;
 const first = watched[0];
+const totalStr = String(watched.length).padStart(2, "0");
+
 const formatter = new Intl.DateTimeFormat("zh-CN", {
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
   timeZone: "Asia/Shanghai",
 });
+
+/** 统一输出与「评分与短评」一致的 YYYY / MM / DD 斜杠日期。 */
+const formatSlashDate = (iso: string) => {
+  const parts = formatter.formatToParts(new Date(iso));
+  const y = parts.find((p) => p.type === "year")?.value ?? "";
+  const m = parts.find((p) => p.type === "month")?.value ?? "";
+  const d = parts.find((p) => p.type === "day")?.value ?? "";
+  return `${y} / ${m} / ${d}`;
+};
 ---
 
-<!-- 参考 Toolkit 的固定舞台与扇形轮轴，海报和文字使用本站实际记录。 -->
+<!-- 固定舞台与扇形轮轴，采用全站统一纸色、左对齐顶栏与空间接力转场。 -->
 <section class="pv-journal" id="preview-journal" aria-labelledby="preview-journal-title" data-pv-journal>
   <div class="pv-journal__pin" data-pv-journal-pin>
-    <header class="pv-journal__header">
-      <h2 id="preview-journal-title">最近看过</h2>
-      {first && <div class="pv-journal__current">
-        <a href={first.url} target="_blank" rel="noreferrer" data-pv-journal-title>{first.nameCn || first.name}</a>
-        <time datetime={first.updatedAt} data-pv-journal-date>{formatter.format(new Date(first.updatedAt))}</time>
-      </div>}
+    <header class="pv-journal__top">
+      <div class="pv-container">
+        <div class="pv-journal__title-row">
+          <h2 id="preview-journal-title">最近看过</h2>
+          {first && (
+            <span class="pv-journal__counter" aria-live="polite">
+              <strong data-pv-journal-index>01</strong> / {totalStr}
+            </span>
+          )}
+        </div>
+      </div>
     </header>
 
-    {first ? <>
-      <div class="pv-journal__wheel" data-pv-journal-wheel tabindex="0" role="region" aria-label="最近看过的动画，滚动或使用左右方向键浏览">
-        {watched.map((entry, index) => (
-          <article class="pv-journal__slot" data-pv-journal-slot>
-            <a class="pv-journal__card" href={entry.url} target="_blank" rel="noreferrer">
-              <span class="pv-journal__frame">
-                <img src={entry.poster?.large ?? entry.image} alt="" loading="lazy" decoding="async" />
-                {index === watched.length - 1 && (
-                  <svg class="pv-journal__wave" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                    <path data-pv-journal-wave />
-                  </svg>
-                )}
-              </span>
-              <span class="pv-journal__caption">
-                <strong>{entry.nameCn || entry.name}</strong>
-                <time datetime={entry.updatedAt}>{formatter.format(new Date(entry.updatedAt))}</time>
-              </span>
-            </a>
-          </article>
-        ))}
+    {first ? (
+      <>
+        <div class="pv-journal__stage">
+          <div
+            class="pv-journal__wheel"
+            data-pv-journal-wheel
+            tabindex="0"
+            role="region"
+            aria-label="最近看过的动画，滚动或使用左右方向键浏览"
+          >
+            {watched.map((entry, index) => {
+              const titleCn = entry.nameCn || entry.name;
+              const nativeTitle = entry.nameCn && entry.name !== entry.nameCn ? entry.name : "";
+              const isLast = index === watched.length - 1;
+              return (
+                <article class="pv-journal__slot" data-pv-journal-slot>
+                  <a class="pv-journal__card" href={entry.url} target="_blank" rel="noreferrer">
+                    <span class="pv-journal__flipper">
+                      <span class="pv-journal__frame">
+                        <span class="pv-journal__poster">
+                          <img src={entry.poster?.large ?? entry.image} alt="" loading="lazy" decoding="async" />
+                          {isLast && (
+                            <img
+                              class="pv-journal__relay-cover"
+                              src={handoffPoster}
+                              alt=""
+                              aria-hidden="true"
+                              loading="lazy"
+                              decoding="async"
+                              data-pv-journal-relay-cover
+                            />
+                          )}
+                        </span>
+                        <span class="pv-journal__reticle" aria-hidden="true">
+                          <i></i><i></i><i></i><i></i>
+                        </span>
+                      </span>
+                    </span>
+                    <span class="pv-journal__caption">
+                      <strong>{titleCn}</strong>
+                      <span data-pv-journal-native-src>{nativeTitle}</span>
+                      <time datetime={entry.updatedAt}>{formatSlashDate(entry.updatedAt)}</time>
+                    </span>
+                  </a>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+
+        <div class="pv-journal__footer">
+          <div class="pv-container">
+            <div class="pv-journal__plate" aria-live="polite">
+              <div class="pv-journal__meta">
+                <time datetime={first.updatedAt} data-pv-journal-date>{formatSlashDate(first.updatedAt)}</time>
+              </div>
+              <a
+                class="pv-journal__name"
+                href={first.url}
+                target="_blank"
+                rel="noreferrer"
+                data-pv-journal-title
+              >
+                <span data-pv-journal-title-text>{first.nameCn || first.name}</span>
+                <ArrowUpRight size={16} aria-hidden="true" />
+              </a>
+              <p class="pv-journal__native" data-pv-journal-native>
+                {first.nameCn && first.name !== first.nameCn ? first.name : ""}
+              </p>
+              <div class="pv-journal__dots" data-pv-journal-dots role="tablist" aria-label="快速定位最近看过作品">
+                {watched.map((entry, idx) => (
+                  <button
+                    type="button"
+                    class="pv-journal__dot"
+                    data-pv-journal-dot={idx}
+                    aria-label={`查看第 ${idx + 1} 部：${entry.nameCn || entry.name}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    ) : (
+      <div class="pv-container">
+        <p class="pv-empty">暂无观看记录。</p>
       </div>
-    </> : <p class="pv-empty">暂无观看记录。</p>}
+    )}
   </div>
 </section>

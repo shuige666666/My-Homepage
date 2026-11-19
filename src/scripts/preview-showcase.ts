@@ -267,6 +267,9 @@ export function setupPreviewShowcase() {
   const hasJournal = Boolean(document.querySelector("[data-pv-journal]"));
   let journalReveal = !hasJournal || reducedMotion.matches ? 1 : Number(revSection.style.getPropertyValue("--pv-review-reveal") || 0);
   if (revSection.dataset.journalReady === "true") journalReveal = 1;
+  let journalDeckSwap = journalReveal;
+  let journalExitBg = !hasJournal || reducedMotion.matches ? 1 : journalReveal;
+  let journalRelayMode = false;
 
   let filteredReviews = reviews.slice();
   let activeReviewIndex = 0;
@@ -370,7 +373,7 @@ export function setupPreviewShowcase() {
         y -= Math.abs(dragDx) * 0.05;
         rot += dragDx * 0.045;
         scale += 0.044 * hExpand;
-        if (journalReveal < 0.995 && !reducedMotion.matches) {
+        if (journalReveal < 0.995 && !journalRelayMode && !reducedMotion.matches) {
           y += (1 - eP) * 28;
           scale *= 0.95 + 0.05 * eP;
           opacity = Math.min(1, journalReveal / 0.4);
@@ -1237,13 +1240,15 @@ export function setupPreviewShowcase() {
     const barP = easeOutCubic(clamp01((r - 0.36) / 0.54));
     const fillP = easeOutCubic(clamp01((r - 0.32) / 0.56));
     const brushP = easeOutCubic(clamp01((r - 0.52) / 0.48));
-    entryFanProgress = easeOutCubic(clamp01((r - 0.3) / 0.7));
+    entryFanProgress = journalRelayMode ? 1 : easeOutCubic(clamp01((r - 0.3) / 0.7));
 
     reviewsTop.style.opacity = String(eP.toFixed(3));
     reviewsTop.style.transform = `translateY(${((1 - eP) * 18).toFixed(1)}px)`;
 
     reviewPlate.style.opacity = String(Math.min(1, r / 0.42).toFixed(3));
-    reviewPlate.style.transform = `translateX(${(-22 + (1 - eP) * 38).toFixed(1)}px) scale(${(0.84 + 0.16 * eP).toFixed(3)})`;
+    reviewPlate.style.transform = journalRelayMode
+      ? `translateX(-22px) scale(${(0.86 + 0.14 * eP).toFixed(3)})`
+      : `translateX(${(-22 + (1 - eP) * 38).toFixed(1)}px) scale(${(0.84 + 0.16 * eP).toFixed(3)})`;
 
     deckBar.style.opacity = String(barP.toFixed(3));
     deckBar.style.transform = `translateY(${((1 - barP) * 12).toFixed(1)}px)`;
@@ -1261,9 +1266,16 @@ export function setupPreviewShowcase() {
     const isDesktop = desktopHandoffQuery.matches && !reducedMotion.matches;
     revSection.dataset.scHandoff = isDesktop ? "sticky" : "static";
 
-    // Keep stage backdrop transparent until PreviewJournal wave finishes filling #f2f3ed
-    const backdropReady = !hasJournal || reducedMotion.matches || journalReveal >= 0.985;
+    const backdropReady =
+      !hasJournal ||
+      reducedMotion.matches ||
+      (isDesktop && journalRelayMode) ||
+      journalReveal >= 0.985;
     stagePin.classList.toggle("is-backdrop-ready", backdropReady);
+    stagePin.style.setProperty(
+      "--pv-journal-exit-bg",
+      (handoffProgress > 0.002 ? 1 : journalExitBg).toFixed(4),
+    );
 
     if (!isDesktop) {
       hasInitializedMotion = false;
@@ -1324,19 +1336,24 @@ export function setupPreviewShowcase() {
       stagePin.style.setProperty("--morph-bg", "0");
       proxyPlate.style.opacity = "0";
       proxyCard.style.opacity = "0";
-      deckOrbit.style.opacity = "1";
+      deckOrbit.style.opacity =
+        journalRelayMode && !reducedMotion.matches ? clamp01(journalDeckSwap).toFixed(4) : "1";
       polaroidRing.style.opacity = "0";
       tlSection.style.opacity = "0";
       tlSection.style.pointerEvents = "none";
       tlSection.inert = true;
       deckGatherProgress = 0;
-      revSection.inert = journalReveal < 1;
+      revSection.inert =
+        journalReveal < 0.99 || (journalRelayMode && journalDeckSwap < 0.99);
       applyEntryMotion(journalReveal);
       return;
     }
 
     // Entered Plan C handoff (p > 0 -> Plan A entry is guaranteed complete)
     if (journalReveal < 1) journalReveal = 1;
+    journalDeckSwap = 1;
+    journalExitBg = 1;
+    stagePin.style.setProperty("--pv-journal-exit-bg", "1");
     entryFanProgress = 1;
     applyEntryMotion(1);
 
@@ -1558,11 +1575,19 @@ export function setupPreviewShowcase() {
     }),
   );
 
-  // Sync smoothly with PreviewJournal reveal progress
+  // Sync smoothly with PreviewJournal reveal & spatial relay handoff
   revSection.addEventListener("pv:review-reveal", (ev) => {
-    const detail = (ev as CustomEvent<{ progress: number }>).detail;
+    const detail = (ev as CustomEvent<{
+      progress: number;
+      deckSwap?: number;
+      exitBg?: number;
+      relay?: boolean;
+    }>).detail;
     if (!detail) return;
     journalReveal = detail.progress;
+    journalDeckSwap = detail.deckSwap ?? detail.progress;
+    journalExitBg = detail.exitBg ?? detail.progress;
+    journalRelayMode = Boolean(detail.relay);
     if (handoffProgress <= 0.002) {
       updateMotion();
     } else {

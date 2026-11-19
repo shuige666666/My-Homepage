@@ -71,7 +71,10 @@ const syncDate = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-d
         <FavoriteRail entries={data.favorites} embedded initialIndex={2} />
       </section>
 
-      <PreviewJournal watched={data.recentWatched.slice(0, 8)} />
+      <PreviewJournal
+        watched={data.recentWatched.slice(0, 8)}
+        handoffPoster={data.recentReviews[0]?.poster?.large ?? data.recentReviews[0]?.image}
+      />
       <PreviewShowcase reviews={data.recentReviews} records={records} />
 
     </main>
