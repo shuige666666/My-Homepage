@@ -1,0 +1,18 @@
+{
+  "overrides": {
+    "343330": {
+      "heroImage": {
+        "src": "/images/long-reviews/悠哉日常大王.jpg",
+        "label": "悠哉日常大王 高清海报",
+        "caption": "《悠哉日常大王》高清海报"
+      }
+    },
+    "335943": {
+      "heroImage": {
+        "src": "/images/long-reviews/葬送的芙莉莲.jpg",
+        "label": "葬送的芙莉莲 高清海报",
+        "caption": "《葬送的芙莉莲》高清海报"
+      }
+    }
+  }
+}

@@ -15,6 +15,7 @@ interface ShowcaseEntry {
 interface ShowcasePayload {
   reviews: ShowcaseEntry[];
   watchHistory: ShowcaseEntry[];
+  longReviewBySubject?: Record<string, number>;
 }
 
 interface TimelineMonth {
@@ -195,6 +196,7 @@ export function setupPreviewShowcase() {
 
   const reviews = data.reviews || [];
   const watchHistory = data.watchHistory || [];
+  const longReviewBySubject = data.longReviewBySubject || {};
   const reviewById = new Map(reviews.map((r) => [r.id, r]));
 
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -231,6 +233,7 @@ export function setupPreviewShowcase() {
   const folioRulerBgm = track.querySelector<HTMLElement>("[data-sc-ruler-bgm]")!;
   const folioProse = track.querySelector<HTMLElement>("[data-sc-folio-prose]")!;
   const folioBgmLink = track.querySelector<HTMLAnchorElement>("[data-sc-bgm-link]")!;
+  const folioLongReviewLink = track.querySelector<HTMLAnchorElement>("[data-sc-long-review-link]");
   const filtersContainer = track.querySelector<HTMLElement>("[data-sc-filters]")!;
   const filterButtons = Array.from(track.querySelectorAll<HTMLButtonElement>("[data-sc-filters] .pv-sc-filter-btn"));
   const filterThumb = track.querySelector<HTMLElement>("[data-sc-filter-thumb]")!;
@@ -841,6 +844,11 @@ export function setupPreviewShowcase() {
     folioNative.textContent = item.nameCn && item.name !== item.nameCn ? item.name : "";
     folioScore.textContent = item.userScore.toFixed(1);
     folioBgmLink.href = item.url;
+    if (folioLongReviewLink) {
+      const lrId = longReviewBySubject[String(item.id)];
+      folioLongReviewLink.hidden = !lrId;
+      if (lrId) folioLongReviewLink.href = `/reviews/${lrId}`;
+    }
     folioRulerFill.style.width = `${Math.max(0, Math.min(100, item.userScore * 10))}%`;
     if (item.bangumiScore) {
       folioRulerBgm.hidden = false;

@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ProxyAgent, setGlobalDispatcher } from "undici";
 import { syncPosters } from "./bangumi-posters.mjs";
+import { syncLongReviews } from "./sync-long-reviews.mjs";
 
 const USERNAME = "860550";
 const API_BASE = "https://api.bgm.tv/v0";
@@ -223,6 +224,24 @@ async function sync() {
   };
 
   await syncPosters(getPosterEntries(result), getPosterEntries(previous), headers);
+
+  // 合并所有已知条目供长评关联个人评分、短评与已缓存海报。
+  const entryLookup = new Map();
+  for (const item of [...favorites, ...recentReviews, ...normalizedWatchHistory, ...normalizedAll]) {
+    if (!item?.id) continue;
+    const prevItem = entryLookup.get(item.id);
+    if (!prevItem || (!prevItem.poster && item.poster) || (!prevItem.comment && item.comment)) {
+      entryLookup.set(item.id, item);
+    }
+  }
+
+  result.longReviews = await syncLongReviews({
+    username: USERNAME,
+    profileNickname: result.profile.nickname,
+    entryLookup,
+    previousLongReviews: previous.longReviews ?? [],
+    headers,
+  });
 
   await mkdir(dirname(OUTPUT_PATH), { recursive: true });
   // 同步完成后再替换数据文件。各进程使用各自的临时文件。

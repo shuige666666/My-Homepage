@@ -1,7 +1,8 @@
 import { HANDOFF_DOCK } from "./preview-showcase";
 import { FAN_END } from "./preview-watched";
+import { getLongReviewStops } from "./preview-long-reviews";
 
-type Section = "hero" | "collection" | "journal" | "reviews" | "memories";
+type Section = "hero" | "collection" | "journal" | "reviews" | "memories" | "long-reviews";
 type Direction = -1 | 1;
 
 export interface PreviewSnapDetail {
@@ -38,8 +39,8 @@ const TOUCH_FLING_DAMPING = 8;
 const TOUCH_FLING_LIMIT = .28;
 const TOUCH_FLING_MAX_DURATION = 440;
 
-type Boundary = { at: number; snap?: SnapRoute };
-type ScrollAction = { target: number } | SnapRoute;
+type Boundary = { at: number; snap?: SnapRoute; smoothDirection?: Direction };
+type ScrollAction = { target: number; smoothDirection?: Direction } | SnapRoute;
 type ActiveSnap = SnapRoute & { origin: number; progress: number; writtenY: number; reversing: boolean };
 type TouchDrag = { x: number; y: number; lastY: number; lastAt: number; speed: number; used: boolean };
 
@@ -84,6 +85,52 @@ export function setupPreviewSnap() {
   let touch: TouchDrag | null = null;
   let touchFrame = 0;
   let active: ActiveSnap | null = null;
+  let lrSettleFrame = 0;
+  let lrSettleWrittenY = 0;
+  let lrCatchGate: { direction: Direction; until: number; hardCap: number } | null = null;
+  let lrLastWheelAt = -Infinity;
+  let lrLastWheelDir: Direction | 0 = 0;
+  let lrProjectedY: number | null = null;
+  let lrLastProjectedDir: Direction | 0 = 0;
+
+  function cancelLrSettle() {
+    if (!lrSettleFrame) return;
+    cancelAnimationFrame(lrSettleFrame);
+    lrSettleFrame = 0;
+  }
+
+  /** 长评各篇左图定住位的柔滑收停（与 demo2 一致的立方缓出 + 同手势余波抑制）。 */
+  function smoothSettleLongReview(targetY: number, direction: Direction) {
+    cancelLrSettle();
+    // 先即时打断浏览器仍在进行的原生平滑滚轮惯性，再同步基准位，防止 scroll 监听误取消首帧。
+    const startY = window.scrollY;
+    window.scrollTo({ top: startY, behavior: "instant" });
+    lrSettleWrittenY = window.scrollY;
+    const dist = targetY - lrSettleWrittenY;
+    const startAt = performance.now();
+    if (Math.abs(dist) < 1.5) {
+      window.scrollTo({ top: targetY, behavior: "instant" });
+      lrSettleWrittenY = window.scrollY;
+      lrCatchGate = { direction, until: startAt + 180, hardCap: startAt + 380 };
+      return;
+    }
+    const originY = lrSettleWrittenY;
+    const duration = Math.min(340, Math.max(180, Math.round(Math.abs(dist) * 1.15)));
+    lrCatchGate = { direction, until: startAt + duration + 160, hardCap: startAt + duration + 380 };
+
+    function step(now: number) {
+      const t = Math.min(1, Math.max(0, (now - startAt) / duration));
+      const eased = 1 - (1 - t) ** 3;
+      window.scrollTo({ top: originY + dist * eased, behavior: "instant" });
+      lrSettleWrittenY = window.scrollY;
+      if (t < 1) {
+        lrSettleFrame = requestAnimationFrame(step);
+      } else {
+        lrSettleFrame = 0;
+      }
+    }
+    lrSettleFrame = requestAnimationFrame(step);
+  }
 
   /** 用稳定舞台的位置计算各章节入口和可读区域的末端。 */
   function scrollLayout(y: number) {
@@ -102,6 +149,9 @@ export function setupPreviewSnap() {
     const reviewsDock = showcaseSticky
       ? Math.round(reviewsTop + (memoriesTop - reviewsTop) * HANDOFF_DOCK)
       : reviewsEnd;
+    const longReviewStops = getLongReviewStops(y);
+    const hasLongReviews = longReviewStops.length > 0;
+    const longReviewsFirst = hasLongReviews ? longReviewStops[0].lockY : Math.min(memoriesTop, scrollHeight - height);
     return {
       hero,
       heroEnd: Math.max(heroRestEnd, collectionTop - height),
@@ -113,7 +163,10 @@ export function setupPreviewSnap() {
       reviews: reviewsTop,
       reviewsDock,
       reviewsEnd,
-      memories: Math.min(memoriesTop, scrollHeight - height),
+      memories: hasLongReviews ? memoriesTop : Math.min(memoriesTop, scrollHeight - height),
+      hasLongReviews,
+      longReviewsFirst,
+      longReviewStops,
       hasJournalAnimation,
       showcaseSticky,
     };
@@ -124,7 +177,8 @@ export function setupPreviewSnap() {
     const y = window.scrollY;
     const direction: Direction = delta > 0 ? 1 : -1;
     const { hero, heroEnd, collection, collectionEnd, journal, journalEnd,
-      journalFanEnd, reviews: reviewsTop, reviewsDock, reviewsEnd, memories: memoriesTop, hasJournalAnimation, showcaseSticky } = scrollLayout(y);
+      journalFanEnd, reviews: reviewsTop, reviewsDock, reviewsEnd, memories: memoriesTop,
+      hasLongReviews, longReviewsFirst, longReviewStops, hasJournalAnimation, showcaseSticky } = scrollLayout(y);
 
     // 画廊和海报动画可能还在追赶滚动位置，完全显现后才能消耗阅读行程。
     if (direction === 1) {
@@ -133,6 +187,32 @@ export function setupPreviewSnap() {
       if (hasJournalAnimation && y >= reviewsTop - ALIGN_TOLERANCE && y < memoriesTop - ALIGN_TOLERANCE
         && reviews!.dataset.journalReady === "false") return { target: Math.max(y, reviewsTop) };
     }
+
+    // 长评区域内各篇“左图正好定住”的边界：向下跨过时先定住左图，下一次滑动再让右侧内容向下滚动。
+    const longReviewDownBoundaries: Boundary[] = hasLongReviews
+      ? [
+          { at: memoriesTop, snap: { from: "memories", to: "long-reviews", direction: 1, target: longReviewsFirst } },
+          ...longReviewStops.slice(1).map((stop) => ({ at: stop.lockY, smoothDirection: 1 as Direction })),
+        ]
+      : [];
+
+    // 在某篇长评右侧阅读区向上滚回本篇顶起点时轻柔停住；在首篇顶部或暗场过渡幕内往上滑则平滑退回「观看时间轴」。
+    const inCurtainZone = hasLongReviews && y > memoriesTop + ALIGN_TOLERANCE && y < longReviewsFirst - ALIGN_TOLERANCE;
+    const longReviewUpBoundaries: Boundary[] = hasLongReviews
+      ? [
+          ...[...longReviewStops]
+            .reverse()
+            .filter((stop, idxFromEnd) => idxFromEnd < longReviewStops.length - 1 && y > stop.lockY + ALIGN_TOLERANCE && y <= stop.releaseY + 60)
+            .map((stop) => ({ at: stop.lockY, smoothDirection: -1 as Direction })),
+          ...(y > longReviewsFirst + ALIGN_TOLERANCE && y <= longReviewStops[0].releaseY + 60
+            ? [{ at: longReviewsFirst, smoothDirection: -1 as Direction }]
+            : []),
+          {
+            at: inCurtainZone ? y : longReviewsFirst,
+            snap: { from: "long-reviews", to: "memories", direction: -1, target: memoriesTop },
+          },
+        ]
+      : [];
 
     // 起点负责保留可读行程，终点负责吸附；跨过多个章节时只处理遇到的第一个。
     const boundaries: Boundary[] = direction === 1 ? [
@@ -145,7 +225,9 @@ export function setupPreviewSnap() {
       showcaseSticky
         ? { at: reviewsDock, snap: { from: "reviews", to: "memories", direction, target: memoriesTop, fromBoundary: reviewsDock, finale: true } }
         : { at: reviewsEnd, snap: { from: "reviews", to: "memories", direction, target: memoriesTop } },
+      ...longReviewDownBoundaries,
     ] : [
+      ...longReviewUpBoundaries,
       { at: memoriesTop },
       showcaseSticky
         ? { at: memoriesTop, snap: { from: "memories", to: "reviews", direction, target: reviewsDock, finale: true } }
@@ -156,14 +238,14 @@ export function setupPreviewSnap() {
       { at: journal, snap: { from: "journal", to: "collection", direction, target: collectionEnd } },
       { at: collection, snap: { from: "collection", to: "hero", direction, target: hero } },
     ];
-    for (const { at, snap } of boundaries) {
+    for (const { at, snap, smoothDirection } of boundaries) {
       const distance = direction * (at - y);
       if (distance > ALIGN_TOLERANCE || (!snap && distance > 0.5)) {
         if (coasting) return distance <= Math.abs(delta) ? { target: at } : undefined;
         // 首屏停留的最后一段也由同一笔输入推进，跨过后才启动换页。
         if (snap?.fromBoundary !== undefined) return distance <= delta ? snap : undefined;
         if (distance > Math.abs(delta) + ALIGN_TOLERANCE) return;
-        return direction === -1 && snap ? snap : { target: at };
+        return direction === -1 && snap ? snap : { target: at, smoothDirection };
       }
       // 已在过渡区中的位置也能继续吸附，例如从窄屏地址栏变化后接着滚动。
       if (snap && direction * (snap.target - y) > ALIGN_TOLERANCE
@@ -179,7 +261,7 @@ export function setupPreviewSnap() {
   }
 
   function isModalActive() {
-    return Boolean(document.querySelector("dialog:modal, [data-sc-archive-drawer]:not([hidden])"));
+    return Boolean(document.querySelector("dialog:modal, [data-sc-archive-drawer]:not([hidden]), .pv-lr-shelf.is-open"));
   }
 
   /** 发布与实际滚动一致的进度，供光碟等章节动画接续。 */
@@ -202,11 +284,13 @@ export function setupPreviewSnap() {
   /** 每帧直接写入曲线上的位置，避免原生平滑滚动再次插值。 */
   function animateTo(next: SnapRoute, returnTo?: number) {
     cancelAnimationFrame(frame);
-    // 滚轮跨过首屏停留末尾时，先用这笔输入走完剩余行程，再从首屏边缘起步。
+    cancelLrSettle();
+    lrCatchGate = null;
+    lrProjectedY = null;
+    // 滚轮跨过首屏停留末尾时，先用这笔输入走完剩余行程，再从首屏边缘起步；同时中止浏览器尚未结束的锚点平滑滚动。
     const boundary = next.fromBoundary;
-    if (boundary !== undefined && window.scrollY < boundary) {
-      window.scrollTo({ top: boundary, behavior: "instant" });
-    }
+    const initY = boundary !== undefined && window.scrollY < boundary ? boundary : window.scrollY;
+    window.scrollTo({ top: initY, behavior: "instant" });
     const start = window.scrollY;
     const distance = next.target - start;
     const reversing = returnTo !== undefined;
@@ -221,12 +305,17 @@ export function setupPreviewSnap() {
         ? SHOWCASE_FINALE_REVERSE_DURATION
         : SHOWCASE_MORPH_REVERSE_DURATION;
     const minReverse = next.finale ? 320 : 480;
+    const longReviewCurtain =
+      (next.from === "memories" && next.to === "long-reviews") ||
+      (next.from === "long-reviews" && next.to === "memories");
     const duration = heroExit ? HERO_EXIT_DURATION
-      : showcaseMorph
-        ? reversing
-          ? Math.max(minReverse, Math.min(morphBaseDuration, Math.round(morphBaseDuration * Math.abs(distance) / Math.max(1, Math.abs(returnTo - next.target)))))
-          : morphBaseDuration
-        : reversing ? Math.max(360, Math.min(1000, 1000 * Math.sqrt(Math.abs(distance) / window.innerHeight))) : 1000;
+      : longReviewCurtain
+        ? (next.to === "long-reviews" ? 1160 : 980)
+        : showcaseMorph
+          ? reversing
+            ? Math.max(minReverse, Math.min(morphBaseDuration, Math.round(morphBaseDuration * Math.abs(distance) / Math.max(1, Math.abs(returnTo - next.target)))))
+            : morphBaseDuration
+          : reversing ? Math.max(360, Math.min(1000, 1000 * Math.sqrt(Math.abs(distance) / window.innerHeight))) : 1000;
     const startedAt = performance.now();
     active = { ...next, origin: returnTo ?? start, progress: 0, writtenY: start, reversing };
     oppositeDelta = 0;
@@ -235,12 +324,12 @@ export function setupPreviewSnap() {
     function tick(now: number) {
       if (!active) return;
       const time = Math.min(1, Math.max(0, (now - startedAt) / duration));
-      // 末段交接正向承接滚轮速度直接流出，反向与整段回跳采用对称正弦缓入缓出。
+      // 末段交接正向承接滚轮速度直接流出，反向、长评暗场沉降与整段回跳采用对称正弦缓入缓出。
       active.progress = heroExit
         ? 1 - (1 - time) ** 2.4
         : finaleForward
           ? 1 - (1 - time) ** 2.6
-          : showcaseMorph
+          : (showcaseMorph || longReviewCurtain)
             ? (time === 1 ? 1 : morphEase(time))
             : time === 1 ? 1 : pageEase(time);
       window.scrollTo({ top: start + distance * active.progress, behavior: "instant" });
@@ -265,6 +354,7 @@ export function setupPreviewSnap() {
   /** 对齐阅读段边界，或触发整屏缓动。 */
   function applyScroll(action: ScrollAction) {
     if ("from" in action) animateTo(action);
+    else if (action.smoothDirection) smoothSettleLongReview(action.target, action.smoothDirection);
     else if (action.target !== window.scrollY) {
       window.scrollTo({ top: action.target, behavior: "instant" });
     }
@@ -315,9 +405,102 @@ export function setupPreviewSnap() {
       || inScrollableRecords(event.target) || isModalActive()) return;
     const now = performance.now();
     const delta = event.deltaY * (mode === 1 ? 16 : mode === 2 ? window.innerHeight : 1);
+    const direction: Direction = delta > 0 ? 1 : -1;
+
+    // 长评连续阅读区：保留浏览器原生平滑滚动（避免 behavior:"instant" 按格生硬闪跳），
+    // 仅在跨过某篇左图定住位 lockY 或从首篇顶部向上返回时间轴时介入平滑收停。
+    if (!active) {
+      const y = window.scrollY;
+      const layout = scrollLayout(y);
+      if (layout.hasLongReviews && y >= layout.longReviewsFirst - ALIGN_TOLERANCE) {
+        const gap = now - lrLastWheelAt;
+        const isFreshGesture = gap > 165 || direction !== lrLastWheelDir;
+        lrLastWheelAt = now;
+        lrLastWheelDir = direction;
+
+        if (consumedWheel) {
+          if (direction !== consumedWheel.direction || now >= consumedWheel.until
+            || Math.abs(delta) >= Math.max(WHEEL_THRESHOLD, previousWheelDelta * 1.75)) {
+            consumedWheel = null;
+            wheelDelta = 0;
+          } else {
+            event.preventDefault();
+            consumedWheel.until = now + GESTURE_GAP;
+            wheelAt = now;
+            previousWheelDelta = Math.abs(delta);
+            return;
+          }
+        }
+
+        if (lrSettleFrame) {
+          if (direction !== lrCatchGate?.direction) {
+            cancelLrSettle();
+            lrCatchGate = null;
+            lrProjectedY = null;
+          } else {
+            event.preventDefault();
+            return;
+          }
+        }
+
+        if (lrCatchGate) {
+          if (isFreshGesture || now >= lrCatchGate.until || now >= lrCatchGate.hardCap) {
+            lrCatchGate = null;
+          } else {
+            event.preventDefault();
+            lrCatchGate.until = Math.min(lrCatchGate.hardCap, now + 150);
+            return;
+          }
+        }
+
+        const atFirstTopGoingUp = direction === -1 && y <= layout.longReviewsFirst + ALIGN_TOLERANCE;
+        if (!atFirstTopGoingUp) {
+          if (window.innerWidth > 1024) {
+            const baseY =
+              gap > 240 || lrProjectedY === null || direction !== lrLastProjectedDir
+                ? y
+                : direction === 1
+                  ? Math.max(lrProjectedY, y)
+                  : Math.min(lrProjectedY, y);
+            const projectedNext = baseY + delta;
+
+            if (direction === 1) {
+              for (const stop of layout.longReviewStops.slice(1)) {
+                if (y < stop.lockY - 2 && projectedNext >= stop.lockY - 2) {
+                  event.preventDefault();
+                  lrProjectedY = stop.lockY;
+                  lrLastProjectedDir = 1;
+                  smoothSettleLongReview(stop.lockY, 1);
+                  return;
+                }
+              }
+            } else {
+              for (let i = layout.longReviewStops.length - 1; i >= 0; i -= 1) {
+                const stop = layout.longReviewStops[i];
+                if (y > stop.lockY + 2 && y <= stop.releaseY + 60 && projectedNext <= stop.lockY + 2) {
+                  event.preventDefault();
+                  lrProjectedY = stop.lockY;
+                  lrLastProjectedDir = -1;
+                  smoothSettleLongReview(stop.lockY, -1);
+                  return;
+                }
+              }
+            }
+
+            lrProjectedY = projectedNext;
+            lrLastProjectedDir = direction;
+          }
+
+          wheelAt = now;
+          previousWheelDelta = Math.abs(delta);
+          wheelDelta = 0;
+          return;
+        }
+      }
+    }
+
     // 同一手势从第一笔就统一处理，后续滚轮的原生惯性才不会直接越过边界。
     event.preventDefault();
-    const direction: Direction = delta > 0 ? 1 : -1;
     // 同向滚轮的尾段通常逐步变小，新的发力或持续滚轮都能继续前进。
     if (now - wheelAt > GESTURE_GAP || (consumedWheel
       && (direction !== consumedWheel.direction || now >= consumedWheel.until
@@ -363,6 +546,9 @@ export function setupPreviewSnap() {
 
   window.addEventListener("touchstart", (event) => {
     stopTouchMomentum();
+    cancelLrSettle();
+    lrCatchGate = null;
+    lrProjectedY = null;
     const finger = event.touches[0];
     touch = event.touches.length === 1 && !inScrollableRecords(event.target) && !isModalActive()
       ? { x: finger.clientX, y: finger.clientY, lastY: finger.clientY, lastAt: event.timeStamp, speed: 0, used: false } : null;
@@ -432,6 +618,9 @@ export function setupPreviewSnap() {
     else return;
 
     stopTouchMomentum();
+    cancelLrSettle();
+    lrCatchGate = null;
+    lrProjectedY = null;
     if (active) {
       event.preventDefault();
       if (!event.repeat && direction !== active.direction) reverse();
@@ -446,6 +635,7 @@ export function setupPreviewSnap() {
 
   window.addEventListener("scroll", () => {
     if (active && Math.abs(window.scrollY - active.writtenY) > 4) cancel();
+    if (lrSettleFrame && Math.abs(window.scrollY - lrSettleWrittenY) > 6) cancelLrSettle();
   }, { passive: true });
   document.addEventListener("pv:snap-to", (event) => {
     const detail = (event as CustomEvent<{ to?: Section }>).detail;
@@ -463,6 +653,9 @@ export function setupPreviewSnap() {
   /** 视口或导航改变时同时放下换页与触摸余滑。 */
   function cancelScrollMotion() {
     cancel();
+    cancelLrSettle();
+    lrCatchGate = null;
+    lrProjectedY = null;
     stopTouchMomentum();
   }
   window.addEventListener("resize", cancelScrollMotion, { passive: true });

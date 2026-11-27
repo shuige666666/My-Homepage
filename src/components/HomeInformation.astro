@@ -3,6 +3,7 @@ import { ArrowUpRight } from "@lucide/astro";
 import FavoriteRail from "@/components/FavoriteRail.astro";
 import PreviewJournal from "@/components/preview/PreviewJournal.astro";
 import PreviewShowcase from "@/components/preview/PreviewShowcase.astro";
+import PreviewLongReviews from "@/components/preview/PreviewLongReviews.astro";
 import bangumiData from "@/data/bangumi.json";
 import { siteConfig } from "@/data/site";
 import type { BangumiPageData } from "@/types/bangumi";
@@ -17,6 +18,7 @@ const { withIntro = false } = Astro.props;
 const topId = withIntro ? "top" : "preview-top";
 const data = bangumiData as BangumiPageData;
 const records = data.watchHistory ?? data.recentWatched;
+const longReviews = data.longReviews ?? [];
 const syncDate = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Shanghai" }).format(new Date(data.syncedAt));
 ---
 
@@ -37,6 +39,7 @@ const syncDate = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-d
               <a href="#preview-journal">最近看过</a>
               <a href="#preview-reviews">评分与短评</a>
               <a href="#preview-memories">观看时间轴</a>
+              {longReviews.length > 0 && <a href="#preview-long-reviews">长评</a>}
             </nav>
             <a class="pv-original" href="/legacy#top">旧版主页 <ArrowUpRight size={16} /></a>
           </header>
@@ -75,7 +78,13 @@ const syncDate = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-d
         watched={data.recentWatched.slice(0, 8)}
         handoffPoster={data.recentReviews[0]?.poster?.large ?? data.recentReviews[0]?.image}
       />
-      <PreviewShowcase reviews={data.recentReviews} records={records} />
+      <PreviewShowcase reviews={data.recentReviews} records={records} longReviews={longReviews} />
+      <PreviewLongReviews
+        reviews={longReviews}
+        profile={data.profile}
+        motto={siteConfig.introduction}
+        topId={topId}
+      />
 
     </main>
 

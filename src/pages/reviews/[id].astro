@@ -1,0 +1,352 @@
+---
+import bangumiData from "@/data/bangumi.json";
+import { siteConfig } from "@/data/site";
+import type { BangumiPageData, LongReviewEntry } from "@/types/bangumi";
+import "@/styles/long-review-article.css";
+
+export function getStaticPaths() {
+  const data = bangumiData as BangumiPageData;
+  const reviews = data.longReviews ?? [];
+  return reviews.map((entry, index) => ({
+    params: { id: String(entry.id) },
+    props: { entry, index, allReviews: reviews, profile: data.profile },
+  }));
+}
+
+interface Props {
+  entry: LongReviewEntry;
+  index: number;
+  allReviews: LongReviewEntry[];
+  profile: BangumiPageData["profile"];
+}
+
+const { entry, index, allReviews, profile } = Astro.props;
+
+const DEFAULT_ACCENTS = ["#B83644", "#2F6F4E", "#2E627C", "#9B5634"];
+const accent = entry.theme?.accent ?? DEFAULT_ACCENTS[index % DEFAULT_ACCENTS.length];
+const no = String(index + 1).padStart(2, "0");
+
+const CN_DATE = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Shanghai" });
+const EN_DATE = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "2-digit",
+  year: "numeric",
+  timeZone: "Asia/Shanghai",
+});
+function formatDates(iso: string) {
+  const d = new Date(iso);
+  const cn = CN_DATE.format(d);
+  const [year, month, day] = cn.split("-");
+  return { dot: `${year}.${month}.${day}`, en: EN_DATE.format(d) };
+}
+
+const dates = formatDates(entry.publishedAt);
+const paragraphs = String(entry.content || "")
+  .split(/\r?\n/)
+  .map((line) => line.trim())
+  .filter(Boolean);
+
+const primarySubject = entry.subjects[0];
+const workName = primarySubject?.displayName || "长评";
+const attachments = entry.gallery.filter((g) => g.kind === "attachment");
+const posters = entry.gallery.filter((g) => g.kind === "poster");
+
+// 顶部全幅仅用于日志自身的横版随文附图（或横版自定义视觉图）；竖版海报则在左侧栏完整无裁剪呈现
+const customLandscapeHero =
+  entry.primaryVisual?.kind === "custom" && entry.primaryVisual.width > entry.primaryVisual.height
+    ? entry.primaryVisual
+    : null;
+const topHero = attachments[0] || customLandscapeHero;
+const extraAttachments = attachments.slice(1);
+const sidePoster = !topHero
+  ? entry.primaryVisual?.kind === "custom"
+    ? entry.primaryVisual
+    : posters[0] || entry.primaryVisual || null
+  : null;
+
+const otherReviews = allReviews.filter((r) => r.id !== entry.id);
+const blogListUrl = `https://bangumi.tv/user/${profile.username}/blog`;
+const backHref = `/#review-edition-${entry.id}`;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={(paragraphs[0] || entry.title).slice(0, 110)} />
+    <meta name="theme-color" content="#ffffff" />
+    <title>{entry.title} · 长评 · {siteConfig.title}</title>
+  </head>
+  <body class="lr-doc-body" style={`--lr-doc-accent: ${accent}`}>
+    <a class="lr-doc-skip" href="#article-main">跳至正文</a>
+
+    <div class="lr-doc-progress" aria-hidden="true">
+      <div class="lr-doc-progress-bar" data-lr-doc-progress></div>
+    </div>
+
+    <header class="lr-doc-header">
+      <div class="lr-doc-header-inner">
+        <a class="lr-doc-back" href={backHref}>← 返回长评</a>
+        <a class="lr-doc-brand" href="/#top">
+          <span class="lr-doc-brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span>{siteConfig.title} · 长评</span>
+        </a>
+        <div class="lr-doc-tools">
+          <a class="lr-doc-ext" href={entry.blogUrl} target="_blank" rel="noreferrer">Bangumi 原文 ↗</a>
+        </div>
+      </div>
+    </header>
+
+    {topHero && (
+      <div class="lr-doc-hero-wrap">
+        <figure class="lr-doc-hero-figure">
+          <div class="lr-doc-hero-frame" data-lr-doc-zoom={topHero.src} data-lr-doc-caption={topHero.caption || workName}>
+            <img
+              data-lr-doc-hero
+              src={topHero.src}
+              alt={topHero.caption || workName}
+              width={topHero.width}
+              height={topHero.height}
+              fetchpriority="high"
+            />
+          </div>
+          <figcaption class="lr-doc-caption">
+            <span>{topHero.caption}</span>
+            <span class="lr-doc-caption-idx">点击查看大图</span>
+          </figcaption>
+        </figure>
+      </div>
+    )}
+
+    <main id="article-main" class="lr-doc-container">
+      <div class="lr-doc-spread">
+        <aside class="lr-doc-rail" aria-label="文章信息与关联作品">
+          {sidePoster && (
+            <figure class="lr-doc-rail-poster">
+              <div
+                class="lr-doc-rail-poster-frame"
+                data-lr-doc-zoom={sidePoster.src}
+                data-lr-doc-caption={sidePoster.caption || workName}
+              >
+                <img
+                  src={sidePoster.src}
+                  alt={sidePoster.caption || workName}
+                  width={sidePoster.width}
+                  height={sidePoster.height}
+                  fetchpriority="high"
+                />
+              </div>
+              <figcaption class="lr-doc-caption">
+                <span>{sidePoster.caption}</span>
+              </figcaption>
+            </figure>
+          )}
+
+          <div>
+            <p class="lr-doc-kicker">长评 No.{no} · 《{workName}》</p>
+            <h1 class="lr-doc-title">{entry.title}</h1>
+
+            <div class="lr-doc-meta">
+              <div class="lr-doc-meta-date">Published on {dates.en}</div>
+              <div>{dates.dot} · {entry.charCount.toLocaleString("zh-CN")} 字 · 约 {entry.readMinutes} 分钟</div>
+              <div class="lr-doc-meta-byline">
+                <img src={siteConfig.avatarPath} alt="" width="24" height="24" />
+                <span>{entry.author}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="lr-doc-rail-subjects" aria-label="关联动画条目">
+            <p class="lr-doc-rail-label">关联作品 · SUBJECTS</p>
+            {entry.subjects.map((s) => (
+              <a class="lr-doc-subject-mini" href={s.url} target="_blank" rel="noreferrer">
+                {s.posterPath && <img src={s.posterPath} alt={s.displayName} />}
+                <div>
+                  <strong>{s.displayName}</strong>
+                  <small>
+                    {s.userScore ? `我的评分 ${s.userScore.toFixed(1)}` : s.platform}
+                    {s.bangumiScore ? ` · BGM ${s.bangumiScore.toFixed(1)}` : ""}
+                  </small>
+                </div>
+              </a>
+            ))}
+          </div>
+        </aside>
+
+        <article class="lr-doc-prose-col">
+          <div class="lr-doc-prose">
+            {paragraphs.map((line) => <p>{line}</p>)}
+          </div>
+
+          {extraAttachments.length > 0 && (
+            <div class="lr-doc-extra-photos">
+              {extraAttachments.map((photo, pIdx) => (
+                <figure>
+                  <div class="lr-doc-photo-box" data-lr-doc-zoom={photo.src} data-lr-doc-caption={`日志附图 ${pIdx + 2}`}>
+                    <img src={photo.src} alt={`日志附图 ${pIdx + 2}`} loading="lazy" />
+                  </div>
+                  <figcaption class="lr-doc-caption"><span>日志附图 {pIdx + 2}</span></figcaption>
+                </figure>
+              ))}
+            </div>
+          )}
+
+          <section class="lr-doc-dossier" aria-labelledby="lr-dossier-title">
+            <div class="lr-doc-dossier-head">
+              <h2 id="lr-dossier-title">[ SUBJECTS · 关联作品 ]</h2>
+            </div>
+
+            <div class="lr-doc-dossier-list">
+              {entry.subjects.map((s) => (
+                <div class="lr-doc-dossier-card">
+                  {s.posterPath && (
+                    <a href={s.url} target="_blank" rel="noreferrer">
+                      <img src={s.posterPath} alt={s.displayName} loading="lazy" />
+                    </a>
+                  )}
+                  <div>
+                    <h3 class="lr-doc-dossier-title">
+                      <a href={s.url} target="_blank" rel="noreferrer">{s.displayName} ↗</a>
+                    </h3>
+                    {s.originalName && <p class="lr-doc-dossier-orig">{s.originalName}</p>}
+                    <div class="lr-doc-dossier-scores">
+                      {s.userScore && <span>我的评分 <strong>{s.userScore.toFixed(1)} / 10</strong></span>}
+                      {s.bangumiScore && (
+                        <span>
+                          Bangumi {s.bangumiScore.toFixed(2)}{s.bangumiRank ? ` (#${s.bangumiRank})` : ""}
+                        </span>
+                      )}
+                      <span>{s.platform}</span>
+                    </div>
+                    {s.info?.raw && <div class="lr-doc-dossier-specs">{s.info.raw}</div>}
+                    {s.userComment && (
+                      <div class="lr-doc-dossier-comment">
+                        <b>我的 Bangumi 短评</b>
+                        {s.userComment.split(/\r?\n/).map((line, lIdx, arr) => (
+                          <>
+                            {line}
+                            {lIdx < arr.length - 1 && <br />}
+                          </>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div class="lr-doc-end-actions">
+              <a class="lr-doc-end-link" href={backHref}>← 返回长评</a>
+              <a class="lr-doc-end-link" href={entry.blogUrl} target="_blank" rel="noreferrer">
+                Bangumi 原文（{entry.replies} 回复）↗
+              </a>
+            </div>
+          </section>
+        </article>
+      </div>
+    </main>
+
+    {otherReviews.length > 0 && (
+      <section class="lr-doc-related" aria-labelledby="lr-related-heading">
+        <div class="lr-doc-related-inner">
+          <div class="lr-doc-related-head">
+            <h2 class="lr-doc-related-heading" id="lr-related-heading">
+              <span>LONG REVIEWS</span>
+              <i>|</i>
+              <span>其余长评</span>
+            </h2>
+          </div>
+
+          <div class="lr-doc-related-grid">
+            {otherReviews.map((other) => {
+              const otherIdx = allReviews.findIndex((x) => x.id === other.id);
+              const otherNo = String(otherIdx + 1).padStart(2, "0");
+              const otherDates = formatDates(other.publishedAt);
+              const otherWork = other.subjects[0]?.displayName || "长评";
+              const otherVisual = other.primaryVisual ?? other.gallery[0] ?? null;
+              return (
+                <a class="lr-doc-card" href={`/reviews/${other.id}`}>
+                  <div class="lr-doc-card-media">
+                    {otherVisual && <img src={otherVisual.src} alt={otherWork} loading="lazy" />}
+                    <span class="lr-doc-card-pill">No.{otherNo}</span>
+                  </div>
+                  <p class="lr-doc-card-kicker">{otherWork}</p>
+                  <h3 class="lr-doc-card-title">{other.title}</h3>
+                  <p class="lr-doc-card-date">{otherDates.en} · {other.charCount} 字</p>
+                </a>
+              );
+            })}
+          </div>
+
+          <div class="lr-doc-related-more">
+            <a class="lr-doc-read-more" href="/#preview-long-reviews">VIEW ALL LONG REVIEWS →</a>
+          </div>
+        </div>
+      </section>
+    )}
+
+    <footer class="lr-doc-footer">
+      <span>{siteConfig.title} / 长评 · {profile.nickname}</span>
+      <span>
+        <a href="/#top">返回主页</a> ·{" "}
+        <a href={blogListUrl} target="_blank" rel="noreferrer">Bangumi 日志 ↗</a>
+      </span>
+    </footer>
+
+    <dialog class="lr-doc-lightbox" data-lr-doc-lightbox aria-label="图片放大预览">
+      <button type="button" class="lr-doc-lightbox-close" data-lr-doc-lightbox-close>ESC / 关闭 ✕</button>
+      <div class="lr-doc-lightbox-inner">
+        <img data-lr-doc-lightbox-img src="" alt="" />
+        <div class="lr-doc-lightbox-cap" data-lr-doc-lightbox-cap></div>
+      </div>
+    </dialog>
+
+    <script>
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+      const progressBar = document.querySelector<HTMLElement>("[data-lr-doc-progress]");
+      const heroImg = document.querySelector<HTMLImageElement>("[data-lr-doc-hero]");
+      let rafId = 0;
+
+      const updateReading = () => {
+        rafId = 0;
+        const scrollY = window.scrollY;
+        const vh = window.innerHeight || 800;
+        const docMax = Math.max(1, document.documentElement.scrollHeight - vh);
+        const ratio = Math.min(1, Math.max(0, scrollY / docMax));
+        if (progressBar) progressBar.style.transform = `scaleX(${ratio.toFixed(4)})`;
+        if (heroImg && !reduceMotion.matches) {
+          heroImg.style.transform = `translate3d(0, ${Math.min(48, scrollY * 0.11).toFixed(2)}px, 0)`;
+        }
+      };
+
+      const schedule = () => {
+        if (!rafId) rafId = window.requestAnimationFrame(updateReading);
+      };
+      window.addEventListener("scroll", schedule, { passive: true });
+      window.addEventListener("resize", schedule);
+
+      const lightbox = document.querySelector<HTMLDialogElement>("[data-lr-doc-lightbox]");
+      const lightboxImg = document.querySelector<HTMLImageElement>("[data-lr-doc-lightbox-img]");
+      const lightboxCap = document.querySelector<HTMLElement>("[data-lr-doc-lightbox-cap]");
+      const lightboxClose = document.querySelector<HTMLButtonElement>("[data-lr-doc-lightbox-close]");
+
+      document.querySelectorAll<HTMLElement>("[data-lr-doc-zoom]").forEach((el) => {
+        el.addEventListener("click", () => {
+          if (!lightbox || !lightboxImg) return;
+          lightboxImg.src = el.dataset.lrDocZoom || "";
+          lightboxImg.alt = el.dataset.lrDocCaption || "";
+          if (lightboxCap) lightboxCap.textContent = el.dataset.lrDocCaption || "";
+          lightbox.showModal();
+        });
+      });
+
+      lightboxClose?.addEventListener("click", () => lightbox?.close());
+      lightbox?.addEventListener("click", (e) => {
+        if (e.target === lightbox) lightbox.close();
+      });
+
+      updateReading();
+    </script>
+  </body>
+</html>

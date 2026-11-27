@@ -9,7 +9,8 @@
     "dev": "astro dev",
     "build": "astro check && astro build",
     "preview": "astro preview",
-    "sync:bangumi": "node scripts/sync-bangumi.mjs"
+    "sync:bangumi": "node scripts/sync-bangumi.mjs",
+    "sync:long-reviews": "node scripts/sync-long-reviews.mjs"
   },
   "dependencies": {
     "@lucide/astro": "^1.17.0",

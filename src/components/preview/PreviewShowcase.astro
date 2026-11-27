@@ -1,14 +1,24 @@
 ---
 import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight } from "@lucide/astro";
 import Wordmark from "@/components/Wordmark.astro";
-import type { AnimeEntry } from "@/types/bangumi";
+import type { AnimeEntry, LongReviewEntry } from "@/types/bangumi";
 
 interface Props {
   reviews: AnimeEntry[];
   records: AnimeEntry[];
+  longReviews?: LongReviewEntry[];
 }
 
-const { reviews, records } = Astro.props;
+const { reviews, records, longReviews = [] } = Astro.props;
+
+const longReviewBySubject: Record<number, number> = {};
+for (const lr of longReviews) {
+  for (const subject of lr.subjects) {
+    if (!longReviewBySubject[subject.id]) {
+      longReviewBySubject[subject.id] = lr.id;
+    }
+  }
+}
 
 const toSlimEntry = (entry: AnimeEntry) => ({
   id: entry.id,
@@ -27,9 +37,11 @@ const toSlimEntry = (entry: AnimeEntry) => ({
 const payload = JSON.stringify({
   reviews: reviews.map(toSlimEntry),
   watchHistory: records.map(toSlimEntry),
+  longReviewBySubject,
 }).replace(/</g, "\\u003c");
 
 const firstReview = reviews[0];
+const firstLongReviewId = firstReview ? longReviewBySubject[firstReview.id] : undefined;
 ---
 
 <div class="pv-review-track pv-sc-track" id="pv-showcase-track" data-pv-showcase>
@@ -135,6 +147,15 @@ const firstReview = reviews[0];
                 <div class="pv-sc-folio-actions">
                   <a class="pv-sc-bgm-link" data-sc-bgm-link href={firstReview.url} target="_blank" rel="noreferrer">
                     <span>Bangumi 条目</span>
+                    <ArrowUpRight size={15} aria-hidden="true" />
+                  </a>
+                  <a
+                    class="pv-sc-bgm-link pv-sc-long-review-link"
+                    data-sc-long-review-link
+                    href={firstLongReviewId ? `/reviews/${firstLongReviewId}` : "#preview-long-reviews"}
+                    hidden={!firstLongReviewId}
+                  >
+                    <span>阅读长评</span>
                     <ArrowUpRight size={15} aria-hidden="true" />
                   </a>
                 </div>

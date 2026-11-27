@@ -2,7 +2,7 @@
 
 本文记录当前仓库已经实现的项目结构、数据流和部署链路。它以实际代码为准，不记录尚未实现的服务端接口、数据库或内容集合方案。
 
-最后核对：2026-09-05；独立信息页预览补充：2026-11-12；预览动效修订：2026-11-13
+最后核对：2026-09-05；独立信息页预览补充：2026-11-12；预览动效修订：2026-11-13；长评模块接入：2026-11-27
 
 ## 1. 架构概览
 
@@ -87,15 +87,22 @@ Astro 负责在构建阶段生成页面结构，组件中的 `<script>` 只在�
 
 原版短评弹层的窄屏适配在预览样式中做局部修正：资料区按长标题自然撑开，正文在独立区域内滚动，避免与资料重叠。原版弹层的 HTML、翻页脚本和桌面样式保持不变。
 
+### 2.2 长评尾章与独立阅读页
+
+`src/components/preview/PreviewLongReviews.astro` 直接拼接在 `HomeInformation.astro` 的「观看时间轴」之后、「页脚」之前，读取 `bangumi.json` 中的 `longReviews` 字段，以暗场沉降过渡承接时间轴，依次展示各篇长评的双栏停驻舞台、完整 `[ ARCHIVE ]` 作品档案与 `[ESC]` 全屏目录抽屉，尾声自然回归浅纸白并衔接页脚。其滚动边界统一并入 `src/scripts/preview-snap.ts`，视觉动效由 `src/scripts/preview-long-reviews.ts` 与 `src/styles/preview-long-reviews.css` 负责；「评分与短评」中已关联长评的作品也会同步呈现「阅读长评」入口。
+
+`src/pages/reviews/[id].astro` 在构建期按 `longReviews` 生成每篇长评的静态阅读页（`/reviews/{id}/`），采用独立样式 `src/styles/long-review-article.css`，保留原文段落、顶部 3px 阅读进度条、关联作品档案与灯箱预览，支持一键返回主站对应长评位置。
+
 ## 3. 数据架构
 
 ### 3.1 数据文件和类型
 
 | 文件 | 内容和边界 |
 | --- | --- |
-| `src/types/bangumi.ts` | 定义 `AnimeSubject`、`AnimeEntry` 和 `BangumiPageData`，作为页面数据的 TypeScript 结构约束。 |
-| `src/data/bangumi.json` | 已同步的数据快照，提交到 Git，供 Astro 构建时读取。 |
+| `src/types/bangumi.ts` | 定义 `AnimeSubject`、`AnimeEntry`、`LongReviewEntry` 和 `BangumiPageData`，作为页面数据的 TypeScript 结构约束。 |
+| `src/data/bangumi.json` | 已同步的数据快照（含收藏、评分、时间轴与公开长评），提交到 Git，供 Astro 构建时读取。 |
 | `src/data/favorites.config.json` | 最喜欢动漫的选择配置；当前使用 `manual` 模式，最多处理前 10 条。 |
+| `src/data/long-reviews.config.json` | 长评模块的可选轻度定制配置；默认全自动，可按日志 ID 覆写主图、档案区附图与主题色。 |
 | `src/data/site.ts` | 页面标题、简介、头像路径、用户编号、外部链接和短句显示开关等静态站点配置。 |
 
 `BangumiPageData` 当前包含以下页面数据：
@@ -108,11 +115,12 @@ favorites      首页最喜欢的动漫
 recentWatched  “看过”和“抛弃”中最近更新的十部动漫
 watchHistory   全部“看过”和“抛弃”记录，用于时间轴
 recentReviews  按更新时间排序的有评分记录
+longReviews    Bangumi 公开长评（含正文、关联作品制作信息、附图与海报）
 ```
 
 ### 3.2 Bangumi 同步流程
 
-`scripts/sync-bangumi.mjs` 是唯一的外部数据同步入口，使用 Node.js 原生 `fetch` 和 `undici`：
+`scripts/sync-bangumi.mjs` 是主数据同步入口，使用 Node.js 原生 `fetch` 和 `undici`，并调用 `scripts/sync-long-reviews.mjs` 同步长评（也可通过 `npm run sync:long-reviews` 单独刷新长评）：
 
 1. 请求用户资料、全部收藏以及“看过”“在看”“想看”分类数据。
 2. 按每页 50 条进行分页，避免接口分页上限导致统计或列表缺项。
@@ -120,7 +128,8 @@ recentReviews  按更新时间排序的有评分记录
 4. 根据 `favorites.config.json` 选择最喜欢的动漫。手动配置中不在收藏分页里的条目，会额外请求条目详情进行补全。
 5. 生成 `stats`、`favorites`、`recentWatched`、`watchHistory` 和 `recentReviews`。最近看过与时间轴合并“看过”“抛弃”两类记录，顶部“看过”数量只统计“看过”分类。
 6. 按 Bangumi 封面地址去重，在 `public/images/bangumi/` 补充等比例的 WebP 大图和缩略图。下载失败时优先沿用该作品的旧副本，没有副本时保留 Bangumi 链接供页面使用。
-7. 将数据先写入临时文件，完成后再重命名覆盖 `src/data/bangumi.json`。数据同步失败时保留旧快照。
+7. 通过 Bangumi Next 私有接口 `https://next.bgm.tv/p1` 拉取公开日志、正文、关联作品与随文附图，结合 `long-reviews.config.json` 可选覆写生成 `longReviews`（私有接口临时不可用时自动沿用旧快照，不阻断主流程同步）。
+8. 将数据先写入临时文件，完成后再重命名覆盖 `src/data/bangumi.json`。数据同步失败时保留旧快照。
 
 本地网络需要代理时，脚本读取 `HTTPS_PROXY` 或 `HTTP_PROXY` 环境变量，并通过 `ProxyAgent` 发出请求。页面运行阶段不执行这段同步逻辑。
 
@@ -150,11 +159,14 @@ recentReviews  按更新时间排序的有评分记录
 ## 5. 样式与静态资源
 
 ```text
-src/styles/global.css        全局颜色变量、页面布局、内容卡片、弹窗和响应式规则
-src/styles/depth-gallery.css 开场画廊的固定舞台、过渡、背景和移动端规则
-public/images/profile/       头像等公开图片资源
-public/images/depth-gallery/ 画廊原图和 optimized/ 优化图片
-public/images/bangumi/       随站点发布的 Bangumi 海报大图与缩略图
+src/styles/global.css              全局颜色变量、页面布局、内容卡片、弹窗和响应式规则
+src/styles/depth-gallery.css       开场画廊的固定舞台、过渡、背景和移动端规则
+src/styles/preview.css             信息页主样式
+src/styles/preview-long-reviews.css 首页长评尾章（Long Reviews）样式
+src/styles/long-review-article.css 长评全文阅读页（/reviews/[id]）样式
+public/images/profile/             头像等公开图片资源
+public/images/depth-gallery/       画廊原图和 optimized/ 优化图片
+public/images/bangumi/             随站点发布的 Bangumi 海报大图、缩略图与日志原图
 ```
 
 `public/` 下的文件会以静态资源形式直接复制到构建结果，组件通过 `/images/...` 路径引用。数据文件位于 `src/data/`，由 Astro 在构建时打包进生成的页面。
@@ -164,11 +176,12 @@ public/images/bangumi/       随站点发布的 Bangumi 海报大图与缩略图
 项目使用 `package-lock.json`，推荐 Node.js 24。
 
 ```text
-npm install       安装依赖
-npm run dev       启动 Astro 开发服务器，端口为 3000
-npm run build     先执行 astro check，再生成 dist/
-npm run preview   预览构建结果
-npm run sync:bangumi  从 Bangumi 同步并更新本地数据快照
+npm install            安装依赖
+npm run dev            启动 Astro 开发服务器，端口为 3000
+npm run build          先执行 astro check，再生成 dist/
+npm run preview        预览构建结果
+npm run sync:bangumi   从 Bangumi 同步并更新本地数据快照（含长评）
+npm run sync:long-reviews 仅同步 Bangumi 公开日志（长评）并更新 bangumi.json 中的 longReviews
 ```
 
 开发端口在 `astro.config.mjs` 中配置。它只影响本机开发服务器，不影响静态构建产物和 Cloudflare 远程部署。
@@ -220,24 +233,29 @@ npx wrangler deploy
 
 ```text
 .
-├─ .github/workflows/sync-bangumi.yml  GitHub Actions 数据同步
-├─ public/                              可直接访问的静态资源
-├─ scripts/sync-bangumi.mjs             Bangumi 数据同步和整理
+├─ .github/workflows/sync-bangumi.yml     GitHub Actions 数据同步
+├─ public/                                可直接访问的静态资源（含 Bangumi 封面与日志配图缓存）
+├─ scripts/
+│  ├─ sync-bangumi.mjs                    Bangumi 个人数据同步和整理（联动长评同步）
+│  └─ sync-long-reviews.mjs               Bangumi 公开日志（长评）同步与图片缓存
 ├─ src/
-│  ├─ components/                       页面展示组件和局部交互
-│  ├─ data/                             页面配置和 Bangumi 数据快照
-│  ├─ layouts/                          Astro 页面布局
-│  ├─ pages/index.astro                 首页入口
-│  ├─ pages/preview.astro               独立信息页设计预览
-│  ├─ scripts/depth-gallery.ts          Three.js 开场画廊运行时
-│  ├─ styles/                            全局和画廊样式
-│  ├─ types/bangumi.ts                  数据类型
-│  └─ env.d.ts                          Astro 类型声明入口
-├─ astro.config.mjs                     Astro 配置和本地开发端口
-├─ wrangler.jsonc                       Cloudflare 静态资源部署配置
-├─ package.json                          npm 脚本和依赖声明
-├─ package-lock.json                     npm 依赖锁定文件
-└─ tsconfig.json                         TypeScript 严格模式和 @/* 路径别名
+│  ├─ components/                         页面展示组件和局部交互（含 preview/PreviewLongReviews.astro）
+│  ├─ data/                               页面配置、long-reviews.config.json 与 Bangumi 数据快照
+│  ├─ layouts/                            Astro 页面布局
+│  ├─ pages/
+│  │  ├─ index.astro                      首页入口
+│  │  ├─ preview.astro                    独立信息页设计预览
+│  │  └─ reviews/[id].astro               长评静态全文阅读页
+│  ├─ scripts/                            开场画廊、信息页吸附与长评运行时脚本
+│  ├─ styles/                             全局、画廊、信息页与长评样式
+│  ├─ types/bangumi.ts                    数据类型（含 LongReview* 类型）
+│  └─ env.d.ts                            Astro 类型声明入口
+├─ 文档/长评模块开发记录.md                长评模块设计参考、接口与接入记录
+├─ astro.config.mjs                       Astro 配置和本地开发端口
+├─ wrangler.jsonc                         Cloudflare 静态资源部署配置
+├─ package.json                           npm 脚本和依赖声明
+├─ package-lock.json                      npm 依赖锁定文件
+└─ tsconfig.json                          TypeScript 严格模式和 @/* 路径别名
 ```
 
 ## 9. 当前明确不采用的方案
